@@ -43,6 +43,12 @@
             <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
 
+        <!-- application 模块：LlmRequest/LlmResponse/BizException 等 -->
+        <dependency>
+            <groupId>com.ai.agent</groupId>
+            <artifactId>ai-agent-application</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

@@ -24,7 +24,14 @@ public enum ErrorCodeEnum {
 
     // ==================== 通用（2001xxx）====================
     PARAM_ILLEGAL("2001001", "error.2001001", "参数不合法"),
-    SYSTEM_ERROR("2001002", "error.2001002", "系统异常，请稍后重试");
+    SYSTEM_ERROR("2001002", "error.2001002", "系统异常，请稍后重试"),
+
+    // ==================== LLM 调用（2002xxx）====================
+    LLM_PLATFORM_NOT_SUPPORTED("2002001", "error.2002001", "不支持的 LLM 平台"),
+    LLM_MODEL_NOT_FOUND("2002002", "error.2002002", "模型不存在或已禁用"),
+    LLM_API_KEY_NOT_FOUND("2002003", "error.2002003", "平台 API Key 未配置"),
+    LLM_CALL_FAILED("2002004", "error.2002004", "LLM 调用失败，请稍后重试"),
+    LLM_RESPONSE_PARSE_FAILED("2002005", "error.2002005", "LLM 响应解析失败");
 
     /** 错误码，格式：系统编码(2) + 模块编码(2) + 错误序号(3) */
     private final String code;

@@ -11,9 +11,14 @@
 
     <artifactId>ai-agent-client</artifactId>
     <name>ai-agent-client</name>
-    <description>对外契约层：未来 thrift 接口定义、VO、枚举（当前为空壳，待服务化时填充）</description>
+    <description>对外契约层：Dubbo 服务接口定义、VO、枚举</description>
 
     <dependencies>
+        <!-- Dubbo API：仅包含注解，无需引入 Spring 容器，保持 client jar 轻量 -->
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

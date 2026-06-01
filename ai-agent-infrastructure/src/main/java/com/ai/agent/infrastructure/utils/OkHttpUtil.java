@@ -22,6 +22,12 @@ public class OkHttpUtil {
 
     private static final OkHttpClient CLIENT;
 
+    /**
+     * LLM 专用 Client：readTimeout 放宽至 120s，适应大模型慢响应场景
+     * LLM 调用（GPT-4、Claude 等）响应时间可达 30-60s，通用 CLIENT 的 15s 会导致大量超时
+     */
+    private static final OkHttpClient LLM_CLIENT;
+
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
     static {
@@ -39,6 +45,13 @@ public class OkHttpUtil {
                 .writeTimeout(10, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(java.util.Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
+                .build();
+
+        // LLM 专用：共用连接池，只覆盖超时配置
+        LLM_CLIENT = CLIENT.newBuilder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
 
         log.info("OkHttpClient初始化完成，连接池配置: 最大空闲连接数=50, 保活时间=5分钟, 优先HTTP/2");
@@ -220,6 +233,11 @@ public class OkHttpUtil {
 
     public static OkHttpClient getClient() {
         return CLIENT;
+    }
+
+    /** 返回 LLM 专用 Client（readTimeout=120s） */
+    public static OkHttpClient getLlmClient() {
+        return LLM_CLIENT;
     }
 
     private static Request.Builder buildRequest(Request.Builder builder, Map<String, String> headers) {
