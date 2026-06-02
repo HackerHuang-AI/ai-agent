@@ -31,7 +31,10 @@ public enum ErrorCodeEnum {
     LLM_MODEL_NOT_FOUND("2002002", "error.2002002", "模型不存在或已禁用"),
     LLM_API_KEY_NOT_FOUND("2002003", "error.2002003", "平台 API Key 未配置"),
     LLM_CALL_FAILED("2002004", "error.2002004", "LLM 调用失败，请稍后重试"),
-    LLM_RESPONSE_PARSE_FAILED("2002005", "error.2002005", "LLM 响应解析失败");
+    LLM_RESPONSE_PARSE_FAILED("2002005", "error.2002005", "LLM 响应解析失败"),
+    LLM_MODEL_NOT_SUPPORT_VISION("2002006", "error.2002006", "该模型不支持图片输入"),
+    LLM_MODEL_NOT_SUPPORT_VIDEO("2002007", "error.2002007", "该模型不支持视频输入"),
+    LLM_CONTENT_TYPE_NOT_SUPPORTED("2002008", "error.2002008", "该平台不支持此内容类型");
 
     /** 错误码，格式：系统编码(2) + 模块编码(2) + 错误序号(3) */
     private final String code;

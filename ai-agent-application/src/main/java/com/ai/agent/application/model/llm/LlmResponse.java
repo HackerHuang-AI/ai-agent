@@ -37,5 +37,10 @@ public class LlmResponse {
      * stop：正常结束；length：达到 maxTokens；tool_calls：触发工具调用；content_filter：内容过滤
      */
     private String finishReason;
+
+    /**
+     * 推理模型的思维链内容（仅 Deepseek-Reasoner 等推理模型返回，其余为 null）
+     */
+    private String reasoningContent;
 }
 
