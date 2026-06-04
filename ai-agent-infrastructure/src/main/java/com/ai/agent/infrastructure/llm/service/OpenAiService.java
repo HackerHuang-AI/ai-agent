@@ -1,7 +1,6 @@
-package com.ai.agent.infrastructure.llm.adapter;
+package com.ai.agent.infrastructure.llm.service;
 
 import com.ai.agent.application.common.BizException;
-import com.ai.agent.application.enums.ContentType;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
@@ -12,7 +11,7 @@ import com.ai.agent.infrastructure.utils.OkHttpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,9 +24,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * @Description: OpenAI 协议适配器
+ * @Description: OpenAI 协议平台调用服务
  *               兼容所有遵循 OpenAI Chat Completions API 协议的平台：
- *               OpenAI、Deepseek、Qwen、Minimax、智谱 GLM、Moonshot 等
+ *               OpenAI、Qwen、Minimax、智谱 GLM、Moonshot 等
  *               平台差异只体现在 endpoint 和 apiKey，协议格式完全一致。
  *
  *               多模态支持：
@@ -37,19 +36,18 @@ import java.util.function.Consumer;
  *               - VIDEO → 抛出不支持异常（OpenAI 无 video type，需走 file 通道上传）
  *
  * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.llm.adapter
- * @ClassName: OpenAiAdapter
+ * @Package: com.ai.agent.infrastructure.llm.service
+ * @ClassName: OpenAiService
  * @Author: HUANGcong
  * @Date: Created in 2026/6/1
  * @Version: 1.0
  */
 @Slf4j
-@Component
-public class OpenAiAdapter implements LlmAdapter {
+@Service
+public class OpenAiService implements LlmPlatformService {
 
     private static final String PLATFORM_CODE = "OPENAI";
 
-    // SSE 流式数据前缀
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG = "[DONE]";
 
@@ -87,6 +85,8 @@ public class OpenAiAdapter implements LlmAdapter {
                     request.getModelCode(), response.getInputTokens(), response.getOutputTokens(),
                     System.currentTimeMillis() - start);
             return response;
+        } catch (BizException e) {
+            throw e;
         } catch (IOException e) {
             log.error("OpenAI 同步调用失败, model={}, error={}", request.getModelCode(), e.getMessage(), e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -124,15 +124,11 @@ public class OpenAiAdapter implements LlmAdapter {
 
     // ==================== 私有方法 ====================
 
-    /**
-     * 构建 OpenAI Chat Completions 请求体，支持多模态 content
-     */
     private String buildRequestBody(LlmRequest request, boolean stream) {
         Map<String, Object> body = new HashMap<>();
         body.put("model", request.getModelCode());
         body.put("stream", stream);
 
-        // 流式时携带 usage 统计
         if (stream) {
             body.put("stream_options", Map.of("include_usage", true));
         }
@@ -153,21 +149,14 @@ public class OpenAiAdapter implements LlmAdapter {
         }
     }
 
-    /**
-     * 将 LlmMessage 列表转换为 OpenAI messages 数组
-     * 纯文本消息：content 为字符串
-     * 多模态消息：content 为数组
-     */
     private List<Object> buildMessages(LlmRequest request) {
         List<Object> messages = new ArrayList<>();
         for (LlmMessage msg : request.getMessages()) {
             Map<String, Object> m = new HashMap<>();
             m.put("role", msg.getRole());
             if (msg.isTextOnly()) {
-                // 纯文本：content 直接用字符串（兼容性最好）
                 m.put("content", msg.getTextContent());
             } else {
-                // 多模态：content 用数组
                 m.put("content", buildContentArray(msg));
             }
             messages.add(m);
@@ -175,13 +164,6 @@ public class OpenAiAdapter implements LlmAdapter {
         return messages;
     }
 
-    /**
-     * 构建多模态 content 数组
-     * TEXT  → {"type":"text","text":"..."}
-     * IMAGE → {"type":"image_url","image_url":{"url":"...","detail":"auto"}}
-     * FILE  → {"type":"file","file":{"filename":"...","file_data":"..."}}
-     * VIDEO → 不支持，抛异常
-     */
     private List<Map<String, Object>> buildContentArray(LlmMessage msg) {
         List<Map<String, Object>> parts = new ArrayList<>();
         for (MessageContent c : msg.getContents()) {
@@ -202,7 +184,6 @@ public class OpenAiAdapter implements LlmAdapter {
                     parts.add(part);
                 }
                 case FILE -> {
-                    // gpt-4.1+ 支持 file 类型，传 base64 data URI
                     Map<String, Object> fileObj = new HashMap<>();
                     fileObj.put("file_data", c.getValue());
                     if (c.getDetail() != null) {
@@ -220,9 +201,6 @@ public class OpenAiAdapter implements LlmAdapter {
         return parts;
     }
 
-    /**
-     * 构建请求头：Authorization + Content-Type
-     */
     private Map<String, String> buildHeaders(String apiKey) {
         Map<String, String> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + apiKey);
@@ -230,10 +208,6 @@ public class OpenAiAdapter implements LlmAdapter {
         return headers;
     }
 
-    /**
-     * 解析同步响应 JSON
-     * 兼容 deepseek-reasoner 的 reasoning_content 字段
-     */
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
             JsonNode root = JsonUtil.readTree(responseJson);
@@ -242,7 +216,6 @@ public class OpenAiAdapter implements LlmAdapter {
             String content = message.path("content").asText("");
             String finishReason = choice.path("finish_reason").asText("");
 
-            // Deepseek-Reasoner 特有：思维链内容
             String reasoningContent = null;
             JsonNode reasoningNode = message.path("reasoning_content");
             if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
@@ -267,12 +240,6 @@ public class OpenAiAdapter implements LlmAdapter {
         }
     }
 
-    /**
-     * 解析 SSE 流式响应
-     * 每行格式：data: {"choices":[{"delta":{"content":"..."},"finish_reason":null}]}
-     * 结束标志：data: [DONE]
-     * 兼容 deepseek-reasoner 的 reasoning_content chunk（先于 content 输出）
-     */
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
@@ -289,14 +256,10 @@ public class OpenAiAdapter implements LlmAdapter {
                 JsonNode root = JsonUtil.readTree(data);
                 JsonNode delta = root.path("choices").path(0).path("delta");
 
-                // 普通文本 chunk
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
                     chunkConsumer.accept(chunk);
                 }
-
-                // Deepseek-Reasoner 思维链 chunk（reasoning_content 先于 content 输出，此处忽略，调用方不感知）
-                // 如需透传可扩展 chunkConsumer 为自定义回调接口
             }
         } catch (IOException e) {
             log.error("OpenAI 流式响应解析失败, model={}, error={}", modelCode, e.getMessage(), e);

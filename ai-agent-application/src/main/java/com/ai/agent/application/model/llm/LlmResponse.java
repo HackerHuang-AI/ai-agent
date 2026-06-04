@@ -42,5 +42,10 @@ public class LlmResponse {
      * 推理模型的思维链内容（仅 Deepseek-Reasoner 等推理模型返回，其余为 null）
      */
     private String reasoningContent;
+
+    /**
+     * KV 缓存命中 token 数（仅 Deepseek 返回，命中可降低计费；其余平台为 0）
+     */
+    private int cacheHitTokens;
 }
 

@@ -5,10 +5,10 @@ import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.service.LlmModelQueryService;
-import com.ai.agent.infrastructure.llm.LlmAdapterFactory;
-import com.ai.agent.infrastructure.llm.adapter.LlmAdapter;
+import com.ai.agent.application.service.LlmService;
+import com.ai.agent.infrastructure.llm.LlmPlatformServiceFactory;
+import com.ai.agent.infrastructure.llm.service.LlmPlatformService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 
 /**
  * @Description: LLM 统一调用服务实现
- *               流程：校验入参 → 查模型配置 → 查 API Key → 路由 Adapter → 调用 → 持久化记录
+ *               流程：校验入参 → 查模型配置 → 查 API Key → 路由平台 Service → 调用 → 持久化记录
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
  * @ClassName: LlmServiceImpl
@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class LlmServiceImpl implements LlmService {
 
-    private final LlmAdapterFactory adapterFactory;
+    private final LlmPlatformServiceFactory platformServiceFactory;
     private final LlmModelQueryService llmModelQueryService;
 
     @Override
@@ -41,8 +41,8 @@ public class LlmServiceImpl implements LlmService {
         LlmModelBO model = llmModelQueryService.getEnabledModel(request.getModelCode());
         String apiKey = llmModelQueryService.getApiKey(model.getPlatformCode());
 
-        LlmAdapter adapter = adapterFactory.getAdapter(model.getPlatformCode());
-        LlmResponse response = adapter.chat(request, apiKey, model.getApiEndpoint());
+        LlmPlatformService platformService = platformServiceFactory.getService(model.getPlatformCode());
+        LlmResponse response = platformService.chat(request, apiKey, model.getApiEndpoint());
 
         log.info("LLM 调用成功, modelCode={}, inputTokens={}, outputTokens={}",
                 request.getModelCode(), response.getInputTokens(), response.getOutputTokens());
@@ -56,8 +56,8 @@ public class LlmServiceImpl implements LlmService {
         LlmModelBO model = llmModelQueryService.getEnabledModel(request.getModelCode());
         String apiKey = llmModelQueryService.getApiKey(model.getPlatformCode());
 
-        LlmAdapter adapter = adapterFactory.getAdapter(model.getPlatformCode());
-        adapter.chatStream(request, apiKey, model.getApiEndpoint(), chunkConsumer);
+        LlmPlatformService platformService = platformServiceFactory.getService(model.getPlatformCode());
+        platformService.chatStream(request, apiKey, model.getApiEndpoint(), chunkConsumer);
     }
 
     // ==================== 私有方法 ====================
