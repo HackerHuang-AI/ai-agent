@@ -59,7 +59,8 @@ public class DoubaoChatController {
     /**
      * 同步对话接口（Chat Completions 协议，纯文本）
      * POST /api/doubao/chat
-     *
+     * endpointId = ep-20260608204404-22d5g
+     * export ARK_API_KEY="ark-f1145ed2-16b9-4db2-9870-be17d6cef352-062e7"
      * @param req 请求体，必填：apiKey、endpoint、endpointId、messages
      */
     @PostMapping("/chat")
