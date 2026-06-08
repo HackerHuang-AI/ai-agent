@@ -120,6 +120,64 @@ public class DoubaoService implements LlmPlatformService {
         }
     }
 
+    /**
+     * 多模态对话（Responses API）
+     * 支持图片+文本混合输入，调用 /v3/responses 协议
+     *
+     * @param model    模型接入点 ID
+     * @param input    消息列表（已序列化为 Map，包含 role + content 数组）
+     * @param apiKey   API Key
+     * @param endpoint Responses API 地址，如 https://ark.cn-beijing.volces.com/api/v3/responses
+     */
+    public LlmResponse multimodalChat(String model, List<Map<String, Object>> input, String apiKey, String endpoint) {
+        Map<String, Object> bodyMap = new HashMap<>();
+        bodyMap.put("model", model);
+        bodyMap.put("input", input);
+
+        String requestBody;
+        try {
+            requestBody = JsonUtil.toJson(bodyMap);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+
+        Map<String, String> headers = buildHeaders(apiKey);
+        log.info("[Doubao-Multimodal] 调用开始, model={}, endpoint={}", model, endpoint);
+        long start = System.currentTimeMillis();
+
+        try {
+            RequestBody body = RequestBody.create(requestBody, MediaType.parse("application/json; charset=utf-8"));
+            Request okRequest = new Request.Builder()
+                    .url(endpoint)
+                    .post(body)
+                    .headers(Headers.of(headers))
+                    .build();
+
+            Response okResponse = OkHttpUtil.getLlmClient().newCall(okRequest).execute();
+            String responseJson;
+            try (okResponse) {
+                if (!okResponse.isSuccessful() || okResponse.body() == null) {
+                    log.error("[Doubao-Multimodal] HTTP 失败, model={}, code={}, body={}",
+                            model, okResponse.code(),
+                            okResponse.body() != null ? okResponse.body().string() : "null");
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                }
+                responseJson = okResponse.body().string();
+            }
+
+            LlmResponse response = parseMultimodalResponse(responseJson, model);
+            log.info("[Doubao-Multimodal] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+                    model, response.getInputTokens(), response.getOutputTokens(),
+                    System.currentTimeMillis() - start);
+            return response;
+        } catch (BizException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[Doubao-Multimodal] IO 异常, model={}", model, e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
+    }
+
     // ==================== 私有方法 ====================
 
     /**
@@ -198,6 +256,34 @@ public class DoubaoService implements LlmPlatformService {
                     .build();
         } catch (IOException e) {
             log.error("[Doubao] 响应解析失败, endpointId={}, response={}", modelCode, responseJson, e);
+            throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+        }
+    }
+
+    /**
+     * 解析 Responses API 响应
+     * 响应结构：output[].content[].text
+     */
+    private LlmResponse parseMultimodalResponse(String responseJson, String model) {
+        try {
+            JsonNode root = JsonUtil.readTree(responseJson);
+
+            // 取 output 数组第一个 message 的第一个 content 块的 text
+            String content = root.path("output").path(0).path("content").path(0).path("text").asText("");
+
+            JsonNode usage = root.path("usage");
+            int inputTokens = usage.path("input_tokens").asInt(0);
+            int outputTokens = usage.path("output_tokens").asInt(0);
+
+            return LlmResponse.builder()
+                    .content(content)
+                    .modelCode(model)
+                    .inputTokens(inputTokens)
+                    .outputTokens(outputTokens)
+                    .finishReason("stop")
+                    .build();
+        } catch (IOException e) {
+            log.error("[Doubao-Multimodal] 响应解析失败, model={}, response={}", model, responseJson, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
