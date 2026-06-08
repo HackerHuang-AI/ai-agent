@@ -21,6 +21,18 @@ import java.util.List;
 public class DoubaoRequest {
 
     /**
+     * API Key
+     */
+    @NotBlank(message = "apiKey 不能为空")
+    private String apiKey;
+
+    /**
+     * API 请求地址
+     */
+    @NotBlank(message = "endpoint 不能为空")
+    private String endpoint;
+
+    /**
      * 豆包模型接入点 ID，对应火山方舟控制台的 endpoint_id，如 ep-xxxxxxxx
      * 与其他平台用 modelCode 不同，豆包通过 endpointId 路由模型
      */

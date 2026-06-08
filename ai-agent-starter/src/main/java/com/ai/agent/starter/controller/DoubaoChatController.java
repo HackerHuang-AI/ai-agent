@@ -14,9 +14,7 @@ import com.ai.agent.starter.controller.vo.doubao.DoubaoResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,17 +45,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/llm/doubao")
+@RequestMapping("/api/doubao")
 @RequiredArgsConstructor
 public class DoubaoChatController {
 
     private final DoubaoService doubaoService;
-
-    @Value("${llm.doubao.api-key}")
-    private String apiKey;
-
-    @Value("${llm.doubao.endpoint}")
-    private String endpoint;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
@@ -71,8 +63,7 @@ public class DoubaoChatController {
     public Result<DoubaoResponse> chat(@Valid @RequestBody DoubaoRequest req) {
         log.info("[Doubao-chat] 开始处理, endpointId={}", req.getEndpointId());
         try {
-            checkApiKey();
-            LlmResponse response = doubaoService.chat(toServiceRequest(req), apiKey, endpoint);
+            LlmResponse response = doubaoService.chat(toServiceRequest(req), req.getApiKey(), req.getEndpoint());
             log.info("[Doubao-chat] 处理完成, endpointId={}, inputTokens={}, outputTokens={}",
                     req.getEndpointId(), response.getInputTokens(), response.getOutputTokens());
             return Result.success(toVO(response, req.getEndpointId()));
@@ -98,13 +89,12 @@ public class DoubaoChatController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DoubaoRequest req) {
         log.info("[Doubao-stream] 开始处理, endpointId={}", req.getEndpointId());
-        checkApiKey();
         SseEmitter emitter = new SseEmitter(0L);
         LlmRequest request = toServiceRequest(req);
 
         streamExecutor.submit(() -> {
             try {
-                doubaoService.chatStream(request, apiKey, endpoint, chunk -> {
+                doubaoService.chatStream(request, req.getApiKey(), req.getEndpoint(), chunk -> {
                     if (chunk == null) {
                         try {
                             emitter.send(SseEmitter.event().name("done").data("[DONE]"));
@@ -135,12 +125,6 @@ public class DoubaoChatController {
     }
 
     // ==================== 私有方法 ====================
-
-    private void checkApiKey() {
-        if (!StringUtils.hasText(apiKey)) {
-            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
-        }
-    }
 
     private LlmRequest toServiceRequest(DoubaoRequest vo) {
         List<LlmMessage> messages = vo.getMessages().stream()

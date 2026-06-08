@@ -42,14 +42,14 @@ import java.util.concurrent.Executors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/llm")
+@RequestMapping("/api/llm")
 @RequiredArgsConstructor
 public class LlmChatController {
 
     private final LlmService llmService;
 
     // 流式接口专用线程池，避免阻塞 Tomcat 线程
-    private final ExecutorService streamExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
     /**
      * 同步对话接口

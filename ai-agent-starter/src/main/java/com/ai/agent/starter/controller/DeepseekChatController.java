@@ -13,9 +13,7 @@ import com.ai.agent.starter.controller.vo.deepseek.DeepseekResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,17 +44,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/llm/deepseek")
+@RequestMapping("/api/deepseek")
 @RequiredArgsConstructor
 public class DeepseekChatController {
 
     private final DeepseekService deepseekService;
-
-    @Value("${llm.deepseek.api-key}")
-    private String apiKey;
-
-    @Value("${llm.deepseek.endpoint}")
-    private String endpoint;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
@@ -70,8 +62,7 @@ public class DeepseekChatController {
     public Result<DeepseekResponse> chat(@Valid @RequestBody DeepseekRequest req) {
         log.info("[Deepseek-chat] 开始处理, model={}", req.getModelCode());
         try {
-            checkApiKey();
-            LlmResponse response = deepseekService.chat(toServiceRequest(req), apiKey, endpoint);
+            LlmResponse response = deepseekService.chat(toServiceRequest(req), req.getApiKey(), req.getEndpoint());
             log.info("[Deepseek-chat] 处理完成, model={}, inputTokens={}, outputTokens={}",
                     req.getModelCode(), response.getInputTokens(), response.getOutputTokens());
             return Result.success(toVO(response));
@@ -97,13 +88,12 @@ public class DeepseekChatController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DeepseekRequest req) {
         log.info("[Deepseek-stream] 开始处理, model={}", req.getModelCode());
-        checkApiKey();
         SseEmitter emitter = new SseEmitter(0L);
         LlmRequest request = toServiceRequest(req);
 
         streamExecutor.submit(() -> {
             try {
-                deepseekService.chatStream(request, apiKey, endpoint, chunk -> {
+                deepseekService.chatStream(request, req.getApiKey(), req.getEndpoint(), chunk -> {
                     if (chunk == null) {
                         try {
                             emitter.send(SseEmitter.event().name("done").data("[DONE]"));
@@ -134,12 +124,6 @@ public class DeepseekChatController {
     }
 
     // ==================== 私有方法 ====================
-
-    private void checkApiKey() {
-        if (!StringUtils.hasText(apiKey)) {
-            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
-        }
-    }
 
     private LlmRequest toServiceRequest(DeepseekRequest vo) {
         List<LlmMessage> messages = vo.getMessages().stream()

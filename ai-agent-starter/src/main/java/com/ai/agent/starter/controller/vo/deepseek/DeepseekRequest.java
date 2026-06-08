@@ -20,6 +20,18 @@ import java.util.List;
 public class DeepseekRequest {
 
     /**
+     * API Key
+     */
+    @NotBlank(message = "apiKey 不能为空")
+    private String apiKey;
+
+    /**
+     * API 请求地址
+     */
+    @NotBlank(message = "endpoint 不能为空")
+    private String endpoint;
+
+    /**
      * 模型标识：deepseek-chat / deepseek-reasoner
      */
     @NotBlank(message = "modelCode 不能为空")
