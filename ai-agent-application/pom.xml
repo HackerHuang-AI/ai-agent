@@ -26,12 +26,6 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- infrastructure：OkHttpUtil、JsonUtil、RetryUtil、NacosConfigUtil -->
-        <dependency>
-            <groupId>com.ai.agent</groupId>
-            <artifactId>ai-agent-infrastructure</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

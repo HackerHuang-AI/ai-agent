@@ -1,4 +1,4 @@
-package com.ai.agent.infrastructure.llm.service;
+package com.ai.agent.application.service;
 
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
@@ -9,7 +9,7 @@ import java.util.function.Consumer;
  * @Description: LLM 平台调用服务接口，每个平台实现此接口
  *               职责：将统一的 LlmRequest 转换为各平台协议格式，发起 HTTP 调用，解析响应为 LlmResponse
  * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.llm.service
+ * @Package: com.ai.agent.application.service
  * @ClassName: LlmPlatformService
  * @Author: HUANGcong
  * @Date: Created in 2026/6/1

@@ -1,8 +1,7 @@
-package com.ai.agent.infrastructure.llm;
+package com.ai.agent.application.service;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.infrastructure.llm.service.LlmPlatformService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +14,7 @@ import java.util.stream.Collectors;
  * @Description: LLM 平台服务工厂，根据平台编码路由到对应的 LlmPlatformService
  *               新增平台只需实现 LlmPlatformService 接口并注册为 Spring Bean，工厂自动感知，无需修改此类
  * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.llm
+ * @Package: com.ai.agent.application.service
  * @ClassName: LlmPlatformServiceFactory
  * @Author: HUANGcong
  * @Date: Created in 2026/6/1
