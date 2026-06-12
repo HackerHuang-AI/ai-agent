@@ -83,11 +83,6 @@
             <artifactId>ai-agent-application</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.ai.agent</groupId>
-            <artifactId>ai-agent-client</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
