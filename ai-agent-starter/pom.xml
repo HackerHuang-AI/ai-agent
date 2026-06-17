@@ -96,6 +96,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <!-- 公共资源：resources/ 下的文件，开启 filtering 以替换 @...@ 占位符 -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+            <!-- 环境资源：把激活的 profiles/{env}/ 下所有文件复制到 classpath 根目录 -->
+            <resource>
+                <directory>src/main/profiles/${env}</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -111,6 +123,41 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <activation>
+                <!-- 不传 -P 时默认激活 dev -->
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <env>dev</env>
+                <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <env>test</env>
+                <spring.profiles.active>test</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>stag</id>
+            <properties>
+                <env>stag</env>
+                <spring.profiles.active>stag</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <env>prod</env>
+                <spring.profiles.active>prod</spring.profiles.active>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
 
