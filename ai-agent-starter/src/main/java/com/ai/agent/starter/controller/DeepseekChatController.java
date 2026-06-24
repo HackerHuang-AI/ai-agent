@@ -6,13 +6,13 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.infrastructure.llm.service.DeepseekService;
+import com.ai.agent.application.service.LlmService;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.deepseek.DeepseekRequest;
 import com.ai.agent.starter.controller.vo.deepseek.DeepseekResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,11 +28,11 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Deepseek 平台对话接口（第一阶段：凭证来自配置文件，不读 DB）
- *               后续凭证迁移至 DB 后，统一走 LlmChatController，此 Controller 删除。
+ * @Description: Deepseek 平台对话接口
+ *               凭证（apiKey / endpoint）由调用方通过请求体传入
  *
- *               POST /llm/deepseek/chat        同步对话，等待完整响应后返回
- *               POST /llm/deepseek/chat/stream  流式对话，SSE 实时推送 chunk
+ *               POST /api/deepseek/chat        同步对话，等待完整响应后返回
+ *               POST /api/deepseek/chat/stream  流式对话，SSE 实时推送 chunk
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
@@ -45,24 +45,24 @@ import java.util.stream.Collectors;
 @Validated
 @RestController
 @RequestMapping("/api/deepseek")
-@RequiredArgsConstructor
 public class DeepseekChatController {
 
-    private final DeepseekService deepseekService;
-
+    private final LlmService llmService;
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
+
+    public DeepseekChatController(@Qualifier("deepseekServiceImpl") LlmService llmService) {
+        this.llmService = llmService;
+    }
 
     /**
      * 同步对话接口
-     * POST /llm/deepseek/chat
-     *
-     * @param req 请求体，必填：modelCode（deepseek-chat / deepseek-reasoner）、messages
+     * POST /api/deepseek/chat
      */
     @PostMapping("/chat")
     public Result<DeepseekResponse> chat(@Valid @RequestBody DeepseekRequest req) {
         log.info("[Deepseek-chat] 开始处理, model={}", req.getModelCode());
         try {
-            LlmResponse response = deepseekService.chat(toServiceRequest(req), req.getApiKey(), req.getEndpoint());
+            LlmResponse response = llmService.chat(toServiceRequest(req));
             log.info("[Deepseek-chat] 处理完成, model={}, inputTokens={}, outputTokens={}",
                     req.getModelCode(), response.getInputTokens(), response.getOutputTokens());
             return Result.success(toVO(response));
@@ -76,14 +76,7 @@ public class DeepseekChatController {
 
     /**
      * 流式对话接口，基于 SSE（Server-Sent Events）
-     * POST /llm/deepseek/chat/stream
-     *
-     * SSE 事件格式：
-     *   event: chunk  → data: 文本片段（含 reasoner 思维链 chunk）
-     *   event: done   → data: [DONE]（流结束）
-     *   event: error  → data: 错误信息
-     *
-     * @param req 请求体，必填：modelCode、messages
+     * POST /api/deepseek/chat/stream
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DeepseekRequest req) {
@@ -93,7 +86,7 @@ public class DeepseekChatController {
 
         streamExecutor.submit(() -> {
             try {
-                deepseekService.chatStream(request, req.getApiKey(), req.getEndpoint(), chunk -> {
+                llmService.chatStream(request, chunk -> {
                     if (chunk == null) {
                         try {
                             emitter.send(SseEmitter.event().name("done").data("[DONE]"));
@@ -133,6 +126,8 @@ public class DeepseekChatController {
                         .build())
                 .collect(Collectors.toList());
         return LlmRequest.builder()
+                .apiKey(vo.getApiKey())
+                .endpoint(vo.getEndpoint())
                 .modelCode(vo.getModelCode())
                 .messages(messages)
                 .temperature(vo.getTemperature())

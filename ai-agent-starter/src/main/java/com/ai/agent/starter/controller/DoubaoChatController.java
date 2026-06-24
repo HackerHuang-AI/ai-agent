@@ -7,12 +7,13 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.infrastructure.llm.service.DoubaoService;
+import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.doubao.*;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,25 +50,27 @@ import java.util.stream.Collectors;
 @Validated
 @RestController
 @RequestMapping("/api/doubao")
-@RequiredArgsConstructor
 public class DoubaoChatController {
 
-    private final DoubaoService doubaoService;
-
+    private final LlmService llmService;
+    private final DoubaoServiceImpl doubaoService;
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
+
+    public DoubaoChatController(@Qualifier("doubaoServiceImpl") LlmService llmService,
+                                DoubaoServiceImpl doubaoService) {
+        this.llmService = llmService;
+        this.doubaoService = doubaoService;
+    }
 
     /**
      * 同步对话接口（Chat Completions 协议，纯文本）
      * POST /api/doubao/chat
-     * endpointId = ep-20260608204404-22d5g
-     * export ARK_API_KEY="ark-f1145ed2-16b9-4db2-9870-be17d6cef352-062e7"
-     * @param req 请求体，必填：apiKey、endpoint、endpointId、messages
      */
     @PostMapping("/chat")
     public Result<DoubaoResponse> chat(@Valid @RequestBody DoubaoRequest req) {
         log.info("[Doubao-chat] 开始处理, endpointId={}", req.getEndpointId());
         try {
-            LlmResponse response = doubaoService.chat(toServiceRequest(req), req.getApiKey(), req.getEndpoint());
+            LlmResponse response = llmService.chat(toServiceRequest(req));
             log.info("[Doubao-chat] 处理完成, endpointId={}, inputTokens={}, outputTokens={}",
                     req.getEndpointId(), response.getInputTokens(), response.getOutputTokens());
             return Result.success(toVO(response, req.getEndpointId()));
@@ -81,14 +84,7 @@ public class DoubaoChatController {
 
     /**
      * 流式对话接口，基于 SSE（Server-Sent Events）
-     * POST /llm/doubao/chat/stream
-     *
-     * SSE 事件格式：
-     *   event: chunk  → data: 文本片段
-     *   event: done   → data: [DONE]（流结束）
-     *   event: error  → data: 错误信息
-     *
-     * @param req 请求体，必填：endpointId、messages
+     * POST /api/doubao/chat/stream
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DoubaoRequest req) {
@@ -98,7 +94,7 @@ public class DoubaoChatController {
 
         streamExecutor.submit(() -> {
             try {
-                doubaoService.chatStream(request, req.getApiKey(), req.getEndpoint(), chunk -> {
+                llmService.chatStream(request, chunk -> {
                     if (chunk == null) {
                         try {
                             emitter.send(SseEmitter.event().name("done").data("[DONE]"));
@@ -131,8 +127,6 @@ public class DoubaoChatController {
     /**
      * 多模态对话接口（Responses API）
      * POST /api/doubao/multimodal/chat
-     *
-     * 支持图片+文本混合输入，调用火山方舟 /v3/responses 协议
      */
     @PostMapping("/multimodal/chat")
     public Result<DoubaoMultimodalResponse> multimodalChat(@Valid @RequestBody DoubaoMultimodalRequest req) {
@@ -166,6 +160,8 @@ public class DoubaoChatController {
                         .build())
                 .collect(Collectors.toList());
         return LlmRequest.builder()
+                .apiKey(vo.getApiKey())
+                .endpoint(vo.getEndpoint())
                 .modelCode(vo.getEndpointId())
                 .messages(messages)
                 .temperature(vo.getTemperature())
@@ -173,10 +169,6 @@ public class DoubaoChatController {
                 .build();
     }
 
-    /**
-     * 将多模态 VO 转换为 Responses API 的 input 格式
-     * input[].content[] 中 input_image 使用 image_url 字段
-     */
     private List<Map<String, Object>> buildMultimodalInput(DoubaoMultimodalRequest req) {
         List<Map<String, Object>> input = new ArrayList<>();
         for (DoubaoMultimodalMessageVO msg : req.getInput()) {

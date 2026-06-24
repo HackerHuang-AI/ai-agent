@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Description: LLM 统一调用入参，屏蔽各平台差异，调用方只需构造此对象
@@ -21,6 +22,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LlmRequest {
+
+    /** 调用方传入的 API Key */
+    private String apiKey;
+
+    /** 调用方传入的 API 请求地址 */
+    private String endpoint;
 
     /**
      * 模型标识，对应 llm_model.model_code，如 gpt-4.1、glm-5
@@ -59,5 +66,14 @@ public class LlmRequest {
      * Agent ID，用于调用记录关联；可为 null（直接调用场景）
      */
     private Long agentId;
+
+    /**
+     * 平台私有扩展参数，会被合并到请求体最外层。
+     * 用于注入各平台特有字段，避免在 Service 层硬编码平台差异。
+     * 示例：
+     *   Deepseek reasoner 跳过 temperature → {"skip_temperature": true}
+     *   未来某平台的 thinking_budget   → {"thinking_budget": 1024}
+     */
+    private Map<String, Object> extraParams;
 }
 
