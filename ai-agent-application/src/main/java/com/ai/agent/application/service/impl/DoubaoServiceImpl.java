@@ -77,7 +77,7 @@ public class DoubaoServiceImpl implements LlmService {
     @Override
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
         String requestBody = buildRequestBody(request, true);
-        log.info("[Doubao-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        log.info("[Doubao-stream] 开始调用, request={}", request);
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
         STREAM_EXECUTOR.submit(() -> {
@@ -91,17 +91,17 @@ public class DoubaoServiceImpl implements LlmService {
 
                 try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
-                        log.error("[Doubao-stream] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
+                        log.error("[Doubao-stream] HTTP 失败,  code={}", response.code());
                         chunkConsumer.accept(null);
                         return;
                     }
                     parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
             } catch (BizException e) {
-                log.error("[Doubao-stream] 业务异常, model={}", request.getModelCode(), e);
+                log.error("[Doubao-stream] 业务异常", e);
                 chunkConsumer.accept(null);
             } catch (IOException e) {
-                log.error("[Doubao-stream] IO 异常, model={}", request.getModelCode(), e);
+                log.error("[Doubao-stream] IO 异常", e);
                 chunkConsumer.accept(null);
             } finally {
                 MDC.clear();
@@ -132,19 +132,19 @@ public class DoubaoServiceImpl implements LlmService {
             try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful() || responseBody.isEmpty()) {
-                    log.error("[Doubao-multimodal] HTTP 失败, model={}, code={}, body={}", model, response.code(), responseBody);
+                    log.error("[Doubao-multimodal] HTTP 失败, body={}",responseBody);
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
                 LlmResponse result = parseMultimodalResponse(responseBody, model);
-                log.info("[Doubao-multimodal] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
-                        model, result.getInputTokens(), result.getOutputTokens(),
+                log.info("[Doubao-multimodal] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
+                        result.getInputTokens(), result.getOutputTokens(),
                         System.currentTimeMillis() - start);
                 return result;
             }
         } catch (BizException e) {
             throw e;
         } catch (IOException e) {
-            log.error("[Doubao-multimodal] IO 异常, model={}", model, e);
+            log.error("[Doubao-multimodal] IO 异常", e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
     }
@@ -253,7 +253,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .finishReason(finishReason)
                     .build();
         } catch (IOException e) {
-            log.error("[Doubao-chat] 响应解析失败, model={}", modelCode, e);
+            log.error("[Doubao-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -271,7 +271,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .finishReason("stop")
                     .build();
         } catch (IOException e) {
-            log.error("[Doubao-multimodal] 响应解析失败, model={}", model, e);
+            log.error("[Doubao-multimodal] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -294,7 +294,7 @@ public class DoubaoServiceImpl implements LlmService {
                 }
             }
         } catch (IOException e) {
-            log.error("[Doubao-stream] 流式响应解析失败, model={}", modelCode, e);
+            log.error("[Doubao-stream] 流式响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
