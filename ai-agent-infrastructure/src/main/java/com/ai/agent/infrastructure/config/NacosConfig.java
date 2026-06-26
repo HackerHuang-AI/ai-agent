@@ -43,7 +43,7 @@ public class NacosConfig {
     @Value("${spring.cloud.nacos.config.server-addr:}")
     private String serverAddr;
 
-    @Value("${spring.cloud.nacos.config.group:AI_AGENT_GROUP}")
+    @Value("${spring.application.name}")
     private String group;
 
     @Value("${nacos.index-data-id:ai-agent-index.properties}")
@@ -66,6 +66,8 @@ public class NacosConfig {
         try {
             Properties nacosProperties = new Properties();
             nacosProperties.put("serverAddr", serverAddr);
+            nacosProperties.put("namespace", "");
+            nacosProperties.put("appName", group);
             configService = NacosFactory.createConfigService(nacosProperties);
         } catch (NacosException e) {
             log.error("[NacosConfig] 创建 ConfigService 失败，serverAddr={}，error={}", serverAddr, e.getMessage(), e);
@@ -248,6 +250,10 @@ public class NacosConfig {
         return dataIdCache.get(dataId);
     }
 
+    /**
+     * 读取原始字符串值，遍历所有 DataId 分桶查找，未找到返回 null。
+     * 若多个 DataId 存在同名 key，按注册顺序返回第一个找到的值。
+     */
     public String getRaw(String key) {
         for (Map<String, String> bucket : dataIdCache.values()) {
             String value = bucket.get(key);
@@ -257,5 +263,24 @@ public class NacosConfig {
         }
         return null;
     }
+
+    /**
+     * 按指定 DataId 精确读取 key 对应的原始字符串值。
+     *
+     * @param dataId 目标 DataId（需带后缀，如 ai-agent-retry.json）
+     * @param key    目标 key
+     * @return 对应的原始字符串值；DataId 不存在于缓存时返回 null；DataId 存在但 key 不存在时返回 {@link #KEY_NOT_FOUND}
+     */
+    public String getRaw(String dataId, String key) {
+        Map<String, String> bucket = dataIdCache.get(dataId);
+        if (bucket == null) {
+            return null;
+        }
+        String value = bucket.get(key);
+        return value != null ? value : KEY_NOT_FOUND;
+    }
+
+    /** 哨兵值：标识 DataId 存在但 key 不存在，与 DataId 不存在（null）区分 */
+    public static final String KEY_NOT_FOUND = "__KEY_NOT_FOUND__";
 }
 

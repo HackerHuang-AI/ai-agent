@@ -58,16 +58,15 @@ public class DeepseekChatController {
      */
     @PostMapping("/chat")
     public Result<DeepseekResponse> chat(@Valid @RequestBody DeepseekRequest req) {
-        log.info("[Deepseek-chat] 开始处理, req={}", req);
+        log.info("[Deepseek-chat] 开始处理, DeepseekRequest={}", req);
         try {
             LlmResponse response = llmService.chat(toServiceRequest(req));
-            log.info("[Deepseek-chat] 处理完成, model={}, inputTokens={}, outputTokens={}",
-                    req.getModelCode(), response.getInputTokens(), response.getOutputTokens());
+            log.info("[Deepseek-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Deepseek-chat] 系统异常, model={}", req.getModelCode(), e);
+            log.error("[Deepseek-chat] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }
@@ -78,7 +77,7 @@ public class DeepseekChatController {
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DeepseekRequest req) {
-        log.info("[Deepseek-stream] 开始处理, model={}", req.getModelCode());
+        log.info("[Deepseek-stream] 开始处理, DeepseekRequest={}", req);
         SseEmitter emitter = new SseEmitter(0L);
         llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
