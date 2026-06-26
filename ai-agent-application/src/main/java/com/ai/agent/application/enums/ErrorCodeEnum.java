@@ -25,6 +25,7 @@ public enum ErrorCodeEnum {
     // ==================== 通用（2001xxx）====================
     PARAM_ILLEGAL("2001001", "error.2001001", "参数不合法"),
     SYSTEM_ERROR("2001002", "error.2001002", "系统异常，请稍后重试"),
+    IMAGE_FILE_NOT_FOUND("2001003", "error.2001003", "图片文件为空或不存在"),
 
     // ==================== LLM 调用（2002xxx）====================
     LLM_PLATFORM_NOT_SUPPORTED("2002001", "error.2002001", "不支持的 LLM 平台"),

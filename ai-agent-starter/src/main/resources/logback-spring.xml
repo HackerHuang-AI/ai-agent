@@ -11,10 +11,10 @@
     <!-- ==================== 日志格式 ==================== -->
 
     <property name="CONSOLE_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan([%X{traceId:-}]) %boldMagenta(%-40.40logger{39}) - %msg%n%ex"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan([%X{traceId:-}]) %green([%X{sourceAppKey:-}]) %boldMagenta(%-40.40logger{39}) - %msg%n%ex"/>
 
     <property name="FILE_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{traceId:-}] %-40.40logger{39} - %msg%n%ex"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{traceId:-}] [%X{sourceAppKey:-}] %-40.40logger{39} - %msg%n%ex"/>
 
     <!-- ==================== Appender 定义 ==================== -->
 

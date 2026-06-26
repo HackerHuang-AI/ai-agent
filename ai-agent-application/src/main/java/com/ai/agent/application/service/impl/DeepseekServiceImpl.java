@@ -7,10 +7,12 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.infrastructure.utils.OkHttpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -18,7 +20,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -42,39 +45,33 @@ public class DeepseekServiceImpl implements LlmService {
     private static final String SSE_DONE_FLAG = "[DONE]";
     private static final String REASONER_MODEL = "deepseek-reasoner";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-
-    private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build();
-
+    private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final ExecutorService STREAM_EXECUTOR = Executors.newCachedThreadPool();
 
     @Override
     public LlmResponse chat(LlmRequest request) {
+        log.info("[Deepseek-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
-        log.info("[Deepseek-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         long start = System.currentTimeMillis();
+        Request okRequest = new Request.Builder()
+                .url(request.getEndpoint())
+                .post(RequestBody.create(requestBody, JSON))
+                .headers(Headers.of(buildHeaders(request.getApiKey())))
+                .build();
 
-        try {
-            Request okRequest = new Request.Builder()
-                    .url(request.getEndpoint())
-                    .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(request.getApiKey())))
-                    .build();
-
-            try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    log.error("[Deepseek-chat] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                }
-                LlmResponse result = parseResponse(response.body().string(), request.getModelCode());
-                log.info("[Deepseek-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
-                        request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
-                        System.currentTimeMillis() - start);
-                return result;
+        try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+            String responseBody = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful() || responseBody.isEmpty()) {
+                log.error("[Deepseek-chat] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
+                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
+            LlmResponse result = parseResponse(responseBody, request.getModelCode());
+            log.info("[Deepseek-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+                    request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
+                    System.currentTimeMillis() - start);
+            return result;
         } catch (BizException e) {
             throw e;
         } catch (IOException e) {
@@ -87,27 +84,35 @@ public class DeepseekServiceImpl implements LlmService {
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
         String requestBody = buildRequestBody(request, true);
         log.info("[Deepseek-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        try {
-            Request okRequest = new Request.Builder()
-                    .url(request.getEndpoint())
-                    .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(request.getApiKey())))
-                    .build();
+        STREAM_EXECUTOR.submit(() -> {
+            if (mdcContext != null) MDC.setContextMap(mdcContext);
+            try {
+                Request okRequest = new Request.Builder()
+                        .url(request.getEndpoint())
+                        .post(RequestBody.create(requestBody, JSON))
+                        .headers(Headers.of(buildHeaders(request.getApiKey())))
+                        .build();
 
-            try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    log.error("[Deepseek-stream] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        log.error("[Deepseek-stream] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
+                        chunkConsumer.accept(null);
+                        return;
+                    }
+                    parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
-                parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+            } catch (BizException e) {
+                log.error("[Deepseek-stream] 业务异常, model={}", request.getModelCode(), e);
+                chunkConsumer.accept(null);
+            } catch (IOException e) {
+                log.error("[Deepseek-stream] IO 异常, model={}", request.getModelCode(), e);
+                chunkConsumer.accept(null);
+            } finally {
+                MDC.clear();
             }
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Deepseek-stream] IO 异常, model={}", request.getModelCode(), e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        });
     }
 
     // ==================== 私有方法 ====================

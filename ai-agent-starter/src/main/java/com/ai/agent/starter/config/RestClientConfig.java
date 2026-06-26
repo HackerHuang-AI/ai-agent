@@ -1,10 +1,15 @@
 package com.ai.agent.starter.config;
 
+import com.ai.agent.starter.handler.TraceIdInterceptorHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.lang.NonNull;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.LocaleResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
 import java.net.http.HttpClient;
@@ -21,7 +26,15 @@ import java.util.Locale;
  * @Version: 1.0
  */
 @Configuration
-public class RestClientConfig {
+@RequiredArgsConstructor
+public class RestClientConfig implements WebMvcConfigurer {
+
+    private final TraceIdInterceptorHandler traceIdInterceptorHandler;
+
+    @Override
+    public void addInterceptors(@NonNull InterceptorRegistry registry) {
+        registry.addInterceptor(traceIdInterceptorHandler).addPathPatterns("/**").order(0);
+    }
 
     /**
      * 基于 Accept-Language 请求头解析语言，默认中文。

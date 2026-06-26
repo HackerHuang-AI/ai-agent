@@ -1,5 +1,6 @@
 package com.ai.agent.starter.controller.vo.doubao;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -32,6 +33,7 @@ public class DoubaoMultimodalContentVO {
     /**
      * 图片 URL，type=input_image 时必填
      */
+    @JsonProperty("image_url")
     private String imageUrl;
 }
 

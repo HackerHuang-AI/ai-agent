@@ -7,10 +7,12 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.infrastructure.utils.OkHttpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -18,7 +20,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -38,43 +41,35 @@ public class DoubaoServiceImpl implements LlmService {
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG = "[DONE]";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-
-    private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build();
-
+    private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final ExecutorService STREAM_EXECUTOR = Executors.newCachedThreadPool();
 
     @Override
     public LlmResponse chat(LlmRequest request) {
+        log.info("[Doubao-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
-        log.info("[Doubao-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         long start = System.currentTimeMillis();
+        Request okRequest = new Request.Builder()
+                .url(request.getEndpoint())
+                .post(RequestBody.create(requestBody, JSON))
+                .headers(Headers.of(buildHeaders(request.getApiKey())))
+                .build();
 
-        try {
-            Request okRequest = new Request.Builder()
-                    .url(request.getEndpoint())
-                    .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(request.getApiKey())))
-                    .build();
-
-            try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    log.error("[Doubao-chat] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                }
-                LlmResponse result = parseResponse(response.body().string(), request.getModelCode());
-                log.info("[Doubao-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
-                        request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
-                        System.currentTimeMillis() - start);
-                return result;
+        try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+            String responseBody = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful() || responseBody.isEmpty()) {
+                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
+            LlmResponse result = parseResponse(responseBody, request.getModelCode());
+            log.info("[Doubao-chat] 调用成功, result={}, costMs={}",
+                    result, System.currentTimeMillis() - start);
+            return result;
         } catch (BizException e) {
             throw e;
         } catch (IOException e) {
-            log.error("[Doubao-chat] IO 异常, model={}", request.getModelCode(), e);
+            log.error("[Doubao-chat] IO 异常", e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
     }
@@ -83,27 +78,35 @@ public class DoubaoServiceImpl implements LlmService {
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
         String requestBody = buildRequestBody(request, true);
         log.info("[Doubao-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        try {
-            Request okRequest = new Request.Builder()
-                    .url(request.getEndpoint())
-                    .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(request.getApiKey())))
-                    .build();
+        STREAM_EXECUTOR.submit(() -> {
+            if (mdcContext != null) MDC.setContextMap(mdcContext);
+            try {
+                Request okRequest = new Request.Builder()
+                        .url(request.getEndpoint())
+                        .post(RequestBody.create(requestBody, JSON))
+                        .headers(Headers.of(buildHeaders(request.getApiKey())))
+                        .build();
 
-            try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    log.error("[Doubao-stream] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        log.error("[Doubao-stream] HTTP 失败, model={}, code={}", request.getModelCode(), response.code());
+                        chunkConsumer.accept(null);
+                        return;
+                    }
+                    parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
-                parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+            } catch (BizException e) {
+                log.error("[Doubao-stream] 业务异常, model={}", request.getModelCode(), e);
+                chunkConsumer.accept(null);
+            } catch (IOException e) {
+                log.error("[Doubao-stream] IO 异常, model={}", request.getModelCode(), e);
+                chunkConsumer.accept(null);
+            } finally {
+                MDC.clear();
             }
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Doubao-stream] IO 异常, model={}", request.getModelCode(), e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        });
     }
 
     /**
@@ -127,11 +130,12 @@ public class DoubaoServiceImpl implements LlmService {
                     .build();
 
             try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    log.error("[Doubao-multimodal] HTTP 失败, model={}, code={}", model, response.code());
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful() || responseBody.isEmpty()) {
+                    log.error("[Doubao-multimodal] HTTP 失败, model={}, code={}, body={}", model, response.code(), responseBody);
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
-                LlmResponse result = parseMultimodalResponse(response.body().string(), model);
+                LlmResponse result = parseMultimodalResponse(responseBody, model);
                 log.info("[Doubao-multimodal] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                         model, result.getInputTokens(), result.getOutputTokens(),
                         System.currentTimeMillis() - start);
@@ -143,6 +147,25 @@ public class DoubaoServiceImpl implements LlmService {
             log.error("[Doubao-multimodal] IO 异常, model={}", model, e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
+    }
+
+    /**
+     * 多模态对话（form-data 文件上传）
+     * 接受原始图片字节，内部完成 base64 编码和 input 结构组装
+     */
+    public LlmResponse multimodalChatFile(byte[] imageBytes, String mimeType, String text,
+                                          String model, String apiKey, String endpoint) {
+        String base64 = Base64.getEncoder().encodeToString(imageBytes);
+        String imageUrl = "data:" + mimeType + ";base64," + base64;
+
+        List<Map<String, Object>> input = List.of(Map.of(
+                "role", "user",
+                "content", List.of(
+                        Map.of("type", "input_image", "image_url", imageUrl),
+                        Map.of("type", "input_text", "text", text)
+                )
+        ));
+        return multimodalChat(model, input, apiKey, endpoint);
     }
 
     // ==================== 私有方法 ====================

@@ -7,19 +7,15 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.doubao.*;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -27,17 +23,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
  * @Description: 豆包（火山方舟）平台对话接口
  *               凭证（apiKey / endpoint）由调用方通过请求体传入
  *
- *               POST /api/doubao/chat               同步对话（Chat Completions 协议，纯文本）
- *               POST /api/doubao/chat/stream         流式对话，SSE 实时推送 chunk
- *               POST /api/doubao/multimodal/chat     多模态对话（Responses API，支持图片+文本）
+ *               POST /api/doubao/chat                    同步对话（Chat Completions 协议，纯文本）
+ *               POST /api/doubao/chat/stream              流式对话，SSE 实时推送 chunk
+ *               POST /api/doubao/multimodal/chat          多模态对话（Responses API，image_url 或 Base64）
+ *               POST /api/doubao/multimodal/chat/file     多模态对话（form-data，上传本地图片）
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
@@ -52,13 +48,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/doubao")
 public class DoubaoChatController {
 
-    private final LlmService llmService;
     private final DoubaoServiceImpl doubaoService;
-    private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
-    public DoubaoChatController(@Qualifier("doubaoServiceImpl") LlmService llmService,
-                                DoubaoServiceImpl doubaoService) {
-        this.llmService = llmService;
+    public DoubaoChatController(DoubaoServiceImpl doubaoService) {
         this.doubaoService = doubaoService;
     }
 
@@ -68,16 +60,15 @@ public class DoubaoChatController {
      */
     @PostMapping("/chat")
     public Result<DoubaoResponse> chat(@Valid @RequestBody DoubaoRequest req) {
-        log.info("[Doubao-chat] 开始处理, endpointId={}", req.getEndpointId());
+        log.info("[Doubao-chat] 开始处理, DoubaoRequest={}", req);
         try {
-            LlmResponse response = llmService.chat(toServiceRequest(req));
-            log.info("[Doubao-chat] 处理完成, endpointId={}, inputTokens={}, outputTokens={}",
-                    req.getEndpointId(), response.getInputTokens(), response.getOutputTokens());
+            LlmResponse response = doubaoService.chat(toServiceRequest(req));
+            log.info("[Doubao-chat] 处理完成, response={}", response);
             return Result.success(toVO(response, req.getEndpointId()));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Doubao-chat] 系统异常, endpointId={}", req.getEndpointId(), e);
+            log.error("[Doubao-chat] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }
@@ -88,40 +79,30 @@ public class DoubaoChatController {
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody DoubaoRequest req) {
-        log.info("[Doubao-stream] 开始处理, endpointId={}", req.getEndpointId());
+        log.info("[Doubao-stream] 开始处理, DoubaoRequest={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        LlmRequest request = toServiceRequest(req);
-
-        streamExecutor.submit(() -> {
-            try {
-                llmService.chatStream(request, chunk -> {
-                    if (chunk == null) {
-                        try {
-                            emitter.send(SseEmitter.event().name("done").data("[DONE]"));
-                        } catch (IOException e) {
-                            log.warn("[Doubao-stream] 发送 done 事件失败, endpointId={}", req.getEndpointId());
-                        }
-                        emitter.complete();
-                    } else {
-                        try {
-                            emitter.send(SseEmitter.event().name("chunk").data(chunk));
-                        } catch (IOException e) {
-                            log.warn("[Doubao-stream] 客户端已断开, endpointId={}", req.getEndpointId());
-                            emitter.completeWithError(e);
-                        }
-                    }
-                });
-            } catch (Exception e) {
-                log.error("[Doubao-stream] 系统异常, endpointId={}", req.getEndpointId(), e);
-                try {
-                    emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
-                } catch (IOException ignored) {
-                }
-                emitter.completeWithError(e);
-            }
-        });
-
+        doubaoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getEndpointId()));
         return emitter;
+    }
+
+    private Consumer<String> buildSseConsumer(SseEmitter emitter, String tag) {
+        return chunk -> {
+            if (chunk == null) {
+                try {
+                    emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                } catch (IOException e) {
+                    log.warn("[Doubao-stream] 发送 done 事件失败, endpointId={}", tag);
+                }
+                emitter.complete();
+            } else {
+                try {
+                    emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                } catch (IOException e) {
+                    log.warn("[Doubao-stream] 客户端已断开, endpointId={}", tag);
+                    emitter.completeWithError(e);
+                }
+            }
+        };
     }
 
     /**
@@ -130,12 +111,11 @@ public class DoubaoChatController {
      */
     @PostMapping("/multimodal/chat")
     public Result<DoubaoMultimodalResponse> multimodalChat(@Valid @RequestBody DoubaoMultimodalRequest req) {
-        log.info("[Doubao-multimodal] 开始处理, model={}", req.getModel());
+        log.info("[Doubao-multimodal] 开始处理, DoubaoMultimodalRequest={}", req);
         try {
             List<Map<String, Object>> input = buildMultimodalInput(req);
             LlmResponse response = doubaoService.multimodalChat(req.getModel(), input, req.getApiKey(), req.getEndpoint());
-            log.info("[Doubao-multimodal] 处理完成, model={}, inputTokens={}, outputTokens={}",
-                    req.getModel(), response.getInputTokens(), response.getOutputTokens());
+            log.info("[Doubao-multimodal] 处理完成, response={}", response);
             return Result.success(DoubaoMultimodalResponse.builder()
                     .content(response.getContent())
                     .model(req.getModel())
@@ -146,6 +126,47 @@ public class DoubaoChatController {
             throw e;
         } catch (Exception e) {
             log.error("[Doubao-multimodal] 系统异常, model={}", req.getModel(), e);
+            throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
+        }
+    }
+
+    /**
+     * 多模态对话接口（form-data 上传本地图片）
+     * POST /api/doubao/multimodal/chat/file
+     *
+     * form-data 字段：
+     *   image  → 图片文件（必填）
+     *   apiKey → API Key（必填）
+     *   endpoint → Responses API 地址（必填）
+     *   model  → 模型接入点 ID（必填）
+     *   text   → 提问文本（必填）
+     */
+    @PostMapping("/multimodal/chat/file")
+    public Result<DoubaoMultimodalResponse> multimodalChatFile(
+            @RequestParam("image") MultipartFile image,
+            @RequestParam("apiKey") String apiKey,
+            @RequestParam("endpoint") String endpoint,
+            @RequestParam("model") String model,
+            @RequestParam("text") String text) {
+        log.info("[Doubao-multimodal-file] 开始处理, model={}, fileName={}", model, image.getOriginalFilename());
+        try {
+            if (image.isEmpty()) {
+                throw new BizException(ErrorCodeEnum.IMAGE_FILE_NOT_FOUND);
+            }
+            String mimeType = image.getContentType() != null ? image.getContentType() : "image/jpeg";
+            LlmResponse response = doubaoService.multimodalChatFile(
+                    image.getBytes(), mimeType, text, model, apiKey, endpoint);
+            log.info("[Doubao-multimodal-file] 处理完成, response={}", response);
+            return Result.success(DoubaoMultimodalResponse.builder()
+                    .content(response.getContent())
+                    .model(model)
+                    .inputTokens(response.getInputTokens())
+                    .outputTokens(response.getOutputTokens())
+                    .build());
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Doubao-multimodal-file] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }

@@ -23,8 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -48,7 +47,6 @@ import java.util.stream.Collectors;
 public class DeepseekChatController {
 
     private final LlmService llmService;
-    private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
     public DeepseekChatController(@Qualifier("deepseekServiceImpl") LlmService llmService) {
         this.llmService = llmService;
@@ -60,7 +58,7 @@ public class DeepseekChatController {
      */
     @PostMapping("/chat")
     public Result<DeepseekResponse> chat(@Valid @RequestBody DeepseekRequest req) {
-        log.info("[Deepseek-chat] 开始处理, model={}", req.getModelCode());
+        log.info("[Deepseek-chat] 开始处理, req={}", req);
         try {
             LlmResponse response = llmService.chat(toServiceRequest(req));
             log.info("[Deepseek-chat] 处理完成, model={}, inputTokens={}, outputTokens={}",
@@ -82,38 +80,28 @@ public class DeepseekChatController {
     public SseEmitter chatStream(@Valid @RequestBody DeepseekRequest req) {
         log.info("[Deepseek-stream] 开始处理, model={}", req.getModelCode());
         SseEmitter emitter = new SseEmitter(0L);
-        LlmRequest request = toServiceRequest(req);
-
-        streamExecutor.submit(() -> {
-            try {
-                llmService.chatStream(request, chunk -> {
-                    if (chunk == null) {
-                        try {
-                            emitter.send(SseEmitter.event().name("done").data("[DONE]"));
-                        } catch (IOException e) {
-                            log.warn("[Deepseek-stream] 发送 done 事件失败, model={}", req.getModelCode());
-                        }
-                        emitter.complete();
-                    } else {
-                        try {
-                            emitter.send(SseEmitter.event().name("chunk").data(chunk));
-                        } catch (IOException e) {
-                            log.warn("[Deepseek-stream] 客户端已断开, model={}", req.getModelCode());
-                            emitter.completeWithError(e);
-                        }
-                    }
-                });
-            } catch (Exception e) {
-                log.error("[Deepseek-stream] 系统异常, model={}", req.getModelCode(), e);
-                try {
-                    emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
-                } catch (IOException ignored) {
-                }
-                emitter.completeWithError(e);
-            }
-        });
-
+        llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
+    }
+
+    private Consumer<String> buildSseConsumer(SseEmitter emitter, String tag) {
+        return chunk -> {
+            if (chunk == null) {
+                try {
+                    emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                } catch (IOException e) {
+                    log.warn("[Deepseek-stream] 发送 done 事件失败, model={}", tag);
+                }
+                emitter.complete();
+            } else {
+                try {
+                    emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                } catch (IOException e) {
+                    log.warn("[Deepseek-stream] 客户端已断开, model={}", tag);
+                    emitter.completeWithError(e);
+                }
+            }
+        };
     }
 
     // ==================== 私有方法 ====================
