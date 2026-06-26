@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -21,7 +22,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -48,7 +48,11 @@ public class DeepseekServiceImpl implements LlmService {
     private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final ExecutorService STREAM_EXECUTOR = Executors.newCachedThreadPool();
+    private final ExecutorService streamExecutor;
+
+    public DeepseekServiceImpl(@Qualifier("deepseekStreamExecutor") ExecutorService streamExecutor) {
+        this.streamExecutor = streamExecutor;
+    }
 
     @Override
     public LlmResponse chat(LlmRequest request) {
@@ -85,7 +89,7 @@ public class DeepseekServiceImpl implements LlmService {
         log.info("[Deepseek-stream] 开始调用, request={}", request);
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        STREAM_EXECUTOR.submit(() -> {
+        streamExecutor.submit(() -> {
             if (mdcContext != null) MDC.setContextMap(mdcContext);
             try {
                 Request okRequest = new Request.Builder()

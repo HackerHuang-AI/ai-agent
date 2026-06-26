@@ -20,9 +20,8 @@ package com.ai.agent.infrastructure.config;
  */
 public enum NacosDataId {
 
-    // 待业务 DataId 确定后在此追加，示例：
-    // AI_AGENT_LLM("ai-agent-llm.json"),
-    // AI_AGENT_RETRY("ai-agent-retry.json"),
+    /** LLM 流式线程池参数配置，对应 Nacos 上的 ai-agent-thread-pool.json */
+    AI_AGENT_THREAD_POOL("ai-agent-thread-pool.json"),
 
     ;
 

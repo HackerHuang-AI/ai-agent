@@ -246,6 +246,26 @@ public class NacosConfig {
         return result;
     }
 
+    /**
+     * 向指定 DataId 注册额外的配置变更监听器。
+     * 监听器会在 Nacos 推送变更时回调，此时 {@link NacosConfigUtil} 缓存已更新完毕，可直接调用读取。
+     *
+     * @param dataId   目标 DataId（需带后缀）
+     * @param listener Nacos Listener 实现
+     */
+    public void addListener(String dataId, Listener listener) {
+        if (configService == null) {
+            log.warn("[NacosConfig] ConfigService 未初始化，无法注册 listener，dataId={}", dataId);
+            return;
+        }
+        try {
+            configService.addListener(dataId, group, listener);
+            log.info("[NacosConfig] 外部 listener 注册成功，dataId={}", dataId);
+        } catch (NacosException e) {
+            log.error("[NacosConfig] 外部 listener 注册失败，dataId={}，error={}", dataId, e.getMessage(), e);
+        }
+    }
+
     public Map<String, String> getCacheByDataId(String dataId) {
         return dataIdCache.get(dataId);
     }
