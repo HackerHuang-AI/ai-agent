@@ -47,6 +47,12 @@ public class LlmRequest {
     private Double temperature;
 
     /**
+     * nucleus sampling 参数，范围 (0, 1]；与 temperature 二选一，同时设置时平台行为不一
+     * 默认 null 由各平台使用其默认值
+     */
+    private Double topP;
+
+    /**
      * 单次回复最大 token 数；null 时使用 agent 配置或平台默认值
      */
     private Integer maxTokens;

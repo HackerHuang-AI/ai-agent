@@ -226,6 +226,9 @@ public class DoubaoServiceImpl implements LlmService {
         if (request.getTemperature() != null) {
             body.put("temperature", request.getTemperature());
         }
+        if (request.getTopP() != null) {
+            body.put("top_p", request.getTopP());
+        }
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }

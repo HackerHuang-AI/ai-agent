@@ -132,6 +132,9 @@ public class DeepseekServiceImpl implements LlmService {
         if (request.getTemperature() != null && !REASONER_MODEL.equals(request.getModelCode())) {
             body.put("temperature", request.getTemperature());
         }
+        if (request.getTopP() != null) {
+            body.put("top_p", request.getTopP());
+        }
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
@@ -198,20 +201,24 @@ public class DeepseekServiceImpl implements LlmService {
             String finishReason = choice.path("finish_reason").asText("");
             JsonNode usage = root.path("usage");
 
-            LlmResponse.LlmResponseBuilder builder = LlmResponse.builder()
+            Map<String, Object> extraData = new HashMap<>();
+            JsonNode reasoningNode = message.path("reasoning_content");
+            if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
+                extraData.put("reasoning_content", reasoningNode.asText(""));
+            }
+            int cacheHitTokens = usage.path("prompt_cache_hit_tokens").asInt(0);
+            if (cacheHitTokens > 0) {
+                extraData.put("cache_hit_tokens", cacheHitTokens);
+            }
+
+            return LlmResponse.builder()
                     .content(content)
                     .modelCode(modelCode)
                     .inputTokens(usage.path("prompt_tokens").asInt(0))
                     .outputTokens(usage.path("completion_tokens").asInt(0))
-                    .finishReason(finishReason);
-
-            JsonNode reasoningNode = message.path("reasoning_content");
-            if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
-                builder.reasoningContent(reasoningNode.asText(""));
-            }
-            builder.cacheHitTokens(usage.path("prompt_cache_hit_tokens").asInt(0));
-
-            return builder.build();
+                    .finishReason(finishReason)
+                    .extraData(extraData.isEmpty() ? null : extraData)
+                    .build();
         } catch (IOException e) {
             log.error("[Deepseek-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);

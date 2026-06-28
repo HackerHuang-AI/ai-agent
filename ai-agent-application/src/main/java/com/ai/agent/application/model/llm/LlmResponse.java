@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 /**
  * @Description: LLM 统一调用返回，调用方收到此对象，无需感知底层平台差异
  * @ProjectName: ai-agent
@@ -39,13 +41,11 @@ public class LlmResponse {
     private String finishReason;
 
     /**
-     * 推理模型的思维链内容（仅 Deepseek-Reasoner 等推理模型返回，其余为 null）
+     * 平台私有响应字段，各平台按需填充，调用方按需取用，不存在时为 null。
+     * 示例：
+     *   Deepseek reasoner → {"reasoning_content": "...", "cache_hit_tokens": 128}
+     *   未来平台的私有字段同理
      */
-    private String reasoningContent;
-
-    /**
-     * KV 缓存命中 token 数（仅 Deepseek 返回，命中可降低计费；其余平台为 0）
-     */
-    private int cacheHitTokens;
+    private Map<String, Object> extraData;
 }
 
