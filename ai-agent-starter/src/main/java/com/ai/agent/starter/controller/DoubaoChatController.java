@@ -64,7 +64,7 @@ public class DoubaoChatController {
         try {
             LlmResponse response = doubaoService.chat(toServiceRequest(req));
             log.info("[Doubao-chat] 处理完成, response={}", response);
-            return Result.success(toVO(response, req.getEndpointId()));
+            return Result.success(toVO(response));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
@@ -212,10 +212,10 @@ public class DoubaoChatController {
         return input;
     }
 
-    private DoubaoResponse toVO(LlmResponse response, String endpointId) {
+    private DoubaoResponse toVO(LlmResponse response) {
         return DoubaoResponse.builder()
                 .content(response.getContent())
-                .endpointId(endpointId)
+                .endpointId(response.getModelCode())
                 .inputTokens(response.getInputTokens())
                 .outputTokens(response.getOutputTokens())
                 .finishReason(response.getFinishReason())

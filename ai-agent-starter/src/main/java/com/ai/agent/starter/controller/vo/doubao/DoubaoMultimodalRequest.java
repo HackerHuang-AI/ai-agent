@@ -1,7 +1,6 @@
 package com.ai.agent.starter.controller.vo.doubao;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
@@ -21,21 +20,18 @@ import java.util.List;
 public class DoubaoMultimodalRequest {
 
     /**
-     * API Key
+     * API Key，可选；为空时从 Nacos ai-agent-doubao.json 的 multimodal 配置兖底
      */
-    @NotBlank(message = "apiKey 不能为空")
     private String apiKey;
 
     /**
-     * API 请求地址，如 https://ark.cn-beijing.volces.com/api/v3/responses
+     * API 请求地址，可选；为空时从 Nacos 兖底
      */
-    @NotBlank(message = "endpoint 不能为空")
     private String endpoint;
 
     /**
-     * 豆包模型接入点 ID，如 ep-xxxxxxxx
+     * 豆包模型接入点 ID，可选；为空时从 Nacos 兖底
      */
-    @NotBlank(message = "model 不能为空")
     private String model;
 
     /**

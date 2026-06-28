@@ -2,19 +2,14 @@ package com.ai.agent.starter.handler;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.starter.common.Result;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.LocaleResolver;
 
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -28,27 +23,16 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestControllerAdvice
-@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-    private final MessageSource messageSource;
-    private final LocaleResolver localeResolver;
-
     /**
-     * 处理业务异常（BizException），按请求语言解析 i18n 描述，携带 errorCode 返回。
+     * 处理业务异常（BizException），直接使用异常 message 返回，平台错误信息已在构造时拼入。
      */
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(BizException.class)
-    public Result<Void> handleBizException(BizException ex, HttpServletRequest request) {
-        Locale locale = localeResolver.resolveLocale(request);
-        String message;
-        try {
-            message = messageSource.getMessage(ex.getErrorCode().getMessageKey(), ex.getArgs(), locale);
-        } catch (Exception e) {
-            message = ex.getErrorCode().getDefaultMessage();
-        }
-        log.warn("[业务异常] errorCode={}, message={}", ex.getErrorCode().getCode(), message);
-        return Result.error(ex.getErrorCode(), message);
+    public Result<Void> handleBizException(BizException ex) {
+        log.error("[业务异常] errorCode={}, message={}", ex.getErrorCode().getCode(), ex.getMessage());
+        return Result.error(ex.getErrorCode(), ex.getMessage());
     }
 
     /**
@@ -60,7 +44,7 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
-        log.warn("[参数校验失败] {}", message);
+        log.error("[参数校验失败] {}", message);
         return Result.error(message);
     }
 
@@ -70,7 +54,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(IllegalArgumentException.class)
     public Result<Void> handleIllegalArgumentException(IllegalArgumentException ex) {
-        log.warn("[非法参数] {}", ex.getMessage());
+        log.error("[非法参数] {}", ex.getMessage());
         return Result.error(ex.getMessage());
     }
 

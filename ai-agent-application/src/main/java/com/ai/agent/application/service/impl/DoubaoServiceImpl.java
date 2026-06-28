@@ -1,5 +1,6 @@
 package com.ai.agent.application.service.impl;
 
+import com.ai.agent.application.bo.DoubaoConfig;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
@@ -7,11 +8,14 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.infrastructure.config.NacosDataId;
+import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.ai.agent.infrastructure.utils.OkHttpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -52,6 +56,7 @@ public class DoubaoServiceImpl implements LlmService {
 
     @Override
     public LlmResponse chat(LlmRequest request) {
+        fillChatDefaults(request);
         log.info("[Doubao-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
@@ -63,7 +68,13 @@ public class DoubaoServiceImpl implements LlmService {
 
         try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
             String responseBody = response.body() != null ? response.body().string() : "";
-            if (!response.isSuccessful() || responseBody.isEmpty()) {
+            if (!response.isSuccessful()) {
+                String platformMsg = extractErrorMessage(responseBody);
+                log.error("[Doubao-chat] HTTP 失败, httpStatus={}, platformError={}", response.code(), platformMsg);
+                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+            }
+            if (responseBody.isEmpty()) {
+                log.error("[Doubao-chat] 响应体为空");
                 throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
             LlmResponse result = parseResponse(responseBody, request.getModelCode());
@@ -80,6 +91,7 @@ public class DoubaoServiceImpl implements LlmService {
 
     @Override
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
+        fillChatDefaults(request);
         String requestBody = buildRequestBody(request, true);
         log.info("[Doubao-stream] 开始调用, request={}", request);
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
@@ -95,7 +107,9 @@ public class DoubaoServiceImpl implements LlmService {
 
                 try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
-                        log.error("[Doubao-stream] HTTP 失败,  code={}", response.code());
+                        String errBody = response.body() != null ? response.body().string() : "";
+                        log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
+                                response.code(), extractErrorMessage(errBody));
                         chunkConsumer.accept(null);
                         return;
                     }
@@ -118,6 +132,28 @@ public class DoubaoServiceImpl implements LlmService {
      * 支持图片+文本混合输入，调用 /v3/responses 协议
      */
     public LlmResponse multimodalChat(String model, List<Map<String, Object>> input, String apiKey, String endpoint) {
+        // 第一步：只在有字段为空时才读 Nacos
+        DoubaoConfig cfg = null;
+        if (StringUtils.isBlank(apiKey) || StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) {
+            cfg = getMultimodalConfig();
+        }
+        // 第二步：入参为空时用 Nacos 补
+        if (StringUtils.isBlank(apiKey))   apiKey   = cfg != null ? cfg.getApiKey()   : null;
+        if (StringUtils.isBlank(endpoint)) endpoint = cfg != null ? cfg.getEndpoint() : null;
+        if (StringUtils.isBlank(model))    model    = cfg != null ? cfg.getModel()    : null;
+        // 第三步：补完后校验必填项
+        if (StringUtils.isBlank(apiKey)) {
+            log.error("[Doubao-multimodal] apiKey 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        if (StringUtils.isBlank(endpoint)) {
+            log.error("[Doubao-multimodal] endpoint 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        if (StringUtils.isBlank(model)) {
+            log.error("[Doubao-multimodal] model 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
         Map<String, Object> bodyMap = new LinkedHashMap<>();
         bodyMap.put("model", model);
         bodyMap.put("input", input);
@@ -135,8 +171,13 @@ public class DoubaoServiceImpl implements LlmService {
 
             try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful() || responseBody.isEmpty()) {
-                    log.error("[Doubao-multimodal] HTTP 失败, body={}",responseBody);
+                if (!response.isSuccessful()) {
+                    String platformMsg = extractErrorMessage(responseBody);
+                    log.error("[Doubao-multimodal] HTTP 失败, httpStatus={}, platformError={}", response.code(), platformMsg);
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+                }
+                if (responseBody.isEmpty()) {
+                    log.error("[Doubao-multimodal] 响应体为空");
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
                 LlmResponse result = parseMultimodalResponse(responseBody, model);
@@ -260,6 +301,63 @@ public class DoubaoServiceImpl implements LlmService {
             log.error("[Doubao-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
+    }
+
+    // ==================== Nacos 兜底 ====================
+
+    /**
+     * chat / chatStream 入参兜底：用户传了用用户的，没传从 Nacos chat 配置补，补完仍空则 log + 抛参数异常。
+     */
+    private void fillChatDefaults(LlmRequest request) {
+        // 第一步：只在有字段为空时才读 Nacos（避免不必要的 IO）
+        DoubaoConfig cfg = null;
+        if (StringUtils.isBlank(request.getApiKey())
+                || StringUtils.isBlank(request.getEndpoint())
+                || StringUtils.isBlank(request.getModelCode())) {
+            cfg = getChatConfig();
+        }
+        // 第二步：入参为空时用 Nacos 补
+        if (StringUtils.isBlank(request.getApiKey()))
+            request.setApiKey(cfg != null ? cfg.getApiKey() : null);
+        if (StringUtils.isBlank(request.getEndpoint()))
+            request.setEndpoint(cfg != null ? cfg.getEndpoint() : null);
+        if (StringUtils.isBlank(request.getModelCode()))
+            request.setModelCode(cfg != null ? cfg.getEndpointId() : null);
+        // 第三步：补完后校验必填项
+        if (StringUtils.isBlank(request.getApiKey())) {
+            log.error("[Doubao-chat] apiKey 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        if (StringUtils.isBlank(request.getEndpoint())) {
+            log.error("[Doubao-chat] endpoint 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        if (StringUtils.isBlank(request.getModelCode())) {
+            log.error("[Doubao-chat] endpointId 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+    }
+
+    private DoubaoConfig getChatConfig() {
+        return NacosConfigUtil.getObject(NacosDataId.AI_AGENT_DOUBAO, "chat", DoubaoConfig.class);
+    }
+
+    private DoubaoConfig getMultimodalConfig() {
+        return NacosConfigUtil.getObject(NacosDataId.AI_AGENT_DOUBAO, "multimodal", DoubaoConfig.class);
+    }
+
+    private String extractErrorMessage(String responseBody) {
+        try {
+            JsonNode root = MAPPER.readTree(responseBody);
+            String msg = root.path("error").path("message").asText("");
+            return msg.isEmpty() ? truncate(responseBody) : msg;
+        } catch (Exception e) {
+            return truncate(responseBody);
+        }
+    }
+
+    private static String truncate(String s) {
+        return s.length() > 200 ? s.substring(0, 200) + "..." : s;
     }
 
     private LlmResponse parseMultimodalResponse(String responseJson, String model) {

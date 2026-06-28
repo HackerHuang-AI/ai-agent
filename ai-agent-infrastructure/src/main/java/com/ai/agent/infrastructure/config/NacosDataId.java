@@ -23,6 +23,9 @@ public enum NacosDataId {
     /** LLM 流式线程池参数配置，对应 Nacos 上的 ai-agent-thread-pool.json */
     AI_AGENT_THREAD_POOL("ai-agent-thread-pool.json"),
 
+    /** 豆包平台默认凭证配置，对应 Nacos 上的 ai-agent-doubao.json */
+    AI_AGENT_DOUBAO("ai-agent-doubao.json"),
+
     ;
 
     // ==================== 构造 ====================

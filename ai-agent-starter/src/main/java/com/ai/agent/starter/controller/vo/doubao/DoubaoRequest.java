@@ -1,7 +1,6 @@
 package com.ai.agent.starter.controller.vo.doubao;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
@@ -21,22 +20,18 @@ import java.util.List;
 public class DoubaoRequest {
 
     /**
-     * API Key
+     * API Key，可选；为空时从 Nacos ai-agent-doubao.json 的 chat 配置兖底
      */
-    @NotBlank(message = "apiKey 不能为空")
     private String apiKey;
 
     /**
-     * API 请求地址
+     * API 请求地址，可选；为空时从 Nacos 兖底
      */
-    @NotBlank(message = "endpoint 不能为空")
     private String endpoint;
 
     /**
-     * 豆包模型接入点 ID，对应火山方舟控制台的 endpoint_id，如 ep-xxxxxxxx
-     * 与其他平台用 modelCode 不同，豆包通过 endpointId 路由模型
+     * 豆包模型接入点 ID，可选；为空时从 Nacos 兖底。对应火山方舟控制台的 endpoint_id，如 ep-xxxxxxxx
      */
-    @NotBlank(message = "endpointId 不能为空")
     private String endpointId;
 
     /**

@@ -26,5 +26,15 @@ public class BizException extends RuntimeException {
         this.errorCode = errorCode;
         this.args = args;
     }
+
+    /**
+     * 携带平台原始错误信息的构造器。
+     * platformDetail 会拼接到 message 中，由 GlobalExceptionHandler 通过 getMessage() 透传给调用方。
+     */
+    public BizException(ErrorCodeEnum errorCode, String platformDetail) {
+        super(errorCode.getDefaultMessage() + ": " + platformDetail);
+        this.errorCode = errorCode;
+        this.args = null;
+    }
 }
 
