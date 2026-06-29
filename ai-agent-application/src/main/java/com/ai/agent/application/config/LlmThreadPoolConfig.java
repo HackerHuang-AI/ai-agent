@@ -49,8 +49,21 @@ public class LlmThreadPoolConfig {
     // ==================== 线程池 key，与 Nacos JSON 中的 key 对应 ====================
     private static final String DOUBAO_POOL_KEY   = "doubao-stream-pool";
     private static final String DEEPSEEK_POOL_KEY = "deepseek-stream-pool";
+    private static final String QWEN_POOL_KEY     = "qwen-stream-pool";
+    private static final String ZHIPU_POOL_KEY    = "zhipu-stream-pool";
+    private static final String MOONSHOT_POOL_KEY  = "moonshot-stream-pool";
+    private static final String OPENAI_POOL_KEY    = "openai-stream-pool";
+    private static final String ANTHROPIC_POOL_KEY = "anthropic-stream-pool";
+    private static final String GEMINI_POOL_KEY    = "gemini-stream-pool";
+    private static final String MIMO_POOL_KEY      = "mimo-stream-pool";
+    private static final String MINIMAX_POOL_KEY   = "minimax-stream-pool";
+    private static final String OLLAMA_POOL_KEY    = "ollama-stream-pool";
+    private static final String QIANFAN_POOL_KEY   = "qianfan-stream-pool";
+    private static final String TOKENHUB_POOL_KEY  = "tokenhub-stream-pool";
+    private static final String HY_TP_POOL_KEY     = "hy-tokenplan-stream-pool";
+    private static final String DS_TP_POOL_KEY     = "dashscope-tokenplan-stream-pool";
 
-    // ==================== 默认值（Nacos 未配置时兜底）====================
+    // ==================== 默认值（Nacos 未配置时兜底）========================
     private static final int DOUBAO_DEFAULT_CORE      = 10;
     private static final int DOUBAO_DEFAULT_MAX       = 50;
     private static final int DOUBAO_DEFAULT_QUEUE     = 100;
@@ -61,14 +74,47 @@ public class LlmThreadPoolConfig {
     private static final int DEEPSEEK_DEFAULT_QUEUE     = 50;
     private static final int DEEPSEEK_DEFAULT_KEEPALIVE = 60;
 
+    private static final int QWEN_DEFAULT_CORE      = 5;
+    private static final int QWEN_DEFAULT_MAX       = 30;
+    private static final int QWEN_DEFAULT_QUEUE     = 50;
+    private static final int QWEN_DEFAULT_KEEPALIVE = 60;
+
+    private static final int ZHIPU_DEFAULT_CORE      = 5;
+    private static final int ZHIPU_DEFAULT_MAX       = 30;
+    private static final int ZHIPU_DEFAULT_QUEUE     = 50;
+    private static final int ZHIPU_DEFAULT_KEEPALIVE = 60;
+
+    private static final int MOONSHOT_DEFAULT_CORE      = 5;
+    private static final int MOONSHOT_DEFAULT_MAX       = 30;
+    private static final int MOONSHOT_DEFAULT_QUEUE     = 50;
+    private static final int MOONSHOT_DEFAULT_KEEPALIVE = 60;
+
+    private static final int DEFAULT_CORE      = 5;
+    private static final int DEFAULT_MAX       = 30;
+    private static final int DEFAULT_QUEUE     = 50;
+    private static final int DEFAULT_KEEPALIVE = 60;
+
     @Autowired
     private NacosConfig nacosConfig;
 
-    // ==================== 线程池实例（热更新时直接操作这两个）====================
+    // ==================== 线程池实例（热更新时直接操作）====================
     private ThreadPoolExecutor doubaoExecutor;
     private ThreadPoolExecutor deepseekExecutor;
+    private ThreadPoolExecutor qwenExecutor;
+    private ThreadPoolExecutor zhipuExecutor;
+    private ThreadPoolExecutor moonshotExecutor;
+    private ThreadPoolExecutor openaiExecutor;
+    private ThreadPoolExecutor anthropicExecutor;
+    private ThreadPoolExecutor geminiExecutor;
+    private ThreadPoolExecutor mimoExecutor;
+    private ThreadPoolExecutor minimaxExecutor;
+    private ThreadPoolExecutor ollamaExecutor;
+    private ThreadPoolExecutor qianfanExecutor;
+    private ThreadPoolExecutor tokenhubExecutor;
+    private ThreadPoolExecutor hyTokenPlanExecutor;
+    private ThreadPoolExecutor dsTokenPlanExecutor;
 
-    // ==================== Bean 定义 ====================
+    // ==================== Bean 定义 =================================================
 
     @Bean("doubaoStreamExecutor")
     public ThreadPoolExecutor doubaoStreamExecutor() {
@@ -88,7 +134,94 @@ public class LlmThreadPoolConfig {
         return deepseekExecutor;
     }
 
-    // ==================== Nacos 热更新 ====================
+    @Bean("qwenStreamExecutor")
+    public ThreadPoolExecutor qwenStreamExecutor() {
+        ThreadPoolParam param = readParam(QWEN_POOL_KEY,
+                QWEN_DEFAULT_CORE, QWEN_DEFAULT_MAX, QWEN_DEFAULT_QUEUE, QWEN_DEFAULT_KEEPALIVE);
+        qwenExecutor = buildExecutor(param, QWEN_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成, param={}", QWEN_POOL_KEY, param);
+        return qwenExecutor;
+    }
+
+    @Bean("zhipuStreamExecutor")
+    public ThreadPoolExecutor zhipuStreamExecutor() {
+        ThreadPoolParam param = readParam(ZHIPU_POOL_KEY,
+                ZHIPU_DEFAULT_CORE, ZHIPU_DEFAULT_MAX, ZHIPU_DEFAULT_QUEUE, ZHIPU_DEFAULT_KEEPALIVE);
+        zhipuExecutor = buildExecutor(param, ZHIPU_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成, param={}", ZHIPU_POOL_KEY, param);
+        return zhipuExecutor;
+    }
+
+    @Bean("moonshotStreamExecutor")
+    public ThreadPoolExecutor moonshotStreamExecutor() {
+        ThreadPoolParam param = readParam(MOONSHOT_POOL_KEY,
+                MOONSHOT_DEFAULT_CORE, MOONSHOT_DEFAULT_MAX, MOONSHOT_DEFAULT_QUEUE, MOONSHOT_DEFAULT_KEEPALIVE);
+        moonshotExecutor = buildExecutor(param, MOONSHOT_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成, param={}", MOONSHOT_POOL_KEY, param);
+        return moonshotExecutor;
+    }
+
+    @Bean("openaiStreamExecutor")
+    public ThreadPoolExecutor openaiStreamExecutor() {
+        openaiExecutor = buildExecutor(readParam(OPENAI_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), OPENAI_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", OPENAI_POOL_KEY); return openaiExecutor;
+    }
+
+    @Bean("anthropicStreamExecutor")
+    public ThreadPoolExecutor anthropicStreamExecutor() {
+        anthropicExecutor = buildExecutor(readParam(ANTHROPIC_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), ANTHROPIC_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", ANTHROPIC_POOL_KEY); return anthropicExecutor;
+    }
+
+    @Bean("geminiStreamExecutor")
+    public ThreadPoolExecutor geminiStreamExecutor() {
+        geminiExecutor = buildExecutor(readParam(GEMINI_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), GEMINI_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", GEMINI_POOL_KEY); return geminiExecutor;
+    }
+
+    @Bean("mimoStreamExecutor")
+    public ThreadPoolExecutor mimoStreamExecutor() {
+        mimoExecutor = buildExecutor(readParam(MIMO_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), MIMO_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", MIMO_POOL_KEY); return mimoExecutor;
+    }
+
+    @Bean("minimaxStreamExecutor")
+    public ThreadPoolExecutor minimaxStreamExecutor() {
+        minimaxExecutor = buildExecutor(readParam(MINIMAX_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), MINIMAX_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", MINIMAX_POOL_KEY); return minimaxExecutor;
+    }
+
+    @Bean("ollamaStreamExecutor")
+    public ThreadPoolExecutor ollamaStreamExecutor() {
+        ollamaExecutor = buildExecutor(readParam(OLLAMA_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), OLLAMA_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", OLLAMA_POOL_KEY); return ollamaExecutor;
+    }
+
+    @Bean("qianfanStreamExecutor")
+    public ThreadPoolExecutor qianfanStreamExecutor() {
+        qianfanExecutor = buildExecutor(readParam(QIANFAN_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), QIANFAN_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", QIANFAN_POOL_KEY); return qianfanExecutor;
+    }
+
+    @Bean("tokenhubStreamExecutor")
+    public ThreadPoolExecutor tokenhubStreamExecutor() {
+        tokenhubExecutor = buildExecutor(readParam(TOKENHUB_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), TOKENHUB_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", TOKENHUB_POOL_KEY); return tokenhubExecutor;
+    }
+
+    @Bean("hyTokenPlanStreamExecutor")
+    public ThreadPoolExecutor hyTokenPlanStreamExecutor() {
+        hyTokenPlanExecutor = buildExecutor(readParam(HY_TP_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), HY_TP_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", HY_TP_POOL_KEY); return hyTokenPlanExecutor;
+    }
+
+    @Bean("dsTokenPlanStreamExecutor")
+    public ThreadPoolExecutor dsTokenPlanStreamExecutor() {
+        dsTokenPlanExecutor = buildExecutor(readParam(DS_TP_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), DS_TP_POOL_KEY);
+        log.info("[LlmThreadPool] {} 初始化完成", DS_TP_POOL_KEY); return dsTokenPlanExecutor;
+    }
+
+    // ==================== Nacos 热更新 =================================================
 
     /**
      * Bean 初始化完成后注册 Nacos listener。
@@ -109,6 +242,22 @@ public class LlmThreadPoolConfig {
                         DOUBAO_DEFAULT_CORE, DOUBAO_DEFAULT_MAX, DOUBAO_DEFAULT_QUEUE, DOUBAO_DEFAULT_KEEPALIVE);
                 hotUpdate(deepseekExecutor, DEEPSEEK_POOL_KEY,
                         DEEPSEEK_DEFAULT_CORE, DEEPSEEK_DEFAULT_MAX, DEEPSEEK_DEFAULT_QUEUE, DEEPSEEK_DEFAULT_KEEPALIVE);
+                hotUpdate(qwenExecutor,     QWEN_POOL_KEY,
+                        QWEN_DEFAULT_CORE, QWEN_DEFAULT_MAX, QWEN_DEFAULT_QUEUE, QWEN_DEFAULT_KEEPALIVE);
+                hotUpdate(zhipuExecutor,    ZHIPU_POOL_KEY,
+                        ZHIPU_DEFAULT_CORE, ZHIPU_DEFAULT_MAX, ZHIPU_DEFAULT_QUEUE, ZHIPU_DEFAULT_KEEPALIVE);
+                hotUpdate(moonshotExecutor,    MOONSHOT_POOL_KEY,
+                        MOONSHOT_DEFAULT_CORE, MOONSHOT_DEFAULT_MAX, MOONSHOT_DEFAULT_QUEUE, MOONSHOT_DEFAULT_KEEPALIVE);
+                hotUpdate(openaiExecutor,       OPENAI_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(anthropicExecutor,    ANTHROPIC_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(geminiExecutor,       GEMINI_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(mimoExecutor,         MIMO_POOL_KEY,      DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(minimaxExecutor,      MINIMAX_POOL_KEY,   DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(ollamaExecutor,       OLLAMA_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(qianfanExecutor,      QIANFAN_POOL_KEY,   DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(tokenhubExecutor,     TOKENHUB_POOL_KEY,  DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(hyTokenPlanExecutor,  HY_TP_POOL_KEY,     DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                hotUpdate(dsTokenPlanExecutor,  DS_TP_POOL_KEY,     DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
             }
         });
     }
@@ -145,6 +294,19 @@ public class LlmThreadPoolConfig {
     public void shutdown() {
         shutdownExecutor(doubaoExecutor,   DOUBAO_POOL_KEY);
         shutdownExecutor(deepseekExecutor, DEEPSEEK_POOL_KEY);
+        shutdownExecutor(qwenExecutor,     QWEN_POOL_KEY);
+        shutdownExecutor(zhipuExecutor,    ZHIPU_POOL_KEY);
+        shutdownExecutor(moonshotExecutor,   MOONSHOT_POOL_KEY);
+        shutdownExecutor(openaiExecutor,      OPENAI_POOL_KEY);
+        shutdownExecutor(anthropicExecutor,   ANTHROPIC_POOL_KEY);
+        shutdownExecutor(geminiExecutor,      GEMINI_POOL_KEY);
+        shutdownExecutor(mimoExecutor,        MIMO_POOL_KEY);
+        shutdownExecutor(minimaxExecutor,     MINIMAX_POOL_KEY);
+        shutdownExecutor(ollamaExecutor,      OLLAMA_POOL_KEY);
+        shutdownExecutor(qianfanExecutor,     QIANFAN_POOL_KEY);
+        shutdownExecutor(tokenhubExecutor,    TOKENHUB_POOL_KEY);
+        shutdownExecutor(hyTokenPlanExecutor, HY_TP_POOL_KEY);
+        shutdownExecutor(dsTokenPlanExecutor, DS_TP_POOL_KEY);
     }
 
     private void shutdownExecutor(ThreadPoolExecutor executor, String name) {

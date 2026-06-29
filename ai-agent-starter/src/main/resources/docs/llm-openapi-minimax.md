@@ -24,8 +24,8 @@ Content-Type: application/json
 
 | 接口 | 方法 | URL |
 |------|------|-----|
-| 对话补全 v2（推荐，OpenAI 兼容） | POST | `https://api.minimax.chat/v1/text/chatcompletion_v2` |
-| 对话补全 Pro（旧版自有协议） | POST | `https://api.minimax.chat/v1/text/chatcompletion_pro` |
+| 对话补全 v2（推荐，OpenAI 兼容） | POST | `https://api.minimaxi.com/v1/text/chatcompletion_v2` |
+| 对话补全 Pro（旧版自有协议） | POST | `https://api.minimaxi.com/v1/text/chatcompletion_pro` |
 
 > ✅ **推荐使用 v2 接口**，协议向 OpenAI 靠拢，但仍有差异，详见下方。
 > ⚠️ **旧版 Pro 接口**（chatcompletion_pro）使用完全不同的参数结构，本文档不覆盖。
@@ -154,5 +154,5 @@ data: [DONE]
 | 返回消息中的 `name` | 不存在 | 助手消息含 `name` 字段 |
 | `mask_sensitive_info` | 不存在 | **特有**，敏感信息脱敏开关 |
 | 流式 `usage` 时机 | 需额外参数开启 | 在最后正式帧自动附带 |
-| Endpoint 路径 | `/v1/chat/completions` | `/v1/text/chatcompletion_v2` |
+| Endpoint | `api.openai.com/v1/chat/completions` | `api.minimaxi.com/v1/text/chatcompletion_v2`（旧域名 `api.minimax.chat` 已废弃） |
 

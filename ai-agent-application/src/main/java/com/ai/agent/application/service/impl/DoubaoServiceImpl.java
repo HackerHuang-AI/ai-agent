@@ -154,6 +154,9 @@ public class DoubaoServiceImpl implements LlmService {
             log.error("[Doubao-multimodal] model 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
+        // ⚠️ 豆包 Responses API（/v3/responses）与 Chat Completions（/v3/chat/completions）是两套不同协议：
+        //   - Chat Completions 支持 temperature / top_p / top_k / max_tokens / frequency_penalty / presence_penalty
+        //   - Responses API 仅支持 model + input，不接受生成参数，如需控制生成行为，请改用 /chat 接口
         Map<String, Object> bodyMap = new LinkedHashMap<>();
         bodyMap.put("model", model);
         bodyMap.put("input", input);
@@ -231,6 +234,14 @@ public class DoubaoServiceImpl implements LlmService {
         }
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
+        }
+        // 豆包平台私有参数（通过 extraParams 透传），合并到请求体最外层。
+        // 支持的私有参数包括：
+        //   top_k            - Top-K 采样，限制每步候选词数量，0 表示不限制；范围 [0, ∞)
+        //   frequency_penalty - 频率惩罚，按词出现次数累加惩罚，降低重复率；范围 [-2, 2]
+        //   presence_penalty  - 存在惩罚，只要出现过就施加固定惩罚，鼓励话题多样性；范围 [-2, 2]
+        if (request.getExtraParams() != null) {
+            body.putAll(request.getExtraParams());
         }
         try {
             return MAPPER.writeValueAsString(body);

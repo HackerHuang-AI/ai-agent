@@ -27,57 +27,49 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Deepseek 平台对话接口
- *               凭证（apiKey / endpoint）由调用方通过请求体传入
+ * @Description: 智谱 GLM 平台对话接口
+ *               注意：apiKey 格式为 id.secret，服务层内部自动生成 JWT Token。
  *
- *               POST /api/deepseek/chat        同步对话，等待完整响应后返回
- *               POST /api/deepseek/chat/stream  流式对话，SSE 实时推送 chunk
+ *               POST /api/zhipu/chat        同步对话
+ *               POST /api/zhipu/chat/stream  流式对话，SSE 实时推送 chunk
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
- * @ClassName: DeepseekChatController
+ * @ClassName: ZhipuChatController
  * @Author: HUANGcong
- * @Date: Created in 2026/6/4
+ * @Date: Created in 2026/6/28
  * @Version: 1.0
  */
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/api/deepseek")
-public class DeepseekChatController {
+@RequestMapping("/api/zhipu")
+public class ZhipuChatController {
 
     private final LlmService llmService;
 
-    public DeepseekChatController(@Qualifier("deepseekServiceImpl") LlmService llmService) {
+    public ZhipuChatController(@Qualifier("zhipuServiceImpl") LlmService llmService) {
         this.llmService = llmService;
     }
 
-    /**
-     * 同步对话接口
-     * POST /api/deepseek/chat
-     */
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Deepseek-chat] 开始处理, req={}", req);
+        log.info("[Zhipu-chat] 开始处理, req={}", req);
         try {
             LlmResponse response = llmService.chat(toServiceRequest(req));
-            log.info("[Deepseek-chat] 处理完成, response={}", response);
+            log.info("[Zhipu-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Deepseek-chat] 系统异常", e);
+            log.error("[Zhipu-chat] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }
 
-    /**
-     * 流式对话接口，基于 SSE（Server-Sent Events）
-     * POST /api/deepseek/chat/stream
-     */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Deepseek-stream] 开始处理, req={}", req);
+        log.info("[Zhipu-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
         llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
@@ -89,21 +81,19 @@ public class DeepseekChatController {
                 try {
                     emitter.send(SseEmitter.event().name("done").data("[DONE]"));
                 } catch (IOException e) {
-                    log.warn("[Deepseek-stream] 发送 done 事件失败, model={}", tag);
+                    log.warn("[Zhipu-stream] 发送 done 事件失败, model={}", tag);
                 }
                 emitter.complete();
             } else {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));
                 } catch (IOException e) {
-                    log.warn("[Deepseek-stream] 客户端已断开, model={}", tag);
+                    log.warn("[Zhipu-stream] 客户端已断开, model={}", tag);
                     emitter.completeWithError(e);
                 }
             }
         };
     }
-
-    // ==================== 私有方法 ====================
 
     private LlmRequest toServiceRequest(LlmRequestVO vo) {
         List<LlmMessage> messages = vo.getMessages().stream()

@@ -28,6 +28,7 @@
         <dubbo.version>3.3.4</dubbo.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
+        <java-jwt.version>4.4.0</java-jwt.version>
     </properties>
 
     <dependencyManagement>
@@ -69,6 +70,12 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
+            </dependency>
+            <!-- java-jwt：智谱 GLM 本地生成 JWT Token -->
+            <dependency>
+                <groupId>com.auth0</groupId>
+                <artifactId>java-jwt</artifactId>
+                <version>${java-jwt.version}</version>
             </dependency>
 
             <!-- 内部 module 版本统一管理 -->

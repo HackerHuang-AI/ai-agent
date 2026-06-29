@@ -1,4 +1,4 @@
-package com.ai.agent.starter.controller.vo.deepseek;
+package com.ai.agent.starter.controller.vo;
 
 import com.ai.agent.application.enums.ContentType;
 import jakarta.validation.constraints.NotBlank;
@@ -6,33 +6,26 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
- * @Description: Deepseek 平台对话消息 VO
- *               支持多模态：TEXT / IMAGE（deepseek-chat），deepseek-reasoner 仅支持 TEXT
+ * @Description: LLM 统一对话消息 VO，所有平台共用
  * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo.deepseek
- * @ClassName: DeepseekMessageVO
+ * @Package: com.ai.agent.starter.controller.vo
+ * @ClassName: LlmMessageVO
  * @Author: HUANGcong
- * @Date: Created in 2026/6/4
+ * @Date: Created in 2026/6/28
  * @Version: 1.0
  */
 @Data
-public class DeepseekMessageVO {
+public class LlmMessageVO {
 
-    /**
-     * 消息角色：system / user / assistant
-     */
+    /** 消息角色：system / user / assistant */
     @NotBlank(message = "role 不能为空")
     private String role;
 
-    /**
-     * 内容类型：TEXT / IMAGE（FILE 和 VIDEO 不支持）
-     */
+    /** 内容类型：TEXT / IMAGE */
     @NotNull(message = "type 不能为空")
     private ContentType type;
 
-    /**
-     * 内容值：TEXT 为文本，IMAGE 为 URL 或 base64 data URI
-     */
+    /** 内容值：TEXT 为文本，IMAGE 为 URL 或 base64 data URI */
     @NotBlank(message = "value 不能为空")
     private String value;
 

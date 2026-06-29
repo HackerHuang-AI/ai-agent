@@ -1,7 +1,6 @@
 package com.ai.agent.starter.controller;
 
 import com.ai.agent.application.common.BizException;
-import com.ai.agent.application.enums.ContentType;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
@@ -9,7 +8,12 @@ import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
-import com.ai.agent.starter.controller.vo.doubao.*;
+import com.ai.agent.starter.controller.vo.LlmRequestVO;
+import com.ai.agent.starter.controller.vo.LlmResponseVO;
+import com.ai.agent.starter.controller.vo.doubao.DoubaoMultimodalContentVO;
+import com.ai.agent.starter.controller.vo.doubao.DoubaoMultimodalMessageVO;
+import com.ai.agent.starter.controller.vo.doubao.DoubaoMultimodalRequest;
+import com.ai.agent.starter.controller.vo.doubao.DoubaoMultimodalResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -28,7 +32,7 @@ import java.util.stream.Collectors;
 
 /**
  * @Description: 豆包（火山方舟）平台对话接口
- *               凭证（apiKey / endpoint）由调用方通过请求体传入
+ *               凭证（apiKey / endpoint）由调用方通过请求体传入，或从 Nacos 兜底。
  *
  *               POST /api/doubao/chat                    同步对话（Chat Completions 协议，纯文本）
  *               POST /api/doubao/chat/stream              流式对话，SSE 实时推送 chunk
@@ -59,8 +63,8 @@ public class DoubaoChatController {
      * POST /api/doubao/chat
      */
     @PostMapping("/chat")
-    public Result<DoubaoResponse> chat(@Valid @RequestBody DoubaoRequest req) {
-        log.info("[Doubao-chat] 开始处理, DoubaoRequest={}", req);
+    public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
+        log.info("[Doubao-chat] 开始处理, req={}", req);
         try {
             LlmResponse response = doubaoService.chat(toServiceRequest(req));
             log.info("[Doubao-chat] 处理完成, response={}", response);
@@ -78,10 +82,10 @@ public class DoubaoChatController {
      * POST /api/doubao/chat/stream
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chatStream(@Valid @RequestBody DoubaoRequest req) {
-        log.info("[Doubao-stream] 开始处理, DoubaoRequest={}", req);
+    public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
+        log.info("[Doubao-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        doubaoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getEndpointId()));
+        doubaoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -91,14 +95,14 @@ public class DoubaoChatController {
                 try {
                     emitter.send(SseEmitter.event().name("done").data("[DONE]"));
                 } catch (IOException e) {
-                    log.warn("[Doubao-stream] 发送 done 事件失败, endpointId={}", tag);
+                    log.warn("[Doubao-stream] 发送 done 事件失败, modelCode={}", tag);
                 }
                 emitter.complete();
             } else {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));
                 } catch (IOException e) {
-                    log.warn("[Doubao-stream] 客户端已断开, endpointId={}", tag);
+                    log.warn("[Doubao-stream] 客户端已断开, modelCode={}", tag);
                     emitter.completeWithError(e);
                 }
             }
@@ -111,7 +115,7 @@ public class DoubaoChatController {
      */
     @PostMapping("/multimodal/chat")
     public Result<DoubaoMultimodalResponse> multimodalChat(@Valid @RequestBody DoubaoMultimodalRequest req) {
-        log.info("[Doubao-multimodal] 开始处理, DoubaoMultimodalRequest={}", req);
+        log.info("[Doubao-multimodal] 开始处理, req={}", req);
         try {
             List<Map<String, Object>> input = buildMultimodalInput(req);
             LlmResponse response = doubaoService.multimodalChat(req.getModel(), input, req.getApiKey(), req.getEndpoint());
@@ -133,13 +137,6 @@ public class DoubaoChatController {
     /**
      * 多模态对话接口（form-data 上传本地图片）
      * POST /api/doubao/multimodal/chat/file
-     *
-     * form-data 字段：
-     *   image  → 图片文件（必填）
-     *   apiKey → API Key（必填）
-     *   endpoint → Responses API 地址（必填）
-     *   model  → 模型接入点 ID（必填）
-     *   text   → 提问文本（必填）
      */
     @PostMapping("/multimodal/chat/file")
     public Result<DoubaoMultimodalResponse> multimodalChatFile(
@@ -173,20 +170,33 @@ public class DoubaoChatController {
 
     // ==================== 私有方法 ====================
 
-    private LlmRequest toServiceRequest(DoubaoRequest vo) {
+    private LlmRequest toServiceRequest(LlmRequestVO vo) {
         List<LlmMessage> messages = vo.getMessages().stream()
                 .map(m -> LlmMessage.builder()
                         .role(m.getRole())
-                        .contents(List.of(new MessageContent(ContentType.TEXT, m.getContent(), null)))
+                        .contents(List.of(new MessageContent(m.getType(), m.getValue(), m.getDetail())))
                         .build())
                 .collect(Collectors.toList());
         return LlmRequest.builder()
                 .apiKey(vo.getApiKey())
                 .endpoint(vo.getEndpoint())
-                .modelCode(vo.getEndpointId())
+                .modelCode(vo.getModelCode())
                 .messages(messages)
                 .temperature(vo.getTemperature())
+                .topP(vo.getTopP())
                 .maxTokens(vo.getMaxTokens())
+                .extraParams(vo.getExtraParams())
+                .build();
+    }
+
+    private LlmResponseVO toVO(LlmResponse response) {
+        return LlmResponseVO.builder()
+                .content(response.getContent())
+                .modelCode(response.getModelCode())
+                .inputTokens(response.getInputTokens())
+                .outputTokens(response.getOutputTokens())
+                .finishReason(response.getFinishReason())
+                .extraData(response.getExtraData())
                 .build();
     }
 
@@ -194,7 +204,7 @@ public class DoubaoChatController {
         List<Map<String, Object>> input = new ArrayList<>();
         for (DoubaoMultimodalMessageVO msg : req.getInput()) {
             List<Map<String, Object>> contentList = new ArrayList<>();
-            for (var c : msg.getContent()) {
+            for (DoubaoMultimodalContentVO c : msg.getContent()) {
                 Map<String, Object> item = new HashMap<>();
                 item.put("type", c.getType());
                 if ("input_text".equals(c.getType())) {
@@ -210,16 +220,6 @@ public class DoubaoChatController {
             input.add(message);
         }
         return input;
-    }
-
-    private DoubaoResponse toVO(LlmResponse response) {
-        return DoubaoResponse.builder()
-                .content(response.getContent())
-                .endpointId(response.getModelCode())
-                .inputTokens(response.getInputTokens())
-                .outputTokens(response.getOutputTokens())
-                .finishReason(response.getFinishReason())
-                .build();
     }
 }
 

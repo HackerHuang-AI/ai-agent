@@ -26,6 +26,45 @@ public enum NacosDataId {
     /** 豆包平台默认凭证配置，对应 Nacos 上的 ai-agent-doubao.json */
     AI_AGENT_DOUBAO("ai-agent-doubao.json"),
 
+    /** Qwen（阿里云百炼）平台默认凭证配置，对应 Nacos 上的 ai-agent-qwen.json */
+    AI_AGENT_QWEN("ai-agent-qwen.json"),
+
+    /** 智谱 GLM 平台默认凭证配置，对应 Nacos 上的 ai-agent-zhipu.json */
+    AI_AGENT_ZHIPU("ai-agent-zhipu.json"),
+
+    /** Moonshot（Kimi）平台默认凭证配置，对应 Nacos 上的 ai-agent-moonshot.json */
+    AI_AGENT_MOONSHOT("ai-agent-moonshot.json"),
+
+    /** OpenAI 平台默认凭证配置，对应 Nacos 上的 ai-agent-openai.json */
+    AI_AGENT_OPENAI("ai-agent-openai.json"),
+
+    /** Anthropic（Claude）平台默认凭证配置，对应 Nacos 上的 ai-agent-anthropic.json */
+    AI_AGENT_ANTHROPIC("ai-agent-anthropic.json"),
+
+    /** Google Gemini 平台默认凭证配置，对应 Nacos 上的 ai-agent-gemini.json */
+    AI_AGENT_GEMINI("ai-agent-gemini.json"),
+
+    /** 小米 MiMo 平台默认凭证配置，对应 Nacos 上的 ai-agent-mimo.json */
+    AI_AGENT_MIMO("ai-agent-mimo.json"),
+
+    /** Minimax 平台默认凭证配置，对应 Nacos 上的 ai-agent-minimax.json */
+    AI_AGENT_MINIMAX("ai-agent-minimax.json"),
+
+    /** Ollama 本地部署默认配置，对应 Nacos 上的 ai-agent-ollama.json */
+    AI_AGENT_OLLAMA("ai-agent-ollama.json"),
+
+    /** 百度千帆平台默认凭证配置，对应 Nacos 上的 ai-agent-qianfan.json */
+    AI_AGENT_QIANFAN("ai-agent-qianfan.json"),
+
+    /** 腾讯 TokenHub 平台默认凭证配置，对应 Nacos 上的 ai-agent-tokenhub.json */
+    AI_AGENT_TOKENHUB("ai-agent-tokenhub.json"),
+
+    /** 腾讯混元 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-hy-tokenplan.json */
+    AI_AGENT_HY_TOKENPLAN("ai-agent-hy-tokenplan.json"),
+
+    /** 阿里云灵积 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-dashscope-tokenplan.json */
+    AI_AGENT_DASHSCOPE_TOKENPLAN("ai-agent-dashscope-tokenplan.json"),
+
     ;
 
     // ==================== 构造 ====================
