@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
  * LLM 平台路由器
  *
  * <p>根据调用方传入的 {@code platform} 字段，将请求路由到对应的平台 Service。
- * 供 {@link com.ai.agent.starter.provider.LlmFacadeImpl}（Dubbo Provider）等内部入口统一使用。</p>
  *
  * <h3>支持的 platform 值（不区分大小写）</h3>
  * <pre>

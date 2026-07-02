@@ -1,4 +1,4 @@
-package com.ai.agent.starter.provider;
+package com.ai.agent.starter.facade;
 
 import com.ai.agent.application.enums.ContentType;
 import com.ai.agent.application.model.llm.LlmMessage;
@@ -17,7 +17,7 @@ import org.apache.dubbo.config.annotation.DubboService;
 import java.util.List;
 
 /**
- * LlmFacade Dubbo Provider 实现
+ * LlmFacade Dubbo Provider 实现。
  *
  * <p>ai-agent 对外暴露的 LLM 调用能力入口（Dubbo 协议），
  * 供 ai-knowledge、ai-analysis 等 Consumer 通过 @DubboReference 调用。</p>
