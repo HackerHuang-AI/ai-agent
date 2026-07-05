@@ -23,7 +23,6 @@
 | Ollama | OpenAI 兼容（本地） | `http://localhost:11434/api/chat` | 无（本地） | SSE / JSON stream | ⭐⭐ 中（本地部署，额外管理接口） |
 | Anthropic（Claude） | 自有协议 | `https://api.anthropic.com/v1/messages` | x-api-key（非 Bearer） | SSE（多事件类型） | ⭐⭐⭐ 高（Header/结构/流式均不同） |
 | Google（Gemini） | 自有 + OpenAI 兼容 | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | Bearer / URL 参数 | SSE / JSON 数组流 | ⭐⭐⭐ 高（原生协议结构差异大） |
-
 ---
 
 ## 二、认证方式对比
