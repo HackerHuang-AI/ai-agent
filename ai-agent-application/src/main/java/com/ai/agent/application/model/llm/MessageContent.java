@@ -1,6 +1,6 @@
 package com.ai.agent.application.model.llm;
 
-import com.ai.agent.application.enums.ContentType;
+import com.ai.agent.application.enums.ContentTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 public class MessageContent {
 
     /** 内容类型 */
-    private ContentType type;
+    private ContentTypeEnum type;
 
     /**
      * 内容值：
@@ -46,22 +46,22 @@ public class MessageContent {
 
     /** 便捷工厂方法：纯文本 */
     public static MessageContent ofText(String text) {
-        return new MessageContent(ContentType.TEXT, text, null);
+        return new MessageContent(ContentTypeEnum.TEXT, text, null);
     }
 
     /** 便捷工厂方法：图片 URL */
     public static MessageContent ofImage(String urlOrBase64) {
-        return new MessageContent(ContentType.IMAGE, urlOrBase64, null);
+        return new MessageContent(ContentTypeEnum.IMAGE, urlOrBase64, null);
     }
 
     /** 便捷工厂方法：文件（Base64 data URI + 文件名） */
     public static MessageContent ofFile(String dataUri, String fileName) {
-        return new MessageContent(ContentType.FILE, dataUri, fileName);
+        return new MessageContent(ContentTypeEnum.FILE, dataUri, fileName);
     }
 
     /** 便捷工厂方法：视频 URL 或 Base64 */
     public static MessageContent ofVideo(String urlOrBase64) {
-        return new MessageContent(ContentType.VIDEO, urlOrBase64, null);
+        return new MessageContent(ContentTypeEnum.VIDEO, urlOrBase64, null);
     }
 }
 

@@ -1,6 +1,6 @@
 package com.ai.agent.starter.facade;
 
-import com.ai.agent.application.enums.ContentType;
+import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
@@ -79,7 +79,7 @@ public class LlmFacadeImpl implements LlmFacade {
         return facadeMessages.stream()
                 .map(m -> LlmMessage.builder()
                         .role(m.getRole())
-                        .contents(List.of(new MessageContent(ContentType.TEXT, m.getContent(), null)))
+                        .contents(List.of(new MessageContent(ContentTypeEnum.TEXT, m.getContent(), null)))
                         .build())
                 .toList();
     }

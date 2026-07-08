@@ -14,7 +14,7 @@ package com.ai.agent.application.enums;
  * @Date: Created in 2026/6/2
  * @Version: 1.0
  */
-public enum ContentType {
+public enum ContentTypeEnum {
 
     /** 纯文本 */
     TEXT,

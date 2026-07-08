@@ -1,4 +1,4 @@
-package com.ai.agent.application.bo;
+package com.ai.agent.application.config.param;
 
 import lombok.Data;
 

@@ -1,4 +1,4 @@
-package com.ai.agent.infrastructure.config;
+package com.ai.agent.infrastructure.enums;
 
 /**
  * @Description: Nacos 配置文件 DataId 枚举，统一管理本服务在 Nacos 上注册的所有配置文件。
@@ -12,13 +12,13 @@ package com.ai.agent.infrastructure.config;
  * </ul>
  *
  * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config
- * @ClassName: NacosDataId
+ * @Package: com.ai.agent.infrastructure.enums
+ * @ClassName: NacosDataIdEnum
  * @Author: HUANGcong
  * @Date: Created in 2026/6/26
  * @Version: 1.0
  */
-public enum NacosDataId {
+public enum NacosDataIdEnum {
 
     /** LLM 流式线程池参数配置，对应 Nacos 上的 ai-agent-thread-pool.json */
     AI_AGENT_THREAD_POOL("ai-agent-thread-pool.json"),
@@ -65,18 +65,21 @@ public enum NacosDataId {
     /** 阿里云灵积 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-dashscope-tokenplan.json */
     AI_AGENT_DASHSCOPE_TOKENPLAN("ai-agent-dashscope-tokenplan.json"),
 
+    /** OkHttp 客户端参数 + 重试参数动态配置，对应 Nacos 上的 ai-agent-http.json */
+    AI_AGENT_HTTP("ai-agent-http.json"),
+
     ;
 
     // ==================== 构造 ====================
 
     private final String dataId;
 
-    NacosDataId(String dataId) {
+    NacosDataIdEnum(String dataId) {
         this.dataId = dataId;
     }
 
     /**
-     * 返回 Nacos 上的完整 DataId 字符串，如 {@code "ai-agent-retry.json"}。
+     * 返回 Nacos 上的完整 DataId 字符串，如 {@code "ai-agent-http.json"}。
      */
     public String dataId() {
         return dataId;

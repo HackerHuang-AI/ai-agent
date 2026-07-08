@@ -1,72 +1,64 @@
 package com.ai.agent.infrastructure.utils;
 
+import com.ai.agent.infrastructure.config.OkHttpConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
- * @Description: OkHttp工具类，支持同步/异步请求，适用于高并发场景
+ * @Description: OkHttp 工具类，支持同步/异步请求，适用于高并发场景。
+ *
+ * <p>Client 参数（超时、连接池）由 {@link OkHttpConfig} 统一管理，支持 Nacos 热更新：
+ * <ul>
+ *   <li>通用请求使用 {@code getClient()} 返回的 Client（readTimeout=15s）</li>
+ *   <li>LLM 请求使用 {@code getLlmClient()} 返回的 Client（readTimeout=120s）</li>
+ * </ul>
+ *
+ * <p>静态方法通过 Spring 注入 {@link OkHttpConfig} 实例后委托调用，与 {@link NacosConfigUtil} 保持一致的设计风格。
+ *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.infrastructure.utils
  * @ClassName: OkHttpUtil
  * @Author: HUANGcong
  * @Date: Created in 23:01 2026/4/12
- * @Version: 1.0
+ * @Version: 2.0
  */
 @Slf4j
+@Component
 public class OkHttpUtil {
 
-    private static final OkHttpClient CLIENT;
+    private static OkHttpConfig okHttpConfig;
 
-    /**
-     * LLM 专用 Client：readTimeout 放宽至 120s，适应大模型慢响应场景
-     * LLM 调用（GPT-4、Claude 等）响应时间可达 30-60s，通用 CLIENT 的 15s 会导致大量超时
-     */
-    private static final OkHttpClient LLM_CLIENT;
+    @Autowired
+    public void setOkHttpConfig(OkHttpConfig okHttpConfig) {
+        OkHttpUtil.okHttpConfig = okHttpConfig;
+    }
 
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
-    static {
-        // 高并发场景：最大空闲连接数50，保活时间5分钟
-        ConnectionPool connectionPool = new ConnectionPool(
-                50,
-                5,
-                TimeUnit.MINUTES
-        );
+    private OkHttpUtil() {}
 
-        CLIENT = new OkHttpClient.Builder()
-                .connectionPool(connectionPool)
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .writeTimeout(10, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
-                .protocols(java.util.Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
-                .build();
+    // ==================== 获取 Client ====================
 
-        // LLM 专用：共用连接池，只覆盖超时配置
-        LLM_CLIENT = CLIENT.newBuilder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .build();
-
-        log.info("OkHttpClient初始化完成，连接池配置: 最大空闲连接数=50, 保活时间=5分钟, 优先HTTP/2");
+    /** 获取通用 OkHttpClient（readTimeout=15s，热更新后自动切换到最新实例） */
+    public static OkHttpClient getClient() {
+        return okHttpConfig.getClient();
     }
 
-    private OkHttpUtil() {
+    /** 获取 LLM 专用 OkHttpClient（readTimeout=120s，热更新后自动切换到最新实例） */
+    public static OkHttpClient getLlmClient() {
+        return okHttpConfig.getLlmClient();
     }
 
     // ==================== 同步请求 ====================
 
     public static String get(String url) throws IOException {
-        Request request = new Request.Builder()
-                .url(url)
-                .get()
-                .build();
+        Request request = new Request.Builder().url(url).get().build();
         return executeRequest(request);
     }
 
@@ -77,10 +69,7 @@ public class OkHttpUtil {
 
     public static String post(String url, String jsonBody) throws IOException {
         RequestBody body = RequestBody.create(jsonBody, JSON_MEDIA_TYPE);
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
+        Request request = new Request.Builder().url(url).post(body).build();
         return executeRequest(request);
     }
 
@@ -92,10 +81,7 @@ public class OkHttpUtil {
 
     public static String postForm(String url, Map<String, String> formParams) throws IOException {
         RequestBody body = buildFormBody(formParams);
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
+        Request request = new Request.Builder().url(url).post(body).build();
         return executeRequest(request);
     }
 
@@ -107,10 +93,7 @@ public class OkHttpUtil {
 
     public static String put(String url, String jsonBody) throws IOException {
         RequestBody body = RequestBody.create(jsonBody, JSON_MEDIA_TYPE);
-        Request request = new Request.Builder()
-                .url(url)
-                .put(body)
-                .build();
+        Request request = new Request.Builder().url(url).put(body).build();
         return executeRequest(request);
     }
 
@@ -121,10 +104,7 @@ public class OkHttpUtil {
     }
 
     public static String delete(String url) throws IOException {
-        Request request = new Request.Builder()
-                .url(url)
-                .delete()
-                .build();
+        Request request = new Request.Builder().url(url).delete().build();
         return executeRequest(request);
     }
 
@@ -163,7 +143,7 @@ public class OkHttpUtil {
         long startTime = System.currentTimeMillis();
         log.debug("发送HTTP请求: {} {}", request.method(), request.url());
 
-        try (Response response = CLIENT.newCall(request).execute()) {
+        try (Response response = getClient().newCall(request).execute()) {
             long costTime = System.currentTimeMillis() - startTime;
 
             if (!response.isSuccessful()) {
@@ -177,7 +157,6 @@ public class OkHttpUtil {
 
             log.debug("HTTP请求成功: {} {}, 状态码: {}, 耗时: {}ms",
                     request.method(), request.url(), response.code(), costTime);
-
             return result;
         } catch (IOException e) {
             long costTime = System.currentTimeMillis() - startTime;
@@ -192,7 +171,7 @@ public class OkHttpUtil {
         log.debug("发送异步HTTP请求: {} {}", request.method(), request.url());
 
         CompletableFuture<String> future = new CompletableFuture<>();
-        CLIENT.newCall(request).enqueue(new Callback() {
+        getClient().newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
                 long costTime = System.currentTimeMillis() - startTime;
@@ -228,16 +207,7 @@ public class OkHttpUtil {
 
     public static Response executeRequestWithResponse(Request request) throws IOException {
         log.debug("发送HTTP请求(返回Response): {} {}", request.method(), request.url());
-        return CLIENT.newCall(request).execute();
-    }
-
-    public static OkHttpClient getClient() {
-        return CLIENT;
-    }
-
-    /** 返回 LLM 专用 Client（readTimeout=120s） */
-    public static OkHttpClient getLlmClient() {
-        return LLM_CLIENT;
+        return getClient().newCall(request).execute();
     }
 
     private static Request.Builder buildRequest(Request.Builder builder, Map<String, String> headers) {

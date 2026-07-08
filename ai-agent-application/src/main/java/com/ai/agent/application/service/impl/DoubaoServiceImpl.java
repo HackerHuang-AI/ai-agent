@@ -1,6 +1,6 @@
 package com.ai.agent.application.service.impl;
 
-import com.ai.agent.application.bo.DoubaoConfig;
+import com.ai.agent.application.bo.DoubaoBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
@@ -8,9 +8,9 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
-import com.ai.agent.infrastructure.config.NacosDataId;
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.infrastructure.utils.OkHttpUtil;
+import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -42,17 +42,20 @@ import java.util.function.Consumer;
 @Service
 public class DoubaoServiceImpl implements LlmService {
 
-    public DoubaoServiceImpl(@Qualifier("doubaoStreamExecutor") ExecutorService streamExecutor) {
+    public DoubaoServiceImpl(@Qualifier("doubaoStreamExecutor") ExecutorService streamExecutor,
+            OkHttpConfig okHttpConfig) {
         this.streamExecutor = streamExecutor;
+        this.okHttpConfig = okHttpConfig;
     }
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG = "[DONE]";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
+    
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ExecutorService streamExecutor;
+    private final OkHttpConfig okHttpConfig;
 
     @Override
     public LlmResponse chat(LlmRequest request) {
@@ -66,7 +69,7 @@ public class DoubaoServiceImpl implements LlmService {
                 .headers(Headers.of(buildHeaders(request.getApiKey())))
                 .build();
 
-        try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+        try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
             String responseBody = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
                 String platformMsg = extractErrorMessage(responseBody);
@@ -105,7 +108,7 @@ public class DoubaoServiceImpl implements LlmService {
                         .headers(Headers.of(buildHeaders(request.getApiKey())))
                         .build();
 
-                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
                         String errBody = response.body() != null ? response.body().string() : "";
                         log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
@@ -133,7 +136,7 @@ public class DoubaoServiceImpl implements LlmService {
      */
     public LlmResponse multimodalChat(String model, List<Map<String, Object>> input, String apiKey, String endpoint) {
         // 第一步：只在有字段为空时才读 Nacos
-        DoubaoConfig cfg = null;
+        DoubaoBO cfg = null;
         if (StringUtils.isBlank(apiKey) || StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) {
             cfg = getMultimodalConfig();
         }
@@ -172,7 +175,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .headers(Headers.of(buildHeaders(apiKey)))
                     .build();
 
-            try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
@@ -324,7 +327,7 @@ public class DoubaoServiceImpl implements LlmService {
      */
     private void fillChatDefaults(LlmRequest request) {
         // 第一步：只在有字段为空时才读 Nacos（避免不必要的 IO）
-        DoubaoConfig cfg = null;
+        DoubaoBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
@@ -352,12 +355,12 @@ public class DoubaoServiceImpl implements LlmService {
         }
     }
 
-    private DoubaoConfig getChatConfig() {
-        return NacosConfigUtil.getObject(NacosDataId.AI_AGENT_DOUBAO, "chat", DoubaoConfig.class);
+    private DoubaoBO getChatConfig() {
+        return NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "chat", DoubaoBO.class);
     }
 
-    private DoubaoConfig getMultimodalConfig() {
-        return NacosConfigUtil.getObject(NacosDataId.AI_AGENT_DOUBAO, "multimodal", DoubaoConfig.class);
+    private DoubaoBO getMultimodalConfig() {
+        return NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "multimodal", DoubaoBO.class);
     }
 
     private String extractErrorMessage(String responseBody) {

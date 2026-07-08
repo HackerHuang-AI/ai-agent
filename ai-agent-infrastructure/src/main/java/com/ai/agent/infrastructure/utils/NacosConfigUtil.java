@@ -1,7 +1,7 @@
 package com.ai.agent.infrastructure.utils;
 
 import com.ai.agent.infrastructure.config.NacosConfig;
-import com.ai.agent.infrastructure.config.NacosDataId;
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,11 +14,11 @@ import java.util.Set;
 
 /**
  * @Description: Nacos 配置静态访问工具类，对标 Lion 使用方式。
- *               调用方通过静态方法 + {@link NacosDataId} 枚举 + key 精确获取配置，支持热更新（Nacos 变更后立即生效，无需重启）。
+ *               调用方通过静态方法 + {@link NacosDataIdEnum} 枚举 + key 精确获取配置，支持热更新（Nacos 变更后立即生效，无需重启）。
  *
  * <p>设计规则：
  * <ul>
- *   <li>dataId 必须使用 {@link NacosDataId} 枚举，禁止直接传字符串</li>
+ *   <li>dataId 必须使用 {@link NacosDataIdEnum} 枚举，禁止直接传字符串</li>
  *   <li>dataId 不存在于缓存（未配置或未加入索引）→ 返回 defaultValue + warn 日志（非必要配置场景）</li>
  *   <li>dataId 存在但 key 不存在 → 抛 {@link IllegalStateException} + error 日志（配了就要配对）</li>
  *   <li>value 类型转换失败 → 抛 {@link IllegalStateException} + error 日志</li>
@@ -26,8 +26,8 @@ import java.util.Set;
  *
  * <pre>
  * 使用示例：
- *   int maxRetries = NacosConfigUtil.getInt(NacosDataId.AI_AGENT_RETRY, "maxRetries", 3);
- *   long interval  = NacosConfigUtil.getLong(NacosDataId.AI_AGENT_RETRY, "interval", 1000L);
+ *   int maxRetries = NacosConfigUtil.getInt(NacosDataIdEnum.AI_AGENT_RETRY, "maxRetries", 3);
+ *   long interval  = NacosConfigUtil.getLong(NacosDataIdEnum.AI_AGENT_RETRY, "interval", 1000L);
  * </pre>
  *
  * @ProjectName: ai-agent
@@ -60,7 +60,7 @@ public class NacosConfigUtil {
      * @param key          配置 key
      * @param defaultValue dataId 不存在于缓存时的兜底默认值
      */
-    public static String getString(NacosDataId dataId, String key, String defaultValue) {
+    public static String getString(NacosDataIdEnum dataId, String key, String defaultValue) {
         String value = getRaw(dataId, key, defaultValue);
         return value != null ? value : defaultValue;
     }
@@ -68,7 +68,7 @@ public class NacosConfigUtil {
     /**
      * 获取 int 配置
      */
-    public static int getInt(NacosDataId dataId, String key, int defaultValue) {
+    public static int getInt(NacosDataIdEnum dataId, String key, int defaultValue) {
         String value = getRaw(dataId, key, defaultValue);
         if (value == null) return defaultValue;
         try {
@@ -83,7 +83,7 @@ public class NacosConfigUtil {
     /**
      * 获取 long 配置
      */
-    public static long getLong(NacosDataId dataId, String key, long defaultValue) {
+    public static long getLong(NacosDataIdEnum dataId, String key, long defaultValue) {
         String value = getRaw(dataId, key, defaultValue);
         if (value == null) return defaultValue;
         try {
@@ -98,7 +98,7 @@ public class NacosConfigUtil {
     /**
      * 获取 double 配置
      */
-    public static double getDouble(NacosDataId dataId, String key, double defaultValue) {
+    public static double getDouble(NacosDataIdEnum dataId, String key, double defaultValue) {
         String value = getRaw(dataId, key, defaultValue);
         if (value == null) return defaultValue;
         try {
@@ -113,7 +113,7 @@ public class NacosConfigUtil {
     /**
      * 获取 boolean 配置（"true"/"false" 不区分大小写）
      */
-    public static boolean getBoolean(NacosDataId dataId, String key, boolean defaultValue) {
+    public static boolean getBoolean(NacosDataIdEnum dataId, String key, boolean defaultValue) {
         String value = getRaw(dataId, key, defaultValue);
         if (value == null) return defaultValue;
         String trimmed = value.trim();
@@ -135,7 +135,7 @@ public class NacosConfigUtil {
      * @param <T>    泛型
      * @return 解析后的对象；dataId 不存在时返回 null
      */
-    public static <T> T getObject(NacosDataId dataId, String key, Class<T> clazz) {
+    public static <T> T getObject(NacosDataIdEnum dataId, String key, Class<T> clazz) {
         String value = getRaw(dataId, key, null);
         if (value == null) return null;
         try {
@@ -150,7 +150,7 @@ public class NacosConfigUtil {
     /**
      * 获取泛型对象配置（适用于嵌套泛型，如 {@code Map<String, List<String>>}）
      */
-    public static <T> T getObject(NacosDataId dataId, String key, TypeReference<T> typeRef) {
+    public static <T> T getObject(NacosDataIdEnum dataId, String key, TypeReference<T> typeRef) {
         String value = getRaw(dataId, key, null);
         if (value == null) return null;
         try {
@@ -171,7 +171,7 @@ public class NacosConfigUtil {
      * @param <T>         泛型
      * @return 解析后的列表；dataId 不存在时返回空列表
      */
-    public static <T> List<T> getList(NacosDataId dataId, String key, Class<T> elementType) {
+    public static <T> List<T> getList(NacosDataIdEnum dataId, String key, Class<T> elementType) {
         String value = getRaw(dataId, key, Collections.emptyList());
         if (value == null) return Collections.emptyList();
         try {
@@ -194,7 +194,7 @@ public class NacosConfigUtil {
      * @param <V>      value 泛型
      * @return 解析后的 Map；dataId 不存在时返回空 Map
      */
-    public static <K, V> Map<K, V> getMap(NacosDataId dataId, String key, Class<K> keyClass, Class<V> valClass) {
+    public static <K, V> Map<K, V> getMap(NacosDataIdEnum dataId, String key, Class<K> keyClass, Class<V> valClass) {
         String value = getRaw(dataId, key, Collections.emptyMap());
         if (value == null) return Collections.emptyMap();
         try {
@@ -216,7 +216,7 @@ public class NacosConfigUtil {
      * @param <T>         泛型
      * @return 解析后的 Set；dataId 不存在时返回空 Set
      */
-    public static <T> Set<T> getSet(NacosDataId dataId, String key, Class<T> elementType) {
+    public static <T> Set<T> getSet(NacosDataIdEnum dataId, String key, Class<T> elementType) {
         List<T> list = getList(dataId, key, elementType);
         return list.isEmpty() ? Collections.emptySet() : Set.copyOf(list);
     }
@@ -233,7 +233,7 @@ public class NacosConfigUtil {
      * @throws IllegalArgumentException dataId 的 dataId() 字符串后缀不合法
      * @throws IllegalStateException    dataId 存在但 key 不存在
      */
-    private static String getRaw(NacosDataId dataId, String key, Object defaultValue) {
+    private static String getRaw(NacosDataIdEnum dataId, String key, Object defaultValue) {
         // 1. 校验 dataId 后缀（白名单校验，防止枚举值填错）
         String dataIdStr = dataId.dataId();
         boolean validSuffix = VALID_SUFFIXES.stream().anyMatch(dataIdStr::endsWith);

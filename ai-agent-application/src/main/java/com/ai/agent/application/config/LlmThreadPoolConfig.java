@@ -1,8 +1,8 @@
 package com.ai.agent.application.config;
 
-import com.ai.agent.application.bo.ThreadPoolParam;
+import com.ai.agent.application.config.param.ThreadPoolParam;
 import com.ai.agent.infrastructure.config.NacosConfig;
-import com.ai.agent.infrastructure.config.NacosDataId;
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -20,9 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>设计要点：
  * <ul>
- *   <li>两个业务线程池隔离：doubao-stream-pool / deepseek-stream-pool，防止慢任务拖垮快任务</li>
- *   <li>启动时从 Nacos {@code ai-agent-thread-pool.json} 读取参数，读不到则使用默认值</li>
- *   <li>Nacos 配置变更时，直接在 listener 回调里调 {@link NacosConfigUtil#getObject} 读最新值，热更新线程池参数，无需重启</li>
+ *   <li>数据驱动：平台配置收拢到内部枚举 {@link PoolDef}，新增平台只需加一行 enum + 一行 @Bean</li>
+ *   <li>启动时从 Nacos {@code ai-agent-thread-pool.json} 读取参数，读不到则使用 PoolDef 中的默认值</li>
+ *   <li>Nacos 配置变更时遍历枚举热更新所有线程池参数，无需重启</li>
  *   <li>队列使用内部类 {@link ResizableLinkedBlockingQueue}，支持运行时动态修改容量</li>
  *   <li>拒绝策略采用 CallerRunsPolicy：队列满时由调用方线程执行，起到背压效果，不丢任务</li>
  * </ul>
@@ -40,239 +42,155 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @ClassName: LlmThreadPoolConfig
  * @Author: HUANGcong
  * @Date: Created in 2026/6/26
- * @Version: 1.0
+ * @Version: 2.0
  */
 @Slf4j
 @Configuration
 public class LlmThreadPoolConfig {
 
-    // ==================== 线程池 key，与 Nacos JSON 中的 key 对应 ====================
-    private static final String DOUBAO_POOL_KEY   = "doubao-stream-pool";
-    private static final String DEEPSEEK_POOL_KEY = "deepseek-stream-pool";
-    private static final String QWEN_POOL_KEY     = "qwen-stream-pool";
-    private static final String ZHIPU_POOL_KEY    = "zhipu-stream-pool";
-    private static final String MOONSHOT_POOL_KEY  = "moonshot-stream-pool";
-    private static final String OPENAI_POOL_KEY    = "openai-stream-pool";
-    private static final String ANTHROPIC_POOL_KEY = "anthropic-stream-pool";
-    private static final String GEMINI_POOL_KEY    = "gemini-stream-pool";
-    private static final String MIMO_POOL_KEY      = "mimo-stream-pool";
-    private static final String MINIMAX_POOL_KEY   = "minimax-stream-pool";
-    private static final String OLLAMA_POOL_KEY    = "ollama-stream-pool";
-    private static final String QIANFAN_POOL_KEY   = "qianfan-stream-pool";
-    private static final String TOKENHUB_POOL_KEY  = "tokenhub-stream-pool";
-    private static final String HY_TP_POOL_KEY     = "hy-tokenplan-stream-pool";
-    private static final String DS_TP_POOL_KEY     = "dashscope-tokenplan-stream-pool";
+    // ==================== 平台线程池定义表 ====================
+    // 每行：nacosKey, beanName, defaultCore, defaultMax, defaultQueue, defaultKeepAliveSeconds
+    // Nacos 有配置时用 Nacos 值，无配置时用此处默认值兜底
 
-    // ==================== 默认值（Nacos 未配置时兜底）========================
-    private static final int DOUBAO_DEFAULT_CORE      = 10;
-    private static final int DOUBAO_DEFAULT_MAX       = 50;
-    private static final int DOUBAO_DEFAULT_QUEUE     = 100;
-    private static final int DOUBAO_DEFAULT_KEEPALIVE = 60;
+    enum PoolDef {
+        DOUBAO          ("doubao-stream-pool",             10, 50, 100, 60),
+        DEEPSEEK        ("deepseek-stream-pool",            5, 30,  50, 60),
+        QWEN            ("qwen-stream-pool",                5, 30,  50, 60),
+        ZHIPU           ("zhipu-stream-pool",               5, 30,  50, 60),
+        MOONSHOT        ("moonshot-stream-pool",            5, 30,  50, 60),
+        OPENAI          ("openai-stream-pool",              5, 30,  50, 60),
+        ANTHROPIC       ("anthropic-stream-pool",           5, 30,  50, 60),
+        GEMINI          ("gemini-stream-pool",              5, 30,  50, 60),
+        MIMO            ("mimo-stream-pool",                5, 30,  50, 60),
+        MINIMAX         ("minimax-stream-pool",             5, 30,  50, 60),
+        OLLAMA          ("ollama-stream-pool",              5, 30,  50, 60),
+        QIANFAN         ("qianfan-stream-pool",             5, 30,  50, 60),
+        TOKENHUB        ("tokenhub-stream-pool",            5, 30,  50, 60),
+        HY_TOKENPLAN    ("hy-tokenplan-stream-pool",        5, 30,  50, 60),
+        DS_TOKENPLAN    ("dashscope-tokenplan-stream-pool", 5, 30,  50, 60),
+        ;
 
-    private static final int DEEPSEEK_DEFAULT_CORE      = 5;
-    private static final int DEEPSEEK_DEFAULT_MAX       = 30;
-    private static final int DEEPSEEK_DEFAULT_QUEUE     = 50;
-    private static final int DEEPSEEK_DEFAULT_KEEPALIVE = 60;
+        final String nacosKey;
+        final int defaultCore;
+        final int defaultMax;
+        final int defaultQueue;
+        final int defaultKeepAlive;
 
-    private static final int QWEN_DEFAULT_CORE      = 5;
-    private static final int QWEN_DEFAULT_MAX       = 30;
-    private static final int QWEN_DEFAULT_QUEUE     = 50;
-    private static final int QWEN_DEFAULT_KEEPALIVE = 60;
+        PoolDef(String nacosKey, int defaultCore, int defaultMax, int defaultQueue, int defaultKeepAlive) {
+            this.nacosKey         = nacosKey;
+            this.defaultCore      = defaultCore;
+            this.defaultMax       = defaultMax;
+            this.defaultQueue     = defaultQueue;
+            this.defaultKeepAlive = defaultKeepAlive;
+        }
+    }
 
-    private static final int ZHIPU_DEFAULT_CORE      = 5;
-    private static final int ZHIPU_DEFAULT_MAX       = 30;
-    private static final int ZHIPU_DEFAULT_QUEUE     = 50;
-    private static final int ZHIPU_DEFAULT_KEEPALIVE = 60;
+    // ==================== 线程池实例表（枚举驱动，替代 15 个独立字段）====================
 
-    private static final int MOONSHOT_DEFAULT_CORE      = 5;
-    private static final int MOONSHOT_DEFAULT_MAX       = 30;
-    private static final int MOONSHOT_DEFAULT_QUEUE     = 50;
-    private static final int MOONSHOT_DEFAULT_KEEPALIVE = 60;
-
-    private static final int DEFAULT_CORE      = 5;
-    private static final int DEFAULT_MAX       = 30;
-    private static final int DEFAULT_QUEUE     = 50;
-    private static final int DEFAULT_KEEPALIVE = 60;
+    private final Map<PoolDef, ThreadPoolExecutor> executors = new EnumMap<>(PoolDef.class);
 
     @Autowired
     private NacosConfig nacosConfig;
 
-    // ==================== 线程池实例（热更新时直接操作）====================
-    private ThreadPoolExecutor doubaoExecutor;
-    private ThreadPoolExecutor deepseekExecutor;
-    private ThreadPoolExecutor qwenExecutor;
-    private ThreadPoolExecutor zhipuExecutor;
-    private ThreadPoolExecutor moonshotExecutor;
-    private ThreadPoolExecutor openaiExecutor;
-    private ThreadPoolExecutor anthropicExecutor;
-    private ThreadPoolExecutor geminiExecutor;
-    private ThreadPoolExecutor mimoExecutor;
-    private ThreadPoolExecutor minimaxExecutor;
-    private ThreadPoolExecutor ollamaExecutor;
-    private ThreadPoolExecutor qianfanExecutor;
-    private ThreadPoolExecutor tokenhubExecutor;
-    private ThreadPoolExecutor hyTokenPlanExecutor;
-    private ThreadPoolExecutor dsTokenPlanExecutor;
-
-    // ==================== Bean 定义 =================================================
+    // ==================== Bean 定义（每个 @Bean 只有一行逻辑，职责纯粹）====================
 
     @Bean("doubaoStreamExecutor")
-    public ThreadPoolExecutor doubaoStreamExecutor() {
-        ThreadPoolParam param = readParam(DOUBAO_POOL_KEY,
-                DOUBAO_DEFAULT_CORE, DOUBAO_DEFAULT_MAX, DOUBAO_DEFAULT_QUEUE, DOUBAO_DEFAULT_KEEPALIVE);
-        doubaoExecutor = buildExecutor(param, DOUBAO_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成, param={}", DOUBAO_POOL_KEY, param);
-        return doubaoExecutor;
-    }
+    public ThreadPoolExecutor doubaoStreamExecutor()         { return createAndRegister(PoolDef.DOUBAO); }
 
     @Bean("deepseekStreamExecutor")
-    public ThreadPoolExecutor deepseekStreamExecutor() {
-        ThreadPoolParam param = readParam(DEEPSEEK_POOL_KEY,
-                DEEPSEEK_DEFAULT_CORE, DEEPSEEK_DEFAULT_MAX, DEEPSEEK_DEFAULT_QUEUE, DEEPSEEK_DEFAULT_KEEPALIVE);
-        deepseekExecutor = buildExecutor(param, DEEPSEEK_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成, param={}", DEEPSEEK_POOL_KEY, param);
-        return deepseekExecutor;
-    }
+    public ThreadPoolExecutor deepseekStreamExecutor()       { return createAndRegister(PoolDef.DEEPSEEK); }
 
     @Bean("qwenStreamExecutor")
-    public ThreadPoolExecutor qwenStreamExecutor() {
-        ThreadPoolParam param = readParam(QWEN_POOL_KEY,
-                QWEN_DEFAULT_CORE, QWEN_DEFAULT_MAX, QWEN_DEFAULT_QUEUE, QWEN_DEFAULT_KEEPALIVE);
-        qwenExecutor = buildExecutor(param, QWEN_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成, param={}", QWEN_POOL_KEY, param);
-        return qwenExecutor;
-    }
+    public ThreadPoolExecutor qwenStreamExecutor()           { return createAndRegister(PoolDef.QWEN); }
 
     @Bean("zhipuStreamExecutor")
-    public ThreadPoolExecutor zhipuStreamExecutor() {
-        ThreadPoolParam param = readParam(ZHIPU_POOL_KEY,
-                ZHIPU_DEFAULT_CORE, ZHIPU_DEFAULT_MAX, ZHIPU_DEFAULT_QUEUE, ZHIPU_DEFAULT_KEEPALIVE);
-        zhipuExecutor = buildExecutor(param, ZHIPU_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成, param={}", ZHIPU_POOL_KEY, param);
-        return zhipuExecutor;
-    }
+    public ThreadPoolExecutor zhipuStreamExecutor()          { return createAndRegister(PoolDef.ZHIPU); }
 
     @Bean("moonshotStreamExecutor")
-    public ThreadPoolExecutor moonshotStreamExecutor() {
-        ThreadPoolParam param = readParam(MOONSHOT_POOL_KEY,
-                MOONSHOT_DEFAULT_CORE, MOONSHOT_DEFAULT_MAX, MOONSHOT_DEFAULT_QUEUE, MOONSHOT_DEFAULT_KEEPALIVE);
-        moonshotExecutor = buildExecutor(param, MOONSHOT_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成, param={}", MOONSHOT_POOL_KEY, param);
-        return moonshotExecutor;
-    }
+    public ThreadPoolExecutor moonshotStreamExecutor()       { return createAndRegister(PoolDef.MOONSHOT); }
 
     @Bean("openaiStreamExecutor")
-    public ThreadPoolExecutor openaiStreamExecutor() {
-        openaiExecutor = buildExecutor(readParam(OPENAI_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), OPENAI_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", OPENAI_POOL_KEY); return openaiExecutor;
-    }
+    public ThreadPoolExecutor openaiStreamExecutor()         { return createAndRegister(PoolDef.OPENAI); }
 
     @Bean("anthropicStreamExecutor")
-    public ThreadPoolExecutor anthropicStreamExecutor() {
-        anthropicExecutor = buildExecutor(readParam(ANTHROPIC_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), ANTHROPIC_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", ANTHROPIC_POOL_KEY); return anthropicExecutor;
-    }
+    public ThreadPoolExecutor anthropicStreamExecutor()      { return createAndRegister(PoolDef.ANTHROPIC); }
 
     @Bean("geminiStreamExecutor")
-    public ThreadPoolExecutor geminiStreamExecutor() {
-        geminiExecutor = buildExecutor(readParam(GEMINI_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), GEMINI_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", GEMINI_POOL_KEY); return geminiExecutor;
-    }
+    public ThreadPoolExecutor geminiStreamExecutor()         { return createAndRegister(PoolDef.GEMINI); }
 
     @Bean("mimoStreamExecutor")
-    public ThreadPoolExecutor mimoStreamExecutor() {
-        mimoExecutor = buildExecutor(readParam(MIMO_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), MIMO_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", MIMO_POOL_KEY); return mimoExecutor;
-    }
+    public ThreadPoolExecutor mimoStreamExecutor()           { return createAndRegister(PoolDef.MIMO); }
 
     @Bean("minimaxStreamExecutor")
-    public ThreadPoolExecutor minimaxStreamExecutor() {
-        minimaxExecutor = buildExecutor(readParam(MINIMAX_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), MINIMAX_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", MINIMAX_POOL_KEY); return minimaxExecutor;
-    }
+    public ThreadPoolExecutor minimaxStreamExecutor()        { return createAndRegister(PoolDef.MINIMAX); }
 
     @Bean("ollamaStreamExecutor")
-    public ThreadPoolExecutor ollamaStreamExecutor() {
-        ollamaExecutor = buildExecutor(readParam(OLLAMA_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), OLLAMA_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", OLLAMA_POOL_KEY); return ollamaExecutor;
-    }
+    public ThreadPoolExecutor ollamaStreamExecutor()         { return createAndRegister(PoolDef.OLLAMA); }
 
     @Bean("qianfanStreamExecutor")
-    public ThreadPoolExecutor qianfanStreamExecutor() {
-        qianfanExecutor = buildExecutor(readParam(QIANFAN_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), QIANFAN_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", QIANFAN_POOL_KEY); return qianfanExecutor;
-    }
+    public ThreadPoolExecutor qianfanStreamExecutor()        { return createAndRegister(PoolDef.QIANFAN); }
 
     @Bean("tokenhubStreamExecutor")
-    public ThreadPoolExecutor tokenhubStreamExecutor() {
-        tokenhubExecutor = buildExecutor(readParam(TOKENHUB_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), TOKENHUB_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", TOKENHUB_POOL_KEY); return tokenhubExecutor;
-    }
+    public ThreadPoolExecutor tokenhubStreamExecutor()       { return createAndRegister(PoolDef.TOKENHUB); }
 
     @Bean("hyTokenPlanStreamExecutor")
-    public ThreadPoolExecutor hyTokenPlanStreamExecutor() {
-        hyTokenPlanExecutor = buildExecutor(readParam(HY_TP_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), HY_TP_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", HY_TP_POOL_KEY); return hyTokenPlanExecutor;
-    }
+    public ThreadPoolExecutor hyTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.HY_TOKENPLAN); }
 
     @Bean("dsTokenPlanStreamExecutor")
-    public ThreadPoolExecutor dsTokenPlanStreamExecutor() {
-        dsTokenPlanExecutor = buildExecutor(readParam(DS_TP_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE), DS_TP_POOL_KEY);
-        log.info("[LlmThreadPool] {} 初始化完成", DS_TP_POOL_KEY); return dsTokenPlanExecutor;
-    }
+    public ThreadPoolExecutor dsTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.DS_TOKENPLAN); }
 
-    // ==================== Nacos 热更新 =================================================
+    // ==================== Nacos 热更新 ====================
 
-    /**
-     * Bean 初始化完成后注册 Nacos listener。
-     * listener 回调时缓存已更新，直接调 NacosConfigUtil 读最新值，更新线程池参数。
-     */
     @PostConstruct
     public void registerNacosListener() {
-        nacosConfig.addListener(NacosDataId.AI_AGENT_THREAD_POOL.dataId(), new Listener() {
+        nacosConfig.addListener(NacosDataIdEnum.AI_AGENT_THREAD_POOL.dataId(), new Listener() {
             @Override
-            public Executor getExecutor() {
-                return null;
-            }
+            public Executor getExecutor() { return null; }
 
             @Override
             public void receiveConfigInfo(String configInfo) {
                 log.info("[LlmThreadPool] 收到 Nacos 配置变更，开始热更新");
-                hotUpdate(doubaoExecutor,   DOUBAO_POOL_KEY,
-                        DOUBAO_DEFAULT_CORE, DOUBAO_DEFAULT_MAX, DOUBAO_DEFAULT_QUEUE, DOUBAO_DEFAULT_KEEPALIVE);
-                hotUpdate(deepseekExecutor, DEEPSEEK_POOL_KEY,
-                        DEEPSEEK_DEFAULT_CORE, DEEPSEEK_DEFAULT_MAX, DEEPSEEK_DEFAULT_QUEUE, DEEPSEEK_DEFAULT_KEEPALIVE);
-                hotUpdate(qwenExecutor,     QWEN_POOL_KEY,
-                        QWEN_DEFAULT_CORE, QWEN_DEFAULT_MAX, QWEN_DEFAULT_QUEUE, QWEN_DEFAULT_KEEPALIVE);
-                hotUpdate(zhipuExecutor,    ZHIPU_POOL_KEY,
-                        ZHIPU_DEFAULT_CORE, ZHIPU_DEFAULT_MAX, ZHIPU_DEFAULT_QUEUE, ZHIPU_DEFAULT_KEEPALIVE);
-                hotUpdate(moonshotExecutor,    MOONSHOT_POOL_KEY,
-                        MOONSHOT_DEFAULT_CORE, MOONSHOT_DEFAULT_MAX, MOONSHOT_DEFAULT_QUEUE, MOONSHOT_DEFAULT_KEEPALIVE);
-                hotUpdate(openaiExecutor,       OPENAI_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(anthropicExecutor,    ANTHROPIC_POOL_KEY, DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(geminiExecutor,       GEMINI_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(mimoExecutor,         MIMO_POOL_KEY,      DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(minimaxExecutor,      MINIMAX_POOL_KEY,   DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(ollamaExecutor,       OLLAMA_POOL_KEY,    DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(qianfanExecutor,      QIANFAN_POOL_KEY,   DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(tokenhubExecutor,     TOKENHUB_POOL_KEY,  DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(hyTokenPlanExecutor,  HY_TP_POOL_KEY,     DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
-                hotUpdate(dsTokenPlanExecutor,  DS_TP_POOL_KEY,     DEFAULT_CORE, DEFAULT_MAX, DEFAULT_QUEUE, DEFAULT_KEEPALIVE);
+                executors.forEach((def, executor) -> hotUpdate(executor, def));
             }
         });
     }
 
-    private void hotUpdate(ThreadPoolExecutor executor, String poolKey,
-                           int defaultCore, int defaultMax, int defaultQueue, int defaultKeepAlive) {
+    // ==================== 优雅关闭 ====================
+
+    @PreDestroy
+    public void shutdown() {
+        executors.forEach((def, executor) -> shutdownExecutor(executor, def.nacosKey));
+    }
+
+    // ==================== 私有方法 ====================
+
+    private ThreadPoolExecutor createAndRegister(PoolDef def) {
+        ThreadPoolParam param = readParam(def);
+        ThreadPoolExecutor executor = buildExecutor(param, def.nacosKey);
+        executors.put(def, executor);
+        log.info("[LlmThreadPool] {} 初始化完成, param={}", def.nacosKey, param);
+        return executor;
+    }
+
+    private void hotUpdate(ThreadPoolExecutor executor, PoolDef def) {
         if (executor == null) return;
-        ThreadPoolParam newParam = readParam(poolKey, defaultCore, defaultMax, defaultQueue, defaultKeepAlive);
+        ThreadPoolParam newParam = readParam(def);
 
         int oldCore  = executor.getCorePoolSize();
         int oldMax   = executor.getMaximumPoolSize();
         int oldQueue = ((ResizableLinkedBlockingQueue<?>) executor.getQueue()).getCapacity();
 
-        // 先调 max 再调 core（避免 core > max 报错）；缩容时先调 core 再调 max
-        if (newParam.getMaxPoolSize() >= executor.getCorePoolSize()) {
+        // 参数无变化，跳过，避免无效更新和冗余日志
+        if (oldCore == newParam.getCorePoolSize()
+                && oldMax == newParam.getMaxPoolSize()
+                && oldQueue == newParam.getQueueCapacity()
+                && executor.getKeepAliveTime(TimeUnit.SECONDS) == newParam.getKeepAliveSeconds()) {
+            return;
+        }
+
+        // 扩容：新 core 超过当前 max 时，必须先扩 max，再改 core，否则 core > max 抛异常
+        // 缩容：新 max 小于当前 core 时，必须先缩 core，再缩 max，否则 max < core 抛异常
+        if (newParam.getCorePoolSize() > executor.getMaximumPoolSize()) {
             executor.setMaximumPoolSize(newParam.getMaxPoolSize());
             executor.setCorePoolSize(newParam.getCorePoolSize());
         } else {
@@ -283,30 +201,9 @@ public class LlmThreadPoolConfig {
         ((ResizableLinkedBlockingQueue<?>) executor.getQueue()).setCapacity(newParam.getQueueCapacity());
 
         log.info("[LlmThreadPool] {} 热更新完成: core {} → {}, max {} → {}, queue {} → {}",
-                poolKey, oldCore, newParam.getCorePoolSize(),
+                def.nacosKey, oldCore, newParam.getCorePoolSize(),
                 oldMax, newParam.getMaxPoolSize(),
                 oldQueue, newParam.getQueueCapacity());
-    }
-
-    // ==================== 优雅关闭 ====================
-
-    @PreDestroy
-    public void shutdown() {
-        shutdownExecutor(doubaoExecutor,   DOUBAO_POOL_KEY);
-        shutdownExecutor(deepseekExecutor, DEEPSEEK_POOL_KEY);
-        shutdownExecutor(qwenExecutor,     QWEN_POOL_KEY);
-        shutdownExecutor(zhipuExecutor,    ZHIPU_POOL_KEY);
-        shutdownExecutor(moonshotExecutor,   MOONSHOT_POOL_KEY);
-        shutdownExecutor(openaiExecutor,      OPENAI_POOL_KEY);
-        shutdownExecutor(anthropicExecutor,   ANTHROPIC_POOL_KEY);
-        shutdownExecutor(geminiExecutor,      GEMINI_POOL_KEY);
-        shutdownExecutor(mimoExecutor,        MIMO_POOL_KEY);
-        shutdownExecutor(minimaxExecutor,     MINIMAX_POOL_KEY);
-        shutdownExecutor(ollamaExecutor,      OLLAMA_POOL_KEY);
-        shutdownExecutor(qianfanExecutor,     QIANFAN_POOL_KEY);
-        shutdownExecutor(tokenhubExecutor,    TOKENHUB_POOL_KEY);
-        shutdownExecutor(hyTokenPlanExecutor, HY_TP_POOL_KEY);
-        shutdownExecutor(dsTokenPlanExecutor, DS_TP_POOL_KEY);
     }
 
     private void shutdownExecutor(ThreadPoolExecutor executor, String name) {
@@ -325,20 +222,17 @@ public class LlmThreadPoolConfig {
         }
     }
 
-    // ==================== 工具方法 ====================
-
-    private ThreadPoolParam readParam(String poolKey, int defaultCore, int defaultMax,
-                                      int defaultQueue, int defaultKeepAlive) {
+    private ThreadPoolParam readParam(PoolDef def) {
         ThreadPoolParam param = NacosConfigUtil.getObject(
-                NacosDataId.AI_AGENT_THREAD_POOL, poolKey, ThreadPoolParam.class);
+                NacosDataIdEnum.AI_AGENT_THREAD_POOL, def.nacosKey, ThreadPoolParam.class);
         if (param == null) {
             log.warn("[LlmThreadPool] Nacos 未配置 {}，使用默认参数 core={} max={} queue={} keepAlive={}s",
-                    poolKey, defaultCore, defaultMax, defaultQueue, defaultKeepAlive);
+                    def.nacosKey, def.defaultCore, def.defaultMax, def.defaultQueue, def.defaultKeepAlive);
             param = new ThreadPoolParam();
-            param.setCorePoolSize(defaultCore);
-            param.setMaxPoolSize(defaultMax);
-            param.setQueueCapacity(defaultQueue);
-            param.setKeepAliveSeconds(defaultKeepAlive);
+            param.setCorePoolSize(def.defaultCore);
+            param.setMaxPoolSize(def.defaultMax);
+            param.setQueueCapacity(def.defaultQueue);
+            param.setKeepAliveSeconds(def.defaultKeepAlive);
         }
         return param;
     }

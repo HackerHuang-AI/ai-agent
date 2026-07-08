@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
-import com.ai.agent.infrastructure.utils.OkHttpUtil;
+import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -46,13 +46,16 @@ public class DeepseekServiceImpl implements LlmService {
     /** extraParams 中的 skip_temperature 标志，用于 deepseek-reasoner 等不支持 temperature 的模型 */
     private static final String SKIP_TEMPERATURE_KEY = "skip_temperature";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
+    
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ExecutorService streamExecutor;
+    private final OkHttpConfig okHttpConfig;
 
-    public DeepseekServiceImpl(@Qualifier("deepseekStreamExecutor") ExecutorService streamExecutor) {
+    public DeepseekServiceImpl(@Qualifier("deepseekStreamExecutor") ExecutorService streamExecutor,
+            OkHttpConfig okHttpConfig) {
         this.streamExecutor = streamExecutor;
+        this.okHttpConfig = okHttpConfig;
     }
 
     @Override
@@ -66,7 +69,7 @@ public class DeepseekServiceImpl implements LlmService {
                 .headers(Headers.of(buildHeaders(request.getApiKey())))
                 .build();
 
-        try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+        try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
             String responseBody = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful() || responseBody.isEmpty()) {
                 log.error("[Deepseek-chat] HTTP 失败, code={}", response.code());
@@ -99,7 +102,7 @@ public class DeepseekServiceImpl implements LlmService {
                         .headers(Headers.of(buildHeaders(request.getApiKey())))
                         .build();
 
-                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
                         log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
                         chunkConsumer.accept("[ERROR]");

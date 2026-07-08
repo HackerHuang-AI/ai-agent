@@ -1,6 +1,6 @@
 package com.ai.agent.starter.controller.vo;
 
-import com.ai.agent.application.enums.ContentType;
+import com.ai.agent.application.enums.ContentTypeEnum;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -31,7 +31,7 @@ public class ChatMessageVO {
      * VIDEO → value 为视频 URL 或 "data:video/mp4;base64,xxx"
      */
     @NotNull(message = "type 不能为空")
-    private ContentType type;
+    private ContentTypeEnum type;
 
     /**
      * 内容值

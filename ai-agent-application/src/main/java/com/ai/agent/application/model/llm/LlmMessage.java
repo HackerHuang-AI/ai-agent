@@ -1,5 +1,6 @@
 package com.ai.agent.application.model.llm;
 
+import com.ai.agent.application.enums.ContentTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -64,7 +65,7 @@ public class LlmMessage {
      */
     public boolean isTextOnly() {
         if (contents == null || contents.isEmpty()) return true;
-        return contents.stream().allMatch(c -> c.getType() == com.ai.agent.application.enums.ContentType.TEXT);
+        return contents.stream().allMatch(c -> c.getType() == ContentTypeEnum.TEXT);
     }
 
     /**
@@ -73,7 +74,7 @@ public class LlmMessage {
     public String getTextContent() {
         if (contents == null || contents.isEmpty()) return "";
         return contents.stream()
-                .filter(c -> c.getType() == com.ai.agent.application.enums.ContentType.TEXT)
+                .filter(c -> c.getType() == ContentTypeEnum.TEXT)
                 .map(MessageContent::getValue)
                 .findFirst()
                 .orElse("");

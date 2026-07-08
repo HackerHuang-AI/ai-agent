@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
-import com.ai.agent.infrastructure.utils.OkHttpUtil;
+import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -51,16 +51,19 @@ public class AnthropicServiceImpl implements LlmService {
     private static final int    DEFAULT_MAX_TOKENS  = 4096;
 
     private static final MediaType    JSON        = MediaType.parse("application/json; charset=utf-8");
-    private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
+    
     private static final ObjectMapper MAPPER      = new ObjectMapper();
 
     private static final int  MAX_ATTEMPTS  = 3;
     private static final long BASE_DELAY_MS = 1000L;
 
     private final ExecutorService streamExecutor;
+    private final OkHttpConfig okHttpConfig;
 
-    public AnthropicServiceImpl(@Qualifier("anthropicStreamExecutor") ExecutorService streamExecutor) {
+    public AnthropicServiceImpl(@Qualifier("anthropicStreamExecutor") ExecutorService streamExecutor,
+            OkHttpConfig okHttpConfig) {
         this.streamExecutor = streamExecutor;
+        this.okHttpConfig = okHttpConfig;
     }
 
     // ==================== 同步对话 ====================
@@ -74,7 +77,7 @@ public class AnthropicServiceImpl implements LlmService {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -118,7 +121,7 @@ public class AnthropicServiceImpl implements LlmService {
             if (mdcContext != null) MDC.setContextMap(mdcContext);
             try {
                 Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
+                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
                         String errBody = response.body() != null ? response.body().string() : "";
                         log.error("[Anthropic-stream] HTTP 失败, code={}, error={}",
