@@ -98,6 +98,8 @@ public class DoubaoChatController {
                     log.warn("[Doubao-stream] 发送 done 事件失败, modelCode={}", tag);
                 }
                 emitter.complete();
+            } else if ("[ERROR]".equals(chunk)) {
+                emitter.completeWithError(new RuntimeException("LLM stream error"));
             } else {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));

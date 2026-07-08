@@ -110,17 +110,17 @@ public class DoubaoServiceImpl implements LlmService {
                         String errBody = response.body() != null ? response.body().string() : "";
                         log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
                                 response.code(), extractErrorMessage(errBody));
-                        chunkConsumer.accept(null);
+                        chunkConsumer.accept("[ERROR]");
                         return;
                     }
                     parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
             } catch (BizException e) {
                 log.error("[Doubao-stream] 业务异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } catch (IOException e) {
                 log.error("[Doubao-stream] IO 异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } finally {
                 MDC.clear();
             }

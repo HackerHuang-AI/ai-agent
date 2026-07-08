@@ -118,17 +118,17 @@ public class MinimaxServiceImpl implements LlmService {
                     if (!response.isSuccessful() || response.body() == null) {
                         String errBody = response.body() != null ? response.body().string() : "";
                         log.error("[Minimax-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                        chunkConsumer.accept(null);
+                        chunkConsumer.accept("[ERROR]");
                         return;
                     }
                     parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
             } catch (BizException e) {
                 log.error("[Minimax-stream] 业务异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } catch (IOException e) {
                 log.error("[Minimax-stream] IO 异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } finally {
                 MDC.clear();
             }

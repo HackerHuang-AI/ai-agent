@@ -113,17 +113,17 @@ public class OpenAiServiceImpl implements LlmService {
                     if (!response.isSuccessful() || response.body() == null) {
                         String errBody = response.body() != null ? response.body().string() : "";
                         log.error("[OpenAI-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                        chunkConsumer.accept(null);
+                        chunkConsumer.accept("[ERROR]");
                         return;
                     }
                     parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
             } catch (BizException e) {
                 log.error("[OpenAI-stream] 业务异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } catch (IOException e) {
                 log.error("[OpenAI-stream] IO 异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } finally {
                 MDC.clear();
             }

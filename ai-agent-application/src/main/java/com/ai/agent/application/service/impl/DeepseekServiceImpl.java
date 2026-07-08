@@ -43,7 +43,8 @@ public class DeepseekServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG = "[DONE]";
-    private static final String REASONER_MODEL = "deepseek-reasoner";
+    /** extraParams 中的 skip_temperature 标志，用于 deepseek-reasoner 等不支持 temperature 的模型 */
+    private static final String SKIP_TEMPERATURE_KEY = "skip_temperature";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final OkHttpClient HTTP_CLIENT = OkHttpUtil.getLlmClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -101,17 +102,17 @@ public class DeepseekServiceImpl implements LlmService {
                 try (Response response = HTTP_CLIENT.newCall(okRequest).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
                         log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
-                        chunkConsumer.accept(null);
+                        chunkConsumer.accept("[ERROR]");
                         return;
                     }
                     parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                 }
             } catch (BizException e) {
                 log.error("[Deepseek-stream] 业务异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } catch (IOException e) {
                 log.error("[Deepseek-stream] IO 异常", e);
-                chunkConsumer.accept(null);
+                chunkConsumer.accept("[ERROR]");
             } finally {
                 MDC.clear();
             }
@@ -128,8 +129,10 @@ public class DeepseekServiceImpl implements LlmService {
             body.put("stream_options", Map.of("include_usage", true));
         }
         body.put("messages", buildMessages(request));
-        // reasoner 模型不支持 temperature，自动跳过
-        if (request.getTemperature() != null && !REASONER_MODEL.equals(request.getModelCode())) {
+        // 读取 extraParams 中的 skip_temperature 标志：true 时跳过 temperature（如 deepseek-reasoner）
+        boolean skipTemperature = request.getExtraParams() != null
+                && Boolean.TRUE.equals(request.getExtraParams().get(SKIP_TEMPERATURE_KEY));
+        if (request.getTemperature() != null && !skipTemperature) {
             body.put("temperature", request.getTemperature());
         }
         if (request.getTopP() != null) {
@@ -137,6 +140,14 @@ public class DeepseekServiceImpl implements LlmService {
         }
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
+        }
+        if (request.getExtraParams() != null) {
+            request.getExtraParams().forEach((k, v) -> {
+                // skip_temperature 是框架内部控制标志，不透传到平台请求体
+                if (!SKIP_TEMPERATURE_KEY.equals(k)) {
+                    body.put(k, v);
+                }
+            });
         }
         try {
             return MAPPER.writeValueAsString(body);

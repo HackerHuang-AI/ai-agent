@@ -83,6 +83,8 @@ public class GeminiChatController {
                     log.warn("[Gemini-stream] 发送 done 事件失败, model={}", tag);
                 }
                 emitter.complete();
+            } else if ("[ERROR]".equals(chunk)) {
+                emitter.completeWithError(new RuntimeException("LLM stream error"));
             } else {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));

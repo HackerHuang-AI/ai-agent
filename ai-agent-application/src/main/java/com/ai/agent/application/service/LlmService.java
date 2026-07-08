@@ -26,11 +26,17 @@ public interface LlmService {
     LlmResponse chat(LlmRequest request);
 
     /**
-     * 流式调用 LLM，每收到一个 chunk 触发一次回调
-     * 流结束时 chunkConsumer 会收到 null
+     * 流式调用 LLM，每收到一个 chunk 触发一次回调。
+     *
+     * <p>结束信号约定：
+     * <ul>
+     *   <li>{@code null}      — 正常结束（流读完或 SSE [DONE]）</li>
+     *   <li>{@code "[ERROR]"} — 出错结束（HTTP 失败 / IO 异常 / 业务异常）</li>
+     *   <li>其他字符串       — 正常 chunk，直接透传给调用方</li>
+     * </ul>
      *
      * @param request       统一入参，stream 字段会被强制设为 true
-     * @param chunkConsumer 每个流式 chunk 的回调，null 表示流结束
+     * @param chunkConsumer 每个流式 chunk 的回调
      */
     void chatStream(LlmRequest request, Consumer<String> chunkConsumer);
 }
