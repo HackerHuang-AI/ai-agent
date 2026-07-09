@@ -24,14 +24,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>设计要点：
  * <ul>
  *   <li>单连接池：只维护一个基础 Client，连接池参数（maxIdleConnections / keepAliveMinutes）变更时重建</li>
- *   <li>{@link #getLlmClient()} 每次调用时在基础 Client 上 newBuilder() 叠加最新超时参数返回，
- *       LLM 专用超时热更新后下一次请求即生效，连接池始终只有一个，无切换抖动</li>
+ *   <li>{@link #getLlmClient()} / {@link #getLlmClient(String)} 每次调用时在基础 Client 上 newBuilder()
+ *       叠加最新超时参数返回，连接池始终只有一个，无切换抖动</li>
  *   <li>OkHttpClient.newBuilder() 复用父 Client 的连接池，不会创建新连接池</li>
- *   <li>重试参数（retry / llmRetry）读时生效，调用方通过 {@link #getRetryParam()} /
- *       {@link #getLlmRetryParam()} 实时读取，无需重建任何对象</li>
+ *   <li>OkHttp 连接参数来自 {@code ai-agent-http.json}；重试参数独立存放于 {@code ai-agent-retry.json}</li>
+ *   <li>重试参数读时生效，无需重建任何对象；平台专属超时同样支持按需读取</li>
  * </ul>
  *
- * <p>Nacos 配置示例（ai-agent-http.json）：
+ * <p>Nacos 配置示例（ai-agent-http.json）—— 只放网络连接参数：
  * <pre>{@code
  * {
  *   "okhttp": {
@@ -44,18 +44,18 @@ import java.util.concurrent.atomic.AtomicReference;
  *     "maxIdleConnections": 50,
  *     "keepAliveMinutes": 5
  *   },
- *   "retry": {
- *     "maxRetries": 3,
- *     "intervalMs": 500,
- *     "backoffMultiplier": 2.0,
- *     "maxWaitMs": 30000
- *   },
- *   "llmRetry": {
- *     "maxRetries": 2,
- *     "intervalMs": 1000,
- *     "backoffMultiplier": 2.0,
- *     "maxWaitMs": 60000
- *   }
+ *   "doubao": { "llmReadTimeoutSeconds": 180 },
+ *   "deepseek": { "llmReadTimeoutSeconds": 60 }
+ * }
+ * }</pre>
+ *
+ * <p>Nacos 配置示例（ai-agent-retry.json）—— 只放重试策略：
+ * <pre>{@code
+ * {
+ *   "default": { "maxRetries": 3, "intervalMs": 500, "backoffMultiplier": 2.0, "maxWaitMs": 30000 },
+ *   "llm":     { "maxRetries": 2, "intervalMs": 1000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 },
+ *   "doubao":  { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
+ *   "deepseek":{ "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
  * }
  * }</pre>
  *
@@ -70,14 +70,16 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class OkHttpConfig {
 
-    // ==================== Nacos key，与 ai-agent-http.json 中的 key 对应 ====================
-    private static final String OKHTTP_KEY    = "okhttp";
-    private static final String RETRY_KEY     = "retry";
-    private static final String LLM_RETRY_KEY = "llmRetry";
+    // ==================== Nacos key ====================
+    /** ai-agent-http.json 中 OkHttp 连接参数的 key */
+    private static final String OKHTTP_KEY       = "okhttp";
+    /** ai-agent-retry.json 中各重试块的 key */
+    private static final String RETRY_DEFAULT_KEY = "default";
+    private static final String RETRY_LLM_KEY     = "llm";
 
     // ==================== 默认参数（Nacos 未配置时兜底）====================
-    private static final OkHttpParam DEFAULT_OKHTTP_PARAM = new OkHttpParam();
-    private static final RetryParam  DEFAULT_RETRY_PARAM  = new RetryParam();
+    private static final OkHttpParam DEFAULT_OKHTTP_PARAM   = new OkHttpParam();
+    private static final RetryParam  DEFAULT_RETRY_PARAM    = new RetryParam();
     private static final RetryParam  DEFAULT_LLM_RETRY_PARAM;
 
     static {
@@ -136,7 +138,7 @@ public class OkHttpConfig {
     }
 
     /**
-     * 获取 LLM 专用 OkHttpClient（readTimeout=llmReadTimeoutSeconds）。
+     * 获取 LLM 专用 OkHttpClient，使用全局 LLM 超时参数。
      * 每次调用在基础 Client 上 newBuilder() 叠加当前超时参数，共享同一连接池。
      * Nacos 超时参数热更新后，下一次请求即使用新参数，无需重建 Client，无连接抖动。
      */
@@ -149,23 +151,58 @@ public class OkHttpConfig {
                 .build();
     }
 
-    // ==================== 对外暴露：获取重试参数（读时生效）====================
+    /**
+     * 获取指定平台的 LLM OkHttpClient，支持按平台独立配置超时参数。
+     *
+     * <p>查找顺序：
+     * <ol>
+     *   <li>读 Nacos {@code ai-agent-http.json} 中以 platform 命名的 key（如 {@code "doubao"}），
+     *       仅覆盖配置中出现的字段，未配置字段继承全局 okhttp 参数</li>
+     *   <li>无平台专属配置时，fallback 到全局 LLM 超时参数</li>
+     * </ol>
+     *
+     * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
+     */
+    public OkHttpClient getLlmClient(String platform) {
+        if (platform != null && !platform.isBlank()) {
+            OkHttpParam platformParam = NacosConfigUtil.getObject(
+                    NacosDataIdEnum.AI_AGENT_HTTP, platform.toLowerCase(), OkHttpParam.class);
+            if (platformParam != null) {
+                log.debug("[OkHttpConfig] 使用平台专属超时参数, platform={}", platform);
+                return baseClientRef.get().newBuilder()
+                        .connectTimeout(platformParam.getLlmConnectTimeoutSeconds(), TimeUnit.SECONDS)
+                        .readTimeout(platformParam.getLlmReadTimeoutSeconds(), TimeUnit.SECONDS)
+                        .writeTimeout(platformParam.getLlmWriteTimeoutSeconds(), TimeUnit.SECONDS)
+                        .build();
+            }
+        }
+        // 无平台专属配置，fallback 到全局 LLM 超时
+        return getLlmClient();
+    }
 
-    /** 获取通用请求重试参数，每次调用实时读 Nacos 缓存 */
+    // ==================== 对外暴露：获取重试参数（读 ai-agent-retry.json，读时生效）====================
+
+    /**
+     * 获取通用请求重试参数。
+     * 读 Nacos {@code ai-agent-retry.json} 中的 {@code "default"} key，未配置时使用代码默认值。
+     */
     public RetryParam getRetryParam() {
-        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, RETRY_KEY, RetryParam.class);
+        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
         if (param == null) {
-            log.debug("[OkHttpConfig] Nacos 未配置 retry，使用默认值");
+            log.debug("[OkHttpConfig] Nacos 未配置 retry.default，使用默认值");
             return DEFAULT_RETRY_PARAM;
         }
         return param;
     }
 
-    /** 获取 LLM 请求重试参数（全局兜底），每次调用实时读 Nacos 缓存 */
+    /**
+     * 获取 LLM 请求重试参数（全局兜底）。
+     * 读 Nacos {@code ai-agent-retry.json} 中的 {@code "llm"} key，未配置时使用代码默认值。
+     */
     public RetryParam getLlmRetryParam() {
-        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, LLM_RETRY_KEY, RetryParam.class);
+        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_RETRY, RETRY_LLM_KEY, RetryParam.class);
         if (param == null) {
-            log.debug("[OkHttpConfig] Nacos 未配置 llmRetry，使用默认值");
+            log.debug("[OkHttpConfig] Nacos 未配置 retry.llm，使用默认值");
             return DEFAULT_LLM_RETRY_PARAM;
         }
         return param;
@@ -174,39 +211,32 @@ public class OkHttpConfig {
     /**
      * 获取指定平台的 LLM 重试参数，支持按平台独立配置。
      *
-     * <p>查找顺序：
+     * <p>查找顺序（均读自 {@code ai-agent-retry.json}）：
      * <ol>
-     *   <li>读 Nacos {@code ai-agent-http.json} 中以 platform 命名的 key（如 {@code "doubao"}）</li>
-     *   <li>无平台专属配置时，fallback 到全局 {@code llmRetry} 配置</li>
+     *   <li>平台专属 key（如 {@code "doubao"}）</li>
+     *   <li>全局 LLM 兜底 key {@code "llm"}</li>
+     *   <li>代码默认值</li>
      * </ol>
-     *
-     * <p>Nacos 配置示例：
-     * <pre>{@code
-     * {
-     *   "llmRetry": { "maxRetries": 2, "intervalMs": 1000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 },
-     *   "doubao":   { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
-     *   "deepseek": { "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
-     * }
-     * }</pre>
      *
      * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
      */
     public RetryParam getLlmRetryParam(String platform) {
         if (platform != null && !platform.isBlank()) {
             RetryParam platformParam = NacosConfigUtil.getObject(
-                    NacosDataIdEnum.AI_AGENT_HTTP, platform.toLowerCase(), RetryParam.class);
+                    NacosDataIdEnum.AI_AGENT_RETRY, platform.toLowerCase(), RetryParam.class);
             if (platformParam != null) {
                 log.debug("[OkHttpConfig] 使用平台专属重试参数, platform={}", platform);
                 return platformParam;
             }
         }
-        // 无平台专属配置，fallback 到全局 llmRetry
+        // 无平台专属配置，fallback 到全局 llm 重试
         return getLlmRetryParam();
     }
 
     // ==================== Nacos 热更新 ====================
 
     private void registerNacosListener() {
+        // 监听 OkHttp 连接参数变更（ai-agent-http.json）
         nacosConfig.addListener(NacosDataIdEnum.AI_AGENT_HTTP.dataId(), new Listener() {
             @Override
             public Executor getExecutor() {
@@ -215,7 +245,7 @@ public class OkHttpConfig {
 
             @Override
             public void receiveConfigInfo(String configInfo) {
-                log.info("[OkHttpConfig] 收到 Nacos 配置变更");
+                log.info("[OkHttpConfig] 收到 ai-agent-http.json 变更");
                 OkHttpParam newParam = readOkHttpParam();
                 // 先更新参数缓存，getClient()/getLlmClient() 下次调用即生效
                 currentParamRef.set(newParam);
@@ -231,6 +261,18 @@ public class OkHttpConfig {
                 } else {
                     log.info("[OkHttpConfig] 超时参数变更，下次请求自动生效，无需重建 Client");
                 }
+            }
+        });
+        // 监听重试策略变更（ai-agent-retry.json）——重试参数读时生效，此处仅记录日志
+        nacosConfig.addListener(NacosDataIdEnum.AI_AGENT_RETRY.dataId(), new Listener() {
+            @Override
+            public Executor getExecutor() {
+                return null;
+            }
+
+            @Override
+            public void receiveConfigInfo(String configInfo) {
+                log.info("[OkHttpConfig] 收到 ai-agent-retry.json 变更，重试参数下次调用自动生效");
             }
         });
     }

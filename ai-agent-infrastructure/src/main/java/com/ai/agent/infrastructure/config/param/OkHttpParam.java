@@ -3,7 +3,11 @@ package com.ai.agent.infrastructure.config.param;
 import lombok.Data;
 
 /**
- * @Description: OkHttp 客户端参数配置实体，对应 Nacos ai-agent-http.json 中 "okhttp" 字段块。
+ * @Description: OkHttp 客户端参数配置实体，对应 Nacos ai-agent-http.json 中的配置块。
+ *               <ul>
+ *                 <li>{@code "okhttp"} 块：全局连接参数（超时、连接池）</li>
+ *                 <li>平台名 key（如 {@code "doubao"}）：平台专属超时覆盖，仅需配置与全局不同的字段</li>
+ *               </ul>
  *               字段缺失时由 OkHttpConfig 兜底使用默认值。
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.infrastructure.config.param

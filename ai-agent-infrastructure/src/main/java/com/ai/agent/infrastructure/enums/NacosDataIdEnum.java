@@ -65,8 +65,11 @@ public enum NacosDataIdEnum {
     /** 阿里云灵积 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-dashscope-tokenplan.json */
     AI_AGENT_DASHSCOPE_TOKENPLAN("ai-agent-dashscope-tokenplan.json"),
 
-    /** OkHttp 客户端参数 + 重试参数动态配置，对应 Nacos 上的 ai-agent-http.json */
+    /** OkHttp 客户端连接参数动态配置，对应 Nacos 上的 ai-agent-http.json */
     AI_AGENT_HTTP("ai-agent-http.json"),
+
+    /** 重试策略配置（通用/LLM全局/各平台专属），对应 Nacos 上的 ai-agent-retry.json */
+    AI_AGENT_RETRY("ai-agent-retry.json"),
 
     ;
 
