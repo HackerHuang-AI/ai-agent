@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * <p>设计要点：
  * <ul>
  *   <li>平台与 Nacos key 的映射由 {@link RetryConfigEnum} 枚举统一管理，新增平台只需加一行枚举项</li>
- *   <li>两层兜底：① Nacos {@code ai-agent-retry.json} 可配兜底；② 代码内置默认值不可配兜底</li>
+ *   <li>兜底：Nacos {@code ai-agent-retry.json} 未配置对应 key 时，使用代码内置默认值</li>
  *   <li>重试参数读时生效，无需重建任何对象，Nacos 变更后下一次调用即使用新参数</li>
  *   <li>缓存更新由 {@link NacosConfig} 统一负责，本类无需额外注册监听器</li>
  *   <li>与 OkHttp 连接配置完全解耦，调用方只关心"失败了怎么办"</li>
@@ -46,29 +46,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class RetryConfig {
 
-    /** 通用请求重试的 Nacos key（非 LLM 场景） */
-    private static final String RETRY_DEFAULT_KEY = "default";
-
-    /** 代码内置兜底参数（两层兜底的第二层，不可配置） */
+    /** 代码内置兜底参数（Nacos 未配置时使用，不可配置） */
     private static final RetryParam DEFAULT_RETRY_PARAM = new RetryParam();
 
     // ==================== 对外暴露 ====================
-
-    /**
-     * 获取通用请求重试参数（无平台场景）。
-     *
-     * <p>读 Nacos {@code ai-agent-retry.json} 中的 {@code "default"} key，
-     * 未配置时使用代码内置默认值兜底。
-     */
-    public RetryParam getDefaultRetryParam() {
-        RetryParam param = NacosConfigUtil.getObject(
-                NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
-        if (param == null) {
-            log.error("[RetryConfig] Nacos 未配置 retry.default，使用代码默认值");
-            return DEFAULT_RETRY_PARAM;
-        }
-        return param;
-    }
 
     /**
      * 获取指定平台的重试参数。

@@ -1,0 +1,122 @@
+{
+  "okhttp": {
+    "connectTimeoutSeconds": 5,
+    "readTimeoutSeconds": 15,
+    "writeTimeoutSeconds": 10,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "default": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "doubao": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 180,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "deepseek": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "qwen": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "zhipu": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "moonshot": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "openai": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "anthropic": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "gemini": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "mimo": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "minimax": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "ollama": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "qianfan": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "tokenhub": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "hy_tokenplan": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  },
+  "ds_tokenplan": {
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "writeTimeoutSeconds": 30,
+    "maxIdleConnections": 50,
+    "keepAliveMinutes": 5
+  }
+}
+

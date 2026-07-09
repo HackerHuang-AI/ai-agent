@@ -1,0 +1,93 @@
+{
+  "doubao-stream-pool": {
+    "corePoolSize": 10,
+    "maxPoolSize": 50,
+    "queueCapacity": 100,
+    "keepAliveSeconds": 60
+  },
+  "deepseek-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "qwen-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "zhipu-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "moonshot-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "openai-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "anthropic-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "gemini-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "mimo-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "minimax-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "ollama-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "qianfan-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "tokenhub-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "hy-tokenplan-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  },
+  "dashscope-tokenplan-stream-pool": {
+    "corePoolSize": 5,
+    "maxPoolSize": 30,
+    "queueCapacity": 50,
+    "keepAliveSeconds": 60
+  }
+}
+

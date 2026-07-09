@@ -13,11 +13,9 @@ import java.util.concurrent.CompletableFuture;
 /**
  * @Description: OkHttp 工具类，支持同步/异步请求，适用于高并发场景。
  *
- * <p>Client 参数（超时、连接池）由 {@link OkHttpConfig} 统一管理，支持 Nacos 热更新：
- * <ul>
- *   <li>通用请求使用 {@code getClient()} 返回的 Client（readTimeout=15s）</li>
- *   <li>LLM 请求使用 {@code getLlmClient()} 返回的 Client（readTimeout=120s）</li>
- * </ul>
+ * <p>Client 参数（超时、连接池）由 {@link OkHttpConfig} 统一管理，支持 Nacos 热更新。
+ * 通用请求使用 {@code getClient()} 返回的 Client；LLM 平台请求直接调用
+ * {@link OkHttpConfig#getLlmClient(String)} 并传入平台 scope。
  *
  * <p>静态方法通过 Spring 注入 {@link OkHttpConfig} 实例后委托调用，与 {@link NacosConfigUtil} 保持一致的设计风格。
  *
@@ -48,14 +46,6 @@ public class OkHttpUtil {
     /** 获取通用 OkHttpClient（readTimeout=15s，热更新后自动切换到最新实例） */
     public static OkHttpClient getClient() {
         return okHttpConfig.getClient();
-    }
-
-    /**
-     * 获取 LLM 专用 OkHttpClient（使用全局 llm 超时配置，热更新后自动切换到最新实例）。
-     * 需要平台专属超时时，请调用 {@link OkHttpConfig#getLlmClient(String)} 并传入 scope。
-     */
-    public static OkHttpClient getLlmClient() {
-        return okHttpConfig.getLlmClient(null);
     }
 
     // ==================== 同步请求 ====================

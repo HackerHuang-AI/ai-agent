@@ -1,0 +1,99 @@
+{
+  "default": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "doubao": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "deepseek": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "qwen": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "zhipu": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "moonshot": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "openai": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "anthropic": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "gemini": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "mimo": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "minimax": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "ollama": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "qianfan": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "tokenhub": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "hy_tokenplan": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  },
+  "ds_tokenplan": {
+    "maxRetries": 3,
+    "intervalMs": 500,
+    "backoffMultiplier": 2.0,
+    "maxWaitMs": 30000
+  }
+}
+
