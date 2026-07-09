@@ -2,7 +2,7 @@ package com.ai.agent.infrastructure.config;
 
 import com.ai.agent.infrastructure.config.param.RetryParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
-import com.ai.agent.infrastructure.enums.PlatformRetryDef;
+import com.ai.agent.infrastructure.enums.RetryConfigEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
@@ -84,7 +84,7 @@ public class RetryConfig {
      * <p>读 Nacos {@code ai-agent-retry.json} 中的 {@code "default"} key，
      * 未配置时使用代码内置默认值兜底。
      */
-    public RetryParam getRetryParam() {
+    public RetryParam getDefaultRetryParam() {
         RetryParam param = NacosConfigUtil.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
         if (param == null) {
@@ -107,7 +107,7 @@ public class RetryConfig {
      * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
      */
     public RetryParam getRetryParam(String platform) {
-        PlatformRetryDef def = PlatformRetryDef.of(platform);
+        RetryConfigEnum def = RetryConfigEnum.of(platform);
         log.debug("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);
         RetryParam param = NacosConfigUtil.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, def.nacosKey, RetryParam.class);

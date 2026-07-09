@@ -2,6 +2,7 @@ package com.ai.agent.infrastructure.config;
 
 import com.ai.agent.infrastructure.config.param.OkHttpParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
@@ -63,7 +64,6 @@ public class OkHttpConfig {
 
     // ==================== Nacos key，与 ai-agent-http.json 中的 key 对应 ====================
     private static final String OKHTTP_KEY = "okhttp";
-    private static final String LLM_KEY    = "llm";
 
     // ==================== 默认参数（Nacos 未配置时兜底）====================
     private static final OkHttpParam DEFAULT_OKHTTP_PARAM = new OkHttpParam();
@@ -116,45 +116,30 @@ public class OkHttpConfig {
     }
 
     /**
-     * 获取 LLM 专用 OkHttpClient，使用 {@code "llm"} 全局超时块。
-     * 每次调用实时读 Nacos 缓存，Nacos 热更新后下一次请求即生效，无连接抖动。
+     * 获取指定业务场景的 OkHttpClient，支持按场景独立配置超时参数。
+     *
+     * <p>查找链路（均读自 {@code ai-agent-http.json}）：
+     * <ol>
+     *   <li>{@link OkHttpConfigEnum#of(String)} 查找枚举项，找不到返回 {@link OkHttpConfigEnum#DEFAULT}（nacosKey={@code "llm"}）</li>
+     *   <li>用枚举项的 {@code nacosKey} 读 Nacos 配置</li>
+     *   <li>Nacos 未配置时 fallback 到全局 {@code okhttp} 参数</li>
+     * </ol>
+     *
+     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "doubao"}；传 null 或空串走 DEFAULT 兜底）
      */
-    public OkHttpClient getLlmClient() {
-        OkHttpParam p = readLlmOkHttpParam();
+    public OkHttpClient getLlmClient(String scope) {
+        OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
+        log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);
+        OkHttpParam p = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, def.nacosKey, OkHttpParam.class);
+        if (p == null) {
+            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 okhttp 全局参数", def.nacosKey);
+            p = currentParamRef.get();
+        }
         return baseClientRef.get().newBuilder()
                 .connectTimeout(p.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(p.getReadTimeoutSeconds(), TimeUnit.SECONDS)
                 .writeTimeout(p.getWriteTimeoutSeconds(), TimeUnit.SECONDS)
                 .build();
-    }
-
-    /**
-     * 获取指定平台的 LLM OkHttpClient，支持按平台独立配置超时参数。
-     *
-     * <p>查找顺序（均读自 {@code ai-agent-http.json}）：
-     * <ol>
-     *   <li>平台专属 key（如 {@code "doubao"}）—— 仅需配置与 llm 块不同的字段</li>
-     *   <li>全局 LLM 兜底 key {@code "llm"}</li>
-     *   <li>代码默认值</li>
-     * </ol>
-     *
-     * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
-     */
-    public OkHttpClient getLlmClient(String platform) {
-        if (platform != null && !platform.isBlank()) {
-            OkHttpParam platformParam = NacosConfigUtil.getObject(
-                    NacosDataIdEnum.AI_AGENT_HTTP, platform.toLowerCase(), OkHttpParam.class);
-            if (platformParam != null) {
-                log.debug("[OkHttpConfig] 使用平台专属超时参数, platform={}", platform);
-                return baseClientRef.get().newBuilder()
-                        .connectTimeout(platformParam.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
-                        .readTimeout(platformParam.getReadTimeoutSeconds(), TimeUnit.SECONDS)
-                        .writeTimeout(platformParam.getWriteTimeoutSeconds(), TimeUnit.SECONDS)
-                        .build();
-            }
-        }
-        // 无平台专属配置，fallback 到全局 LLM 超时
-        return getLlmClient();
     }
 
     // ==================== Nacos 热更新 ====================
@@ -233,14 +218,5 @@ public class OkHttpConfig {
         return param;
     }
 
-    /** 读取 LLM 全局超时参数（{@code "llm"} 块），fallback 到 {@code "okhttp"} 块 */
-    private OkHttpParam readLlmOkHttpParam() {
-        OkHttpParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, LLM_KEY, OkHttpParam.class);
-        if (param == null) {
-            log.debug("[OkHttpConfig] Nacos 未配置 llm 超时参数，fallback 到 okhttp 全局参数");
-            return currentParamRef.get(); // 直接用已缓存的 okhttp 参数，避免重复读取
-        }
-        return param;
-    }
 }
 

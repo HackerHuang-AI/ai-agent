@@ -50,9 +50,12 @@ public class OkHttpUtil {
         return okHttpConfig.getClient();
     }
 
-    /** 获取 LLM 专用 OkHttpClient（readTimeout=120s，热更新后自动切换到最新实例） */
+    /**
+     * 获取 LLM 专用 OkHttpClient（使用全局 llm 超时配置，热更新后自动切换到最新实例）。
+     * 需要平台专属超时时，请调用 {@link OkHttpConfig#getLlmClient(String)} 并传入 scope。
+     */
     public static OkHttpClient getLlmClient() {
-        return okHttpConfig.getLlmClient();
+        return okHttpConfig.getLlmClient(null);
     }
 
     // ==================== 同步请求 ====================
