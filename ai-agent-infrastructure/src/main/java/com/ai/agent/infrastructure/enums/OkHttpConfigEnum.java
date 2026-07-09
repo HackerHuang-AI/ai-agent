@@ -39,8 +39,8 @@ public enum OkHttpConfigEnum {
     HY_TOKENPLAN ("hy_tokenplan"),
     DS_TOKENPLAN ("ds_tokenplan"),
 
-    /** 兜底项：找不到专属枚举时使用，对应 Nacos ai-agent-http.json 中的 LLM 全局超时配置块 */
-    DEFAULT      ("llm"),
+    /** 兜底项：找不到专属枚举时使用，对应 Nacos ai-agent-http.json 中的 {@code "default"} 全局超时配置块 */
+    DEFAULT      ("default"),
     ;
 
     /** 对应 ai-agent-http.json 中的 key */

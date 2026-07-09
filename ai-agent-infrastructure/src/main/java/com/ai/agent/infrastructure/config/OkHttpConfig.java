@@ -34,18 +34,19 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Nacos 配置示例（ai-agent-http.json）—— 只放网络连接参数：
  * <pre>{@code
  * {
- *   "okhttp": { "connectTimeoutSeconds": 5, "readTimeoutSeconds": 15, "writeTimeoutSeconds": 10, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
- *   "llm":    { "readTimeoutSeconds": 120, "writeTimeoutSeconds": 30, "connectTimeoutSeconds": 10 },
- *   "doubao": { "readTimeoutSeconds": 180 },
- *   "deepseek": { "readTimeoutSeconds": 60 }
+ *   "okhttp":   { "connectTimeoutSeconds": 5, "readTimeoutSeconds": 15, "writeTimeoutSeconds": 10, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
+ *   "default":  { "connectTimeoutSeconds": 10, "readTimeoutSeconds": 120, "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
+ *   "doubao":   { "connectTimeoutSeconds": 10, "readTimeoutSeconds": 180, "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
+ *   "deepseek": { "connectTimeoutSeconds": 15, "readTimeoutSeconds": 60,  "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 }
  * }
  * }</pre>
+ * <p>查找语义（与 RetryConfig 对齐）：平台专属块 → {@code "default"} 全局块 → {@code "okhttp"} 块（代码默认值），
+ * 每个平台需全量配置自己的超时参数，无字段级继承。
  *
  * <p>Nacos 配置示例（ai-agent-retry.json）—— 只放重试策略：
  * <pre>{@code
  * {
- *   "default": { "maxRetries": 3, "intervalMs": 500, "backoffMultiplier": 2.0, "maxWaitMs": 30000 },
- *   "llm":     { "maxRetries": 2, "intervalMs": 1000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 },
+ *   "default": { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 2.0, "maxWaitMs": 30000 },
  *   "doubao":  { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
  *   "deepseek":{ "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
  * }
@@ -120,27 +121,30 @@ public class OkHttpConfig {
      *
      * <p>查找链路（均读自 {@code ai-agent-http.json}）：
      * <ol>
-     *   <li>{@link OkHttpConfigEnum#of(String)} 查找枚举项，找不到返回 {@link OkHttpConfigEnum#DEFAULT}（nacosKey={@code "llm"}）</li>
-     *   <li>用枚举项的 {@code nacosKey} 读 Nacos 配置</li>
-     *   <li>Nacos 未配置时 fallback 到全局 {@code okhttp} 参数</li>
+     *   <li>有平台专属块（如 {@code "doubao"}）→ 直接使用，全量自定义</li>
+     *   <li>无专属块 → fallback 到 {@code "default"} 全局块</li>
+     *   <li>{@code "default"} 也未配置 → 使用 {@code "okhttp"} 块（代码默认值兜底）</li>
      * </ol>
+     * <p>与 RetryConfig 设计完全对齐：平台 → default → 代码默认值，无 llm 中间层。
      *
-     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "doubao"}；传 null 或空串走 DEFAULT 兜底）
+     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "doubao"}；传 null 或空串走 default 兜底）
      */
     public OkHttpClient getLlmClient(String scope) {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
         log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);
+
         OkHttpParam p = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, def.nacosKey, OkHttpParam.class);
         if (p == null && def != OkHttpConfigEnum.DEFAULT) {
-            // 平台专属未配置，fallback 到 llm 全局块
-            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 llm 全局参数", def.nacosKey);
+            // 平台专属未配置，fallback 到 default 全局块
             p = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OkHttpConfigEnum.DEFAULT.nacosKey, OkHttpParam.class);
         }
         if (p == null) {
-            // llm 全局块也未配置，最终 fallback 到 okhttp 基础参数
-            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 okhttp 全局参数", OkHttpConfigEnum.DEFAULT.nacosKey);
+            // default 也未配置，fallback 到 okhttp 基础参数（代码默认值）
             p = currentParamRef.get();
         }
+
+        log.debug("[OkHttpConfig] scope={} 最终参数: connect={}s, read={}s, write={}s",
+                scope, p.getConnectTimeoutSeconds(), p.getReadTimeoutSeconds(), p.getWriteTimeoutSeconds());
         return baseClientRef.get().newBuilder()
                 .connectTimeout(p.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(p.getReadTimeoutSeconds(), TimeUnit.SECONDS)
