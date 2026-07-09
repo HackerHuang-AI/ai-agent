@@ -9,6 +9,8 @@ import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
+import com.ai.agent.infrastructure.config.RetryConfig;
+import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,9 +46,11 @@ import java.util.function.Consumer;
 public class DoubaoServiceImpl implements LlmService {
 
     public DoubaoServiceImpl(@Qualifier("doubaoStreamExecutor") ExecutorService streamExecutor,
-            OkHttpConfig okHttpConfig) {
+            OkHttpConfig okHttpConfig,
+            RetryConfig retryConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
+        this.retryConfig = retryConfig;
     }
 
     private static final String SSE_DATA_PREFIX = "data: ";
@@ -57,6 +61,7 @@ public class DoubaoServiceImpl implements LlmService {
 
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
+    private final RetryConfig retryConfig;
 
     @Override
     public LlmResponse chat(LlmRequest request) {
@@ -64,38 +69,39 @@ public class DoubaoServiceImpl implements LlmService {
         log.info("[Doubao-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
-        Request okRequest = new Request.Builder()
-                .url(request.getEndpoint())
-                .post(RequestBody.create(requestBody, JSON))
-                .headers(Headers.of(buildHeaders(request.getApiKey())))
-                .build();
-
-        try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-            String responseBody = response.body() != null ? response.body().string() : "";
-            if (!response.isSuccessful()) {
-                String platformMsg = extractErrorMessage(responseBody);
-                if (response.code() >= 400 && response.code() < 500) {
-                    // 4xx：客户端错误，不触发 RetryUtil 重试，直接抛出
-                    log.error("[Doubao-chat] HTTP {}，不可重试, platformError={}", response.code(), platformMsg);
+        LlmResponse result = RetryUtil.retry(() -> {
+            Request okRequest = new Request.Builder()
+                    .url(request.getEndpoint())
+                    .post(RequestBody.create(requestBody, JSON))
+                    .headers(Headers.of(buildHeaders(request.getApiKey())))
+                    .build();
+            try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    String platformMsg = extractErrorMessage(responseBody);
+                    if (response.code() >= 400 && response.code() < 500) {
+                        log.error("[Doubao-chat] HTTP {}，不可重试, platformError={}", response.code(), platformMsg);
+                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+                    }
+                    log.warn("[Doubao-chat] HTTP {} 失败, platformError={}", response.code(), platformMsg);
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
                 }
-                log.warn("[Doubao-chat] HTTP {} 失败, platformError={}", response.code(), platformMsg);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
-            }
-            if (responseBody.isEmpty()) {
-                log.error("[Doubao-chat] 响应体为空");
+                if (responseBody.isEmpty()) {
+                    log.error("[Doubao-chat] 响应体为空");
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                }
+                return parseResponse(responseBody, request.getModelCode());
+            } catch (BizException e) {
+                throw e;
+            } catch (IOException e) {
+                log.error("[Doubao-chat] IO 异常", e);
                 throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
-            LlmResponse result = parseResponse(responseBody, request.getModelCode());
-            log.info("[Doubao-chat] 调用成功, result={}, costMs={}",
-                    result, System.currentTimeMillis() - start);
-            return result;
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Doubao-chat] IO 异常", e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        }, retryConfig.getRetryParam("doubao"));
+        if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        log.info("[Doubao-chat] 调用成功, result={}, costMs={}",
+                result, System.currentTimeMillis() - start);
+        return result;
     }
 
     @Override
@@ -115,7 +121,7 @@ public class DoubaoServiceImpl implements LlmService {
                             .headers(Headers.of(buildHeaders(request.getApiKey())))
                             .build();
 
-                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                    try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
                         if (!response.isSuccessful() || response.body() == null) {
                             String errBody = response.body() != null ? response.body().string() : "";
                             log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
@@ -186,7 +192,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .headers(Headers.of(buildHeaders(apiKey)))
                     .build();
 
-            try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);

@@ -8,6 +8,8 @@ import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
+import com.ai.agent.infrastructure.config.RetryConfig;
+import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -58,11 +60,14 @@ public class AnthropicServiceImpl implements LlmService {
 
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
+    private final RetryConfig retryConfig;
 
     public AnthropicServiceImpl(@Qualifier("anthropicStreamExecutor") ExecutorService streamExecutor,
-            OkHttpConfig okHttpConfig) {
+            OkHttpConfig okHttpConfig,
+            RetryConfig retryConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
+        this.retryConfig = retryConfig;
     }
 
     // ==================== 同步对话 ====================
@@ -72,35 +77,36 @@ public class AnthropicServiceImpl implements LlmService {
         log.info("[Anthropic-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
-        try {
+        LlmResponse result = RetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-                String responseBody = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    String platformErr = extractErrorMessage(responseBody);
-                    if (response.code() >= 400 && response.code() < 500) {
-                        log.error("[Anthropic-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
+            try (Response response = okHttpConfig.getLlmClient("anthropic").newCall(okRequest).execute()) {
+                    String responseBody = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) {
+                        String platformErr = extractErrorMessage(responseBody);
+                        if (response.code() >= 400 && response.code() < 500) {
+                            log.error("[Anthropic-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
+                            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                        }
+                        log.warn("[Anthropic-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
                     }
-                    log.warn("[Anthropic-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
-                }
-                if (responseBody.isEmpty()) {
-                    log.error("[Anthropic-chat] 响应体为空");
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                }
-                LlmResponse result = parseResponse(responseBody, request.getModelCode());
-                log.info("[Anthropic-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+                    if (responseBody.isEmpty()) {
+                        log.error("[Anthropic-chat] 响应体为空");
+                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                    }
+                    return parseResponse(responseBody, request.getModelCode());
+            } catch (BizException e) {
+                throw e;
+            } catch (IOException e) {
+                log.error("IO 异常", e);
+                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+            }
+        }, retryConfig.getRetryParam("anthropic"));
+        if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        log.info("[Anthropic-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
                                 System.currentTimeMillis() - start);
-                return result;
-            }
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Anthropic-chat] IO 异常", e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        return result;
     }
 
     // ==================== 流式对话 ====================
@@ -115,7 +121,7 @@ public class AnthropicServiceImpl implements LlmService {
                 if (mdcContext != null) MDC.setContextMap(mdcContext);
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                    try (Response response = okHttpConfig.getLlmClient("anthropic").newCall(okRequest).execute()) {
                         if (!response.isSuccessful() || response.body() == null) {
                             String errBody = response.body() != null ? response.body().string() : "";
                             log.error("[Anthropic-stream] HTTP 失败, code={}, error={}",

@@ -64,7 +64,7 @@ public class RetryConfig {
         RetryParam param = NacosConfigUtil.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
         if (param == null) {
-            log.debug("[RetryConfig] Nacos 未配置 retry.default，使用代码默认值");
+            log.error("[RetryConfig] Nacos 未配置 retry.default，使用代码默认值");
             return DEFAULT_RETRY_PARAM;
         }
         return param;
@@ -84,11 +84,11 @@ public class RetryConfig {
      */
     public RetryParam getRetryParam(String platform) {
         RetryConfigEnum def = RetryConfigEnum.of(platform);
-        log.debug("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);
+        log.error("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);
         RetryParam param = NacosConfigUtil.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, def.nacosKey, RetryParam.class);
         if (param == null) {
-            log.debug("[RetryConfig] Nacos 未配置 retry.{}，使用代码默认值", def.nacosKey);
+            log.error("[RetryConfig] Nacos 未配置 retry.{}，使用代码默认值", def.nacosKey);
             return DEFAULT_RETRY_PARAM;
         }
         return param;

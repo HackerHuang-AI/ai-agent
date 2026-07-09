@@ -4,8 +4,6 @@ import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.infrastructure.config.RetryConfig;
-import com.ai.agent.infrastructure.utils.RetryUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +15,9 @@ import java.util.function.Consumer;
  *
  * <p>通过 Spring 自动注入 {@code Map<String, LlmService>}（Bean 名称 → 实现类），
  * 根据 {@code platform} 参数路由到对应平台 Service，无需手动维护 switch。
+ *
+ * <p>重试逻辑在各 ServiceImpl.chat() 内部实现，紧贴 HTTP 调用层，
+ * 避免在路由层重试时重复执行序列化、日志等无用操作。
  *
  * <p>新增平台只需在对应 ServiceImpl 上添加 {@code @Service("xxx")} 注解即可，本类无需改动。
  *
@@ -37,22 +38,15 @@ public class LlmRouter {
      */
     private final Map<String, LlmService> serviceMap;
 
-    /** 用于获取平台专属重试参数，支持 Nacos 热更新 */
-    private final RetryConfig retryConfig;
-
-    public LlmRouter(Map<String, LlmService> serviceMap, RetryConfig retryConfig) {
+    public LlmRouter(Map<String, LlmService> serviceMap) {
         this.serviceMap = serviceMap;
-        this.retryConfig = retryConfig;
     }
 
     /**
-     * 根据 platform 路由到对应 Service 执行同步调用，含指数退避重试。
+     * 根据 platform 路由到对应 Service 执行同步调用。
      *
-     * <p>重试参数由 {@link RetryConfig} 提供，优先读 Nacos {@code ai-agent-retry.json} 中的平台专属 key，
-     * 无专属配置时 fallback 到全局 {@code llm} 块，支持 Nacos 热更新。
-     *
-     * <p>4xx 错误（客户端错误）由 ServiceImpl 内部识别并抛出 BizException，
-     * BizException 不触发重试，直接向上抛出。
+     * <p>重试由各 ServiceImpl 内部在 HTTP 调用层执行，本层不做重试。
+     * 4xx 错误（客户端错误）由 ServiceImpl 内部识别并抛出 BizException，直接向上传递。
      *
      * @param platform platform 标识（不区分大小写）
      * @param request  已组装好的 LlmRequest
@@ -61,9 +55,7 @@ public class LlmRouter {
     public LlmResponse chat(String platform, LlmRequest request) {
         LlmService service = resolve(platform);
         log.info("[LlmRouter] platform={}, modelCode={}", platform, request.getModelCode());
-        LlmResponse result = RetryUtil.retry(
-                () -> service.chat(request),
-                retryConfig.getRetryParam(platform));
+        LlmResponse result = service.chat(request);
         if (result == null) {
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }

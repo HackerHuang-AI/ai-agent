@@ -8,6 +8,8 @@ import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
+import com.ai.agent.infrastructure.config.RetryConfig;
+import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -52,11 +54,14 @@ public class DeepseekServiceImpl implements LlmService {
 
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
+    private final RetryConfig retryConfig;
 
     public DeepseekServiceImpl(@Qualifier("deepseekStreamExecutor") ExecutorService streamExecutor,
-            OkHttpConfig okHttpConfig) {
+            OkHttpConfig okHttpConfig,
+            RetryConfig retryConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
+        this.retryConfig = retryConfig;
     }
 
     @Override
@@ -64,37 +69,38 @@ public class DeepseekServiceImpl implements LlmService {
         log.info("[Deepseek-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
-        Request okRequest = new Request.Builder()
-                .url(request.getEndpoint())
-                .post(RequestBody.create(requestBody, JSON))
-                .headers(Headers.of(buildHeaders(request.getApiKey())))
-                .build();
-
-        try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-            String responseBody = response.body() != null ? response.body().string() : "";
-            if (!response.isSuccessful()) {
-                if (response.code() >= 400 && response.code() < 500) {
-                    // 4xx：客户端错误，不触发 RetryUtil 重试，直接抛出
-                    log.error("[Deepseek-chat] HTTP {}，不可重试, body={}", response.code(), responseBody);
+        LlmResponse result = RetryUtil.retry(() -> {
+            Request okRequest = new Request.Builder()
+                    .url(request.getEndpoint())
+                    .post(RequestBody.create(requestBody, JSON))
+                    .headers(Headers.of(buildHeaders(request.getApiKey())))
+                    .build();
+            try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (response.code() >= 400 && response.code() < 500) {
+                        log.error("[Deepseek-chat] HTTP {}，不可重试, body={}", response.code(), responseBody);
+                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                    }
+                    log.warn("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
-                log.warn("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
+                if (responseBody.isEmpty()) {
+                    log.error("[Deepseek-chat] 响应体为空");
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                }
+                return parseResponse(responseBody, request.getModelCode());
+            } catch (BizException e) {
+                throw e;
+            } catch (IOException e) {
+                log.error("[Deepseek-chat] IO 异常", e);
                 throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
-            if (responseBody.isEmpty()) {
-                log.error("[Deepseek-chat] 响应体为空");
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-            }
-            LlmResponse result = parseResponse(responseBody, request.getModelCode());
-            log.info("[Deepseek-chat] 调用成功, result={}, costMs={}",
-                    result, System.currentTimeMillis() - start);
-            return result;
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Deepseek-chat] IO 异常", e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        }, retryConfig.getRetryParam("deepseek"));
+        if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        log.info("[Deepseek-chat] 调用成功, result={}, costMs={}",
+                result, System.currentTimeMillis() - start);
+        return result;
     }
 
     @Override
@@ -113,7 +119,7 @@ public class DeepseekServiceImpl implements LlmService {
                             .headers(Headers.of(buildHeaders(request.getApiKey())))
                             .build();
 
-                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                    try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
                         if (!response.isSuccessful() || response.body() == null) {
                             log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
                             chunkConsumer.accept("[ERROR]");
