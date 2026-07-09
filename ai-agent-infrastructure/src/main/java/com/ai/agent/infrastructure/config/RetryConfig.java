@@ -17,7 +17,7 @@ import java.util.concurrent.Executor;
  *
  * <p>设计要点：
  * <ul>
- *   <li>平台与 Nacos key 的映射由 {@link PlatformRetryDef} 枚举统一管理，新增平台只需加一行枚举项</li>
+ *   <li>平台与 Nacos key 的映射由 {@link RetryConfigEnum} 枚举统一管理，新增平台只需加一行枚举项</li>
  *   <li>两层兜底：① Nacos {@code ai-agent-retry.json} 可配兜底；② 代码内置默认值不可配兜底</li>
  *   <li>重试参数读时生效，无需重建任何对象，Nacos 变更后下一次调用即使用新参数</li>
  *   <li>与 OkHttp 连接配置完全解耦，调用方只关心"失败了怎么办"</li>
@@ -25,7 +25,7 @@ import java.util.concurrent.Executor;
  *
  * <p>查找链路：
  * <pre>
- *   platform → PlatformRetryDef.of(platform) → 枚举项（找不到返回 DEFAULT）
+ *   platform → RetryConfigEnum.of(platform) → 枚举项（找不到返回 DEFAULT）
  *     → def.nacosKey → Nacos 读取
  *     → 读不到 → 代码内置默认值
  * </pre>
@@ -99,7 +99,7 @@ public class RetryConfig {
      *
      * <p>查找链路：
      * <ol>
-     *   <li>{@link PlatformRetryDef#of(String)} 查找枚举项，找不到返回 {@link PlatformRetryDef#DEFAULT}</li>
+     *   <li>{@link RetryConfigEnum#of(String)} 查找枚举项，找不到返回 {@link RetryConfigEnum#DEFAULT}</li>
      *   <li>用枚举项的 {@code nacosKey} 去 Nacos {@code ai-agent-retry.json} 读配置</li>
      *   <li>Nacos 未配置时使用代码内置默认值兜底</li>
      * </ol>

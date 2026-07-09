@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>设计要点：
  * <ul>
  *   <li>单连接池：只维护一个基础 Client，连接池参数（maxIdleConnections / keepAliveMinutes）变更时重建</li>
- *   <li>{@link #getLlmClient()} / {@link #getLlmClient(String)} 每次调用时在基础 Client 上 newBuilder()
+ *   <li>{@link #getLlmClient(String)} 每次调用时在基础 Client 上 newBuilder()
  *       叠加最新超时参数返回，连接池始终只有一个，无切换抖动</li>
  *   <li>OkHttpClient.newBuilder() 复用父 Client 的连接池，不会创建新连接池</li>
  *   <li>OkHttp 连接参数来自 {@code ai-agent-http.json}；重试参数独立由 {@link RetryConfig} 管理</li>
@@ -131,8 +131,14 @@ public class OkHttpConfig {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
         log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);
         OkHttpParam p = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, def.nacosKey, OkHttpParam.class);
+        if (p == null && def != OkHttpConfigEnum.DEFAULT) {
+            // 平台专属未配置，fallback 到 llm 全局块
+            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 llm 全局参数", def.nacosKey);
+            p = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OkHttpConfigEnum.DEFAULT.nacosKey, OkHttpParam.class);
+        }
         if (p == null) {
-            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 okhttp 全局参数", def.nacosKey);
+            // llm 全局块也未配置，最终 fallback 到 okhttp 基础参数
+            log.debug("[OkHttpConfig] Nacos 未配置 http.{}，fallback 到 okhttp 全局参数", OkHttpConfigEnum.DEFAULT.nacosKey);
             p = currentParamRef.get();
         }
         return baseClientRef.get().newBuilder()
