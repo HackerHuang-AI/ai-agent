@@ -16,8 +16,13 @@ import java.util.concurrent.Callable;
  *
  * <p>触发重试的条件：
  * <ul>
- *   <li>callable 抛出异常</li>
+ *   <li>callable 抛出 checked 异常（IOException 等，非 RuntimeException）</li>
  *   <li>callable 返回 null</li>
+ * </ul>
+ *
+ * <p>不触发重试的条件：
+ * <ul>
+ *   <li>callable 抛出 {@link RuntimeException}（含业务异常 BizException）—— 直接向上抛出</li>
  * </ul>
  *
  * <p>重试参数通过 {@link RetryParam} 传入，调用方从 OkHttpConfig 实时读取 Nacos 值，保证热更新生效。
@@ -67,6 +72,9 @@ public class RetryUtil {
                     return result;
                 }
                 log.warn("[RetryUtil] 执行返回为空，第 {}/{} 次", attempt + 1, maxRetries + 1);
+            } catch (RuntimeException e) {
+                // RuntimeException（含 BizException）属于不可重试异常，直接向上传递
+                throw e;
             } catch (Exception e) {
                 lastException = e;
                 log.warn("[RetryUtil] 执行异常，第 {}/{} 次，异常：{}", attempt + 1, maxRetries + 1, e.getMessage());
