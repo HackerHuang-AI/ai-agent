@@ -4,7 +4,7 @@ import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.infrastructure.config.OkHttpConfig;
+import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.utils.RetryUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,18 +38,18 @@ public class LlmRouter {
     private final Map<String, LlmService> serviceMap;
 
     /** 用于获取平台专属重试参数，支持 Nacos 热更新 */
-    private final OkHttpConfig okHttpConfig;
+    private final RetryConfig retryConfig;
 
-    public LlmRouter(Map<String, LlmService> serviceMap, OkHttpConfig okHttpConfig) {
+    public LlmRouter(Map<String, LlmService> serviceMap, RetryConfig retryConfig) {
         this.serviceMap = serviceMap;
-        this.okHttpConfig = okHttpConfig;
+        this.retryConfig = retryConfig;
     }
 
     /**
      * 根据 platform 路由到对应 Service 执行同步调用，含指数退避重试。
      *
-     * <p>重试参数优先读 Nacos {@code ai-agent-http.json} 中的平台专属 key（如 {@code "doubao"}），
-     * 无专属配置时 fallback 到全局 {@code llmRetry}，支持 Nacos 热更新。
+     * <p>重试参数由 {@link RetryConfig} 提供，优先读 Nacos {@code ai-agent-retry.json} 中的平台专属 key，
+     * 无专属配置时 fallback 到全局 {@code llm} 块，支持 Nacos 热更新。
      *
      * <p>4xx 错误（客户端错误）由 ServiceImpl 内部识别并抛出 BizException，
      * BizException 不触发重试，直接向上抛出。
@@ -63,7 +63,7 @@ public class LlmRouter {
         log.info("[LlmRouter] platform={}, modelCode={}", platform, request.getModelCode());
         LlmResponse result = RetryUtil.retry(
                 () -> service.chat(request),
-                okHttpConfig.getLlmRetryParam(platform));
+                retryConfig.getLlmRetryParam(platform));
         if (result == null) {
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
