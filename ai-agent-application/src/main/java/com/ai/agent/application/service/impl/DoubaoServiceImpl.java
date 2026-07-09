@@ -26,6 +26,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
@@ -99,35 +100,40 @@ public class DoubaoServiceImpl implements LlmService {
         log.info("[Doubao-stream] 开始调用, request={}", request);
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        streamExecutor.submit(() -> {
-            if (mdcContext != null) MDC.setContextMap(mdcContext);
-            try {
-                Request okRequest = new Request.Builder()
-                        .url(request.getEndpoint())
-                        .post(RequestBody.create(requestBody, JSON))
-                        .headers(Headers.of(buildHeaders(request.getApiKey())))
-                        .build();
+        try {
+            streamExecutor.submit(() -> {
+                if (mdcContext != null) MDC.setContextMap(mdcContext);
+                try {
+                    Request okRequest = new Request.Builder()
+                            .url(request.getEndpoint())
+                            .post(RequestBody.create(requestBody, JSON))
+                            .headers(Headers.of(buildHeaders(request.getApiKey())))
+                            .build();
 
-                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-                    if (!response.isSuccessful() || response.body() == null) {
-                        String errBody = response.body() != null ? response.body().string() : "";
-                        log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
-                                response.code(), extractErrorMessage(errBody));
-                        chunkConsumer.accept("[ERROR]");
-                        return;
+                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            String errBody = response.body() != null ? response.body().string() : "";
+                            log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
+                                    response.code(), extractErrorMessage(errBody));
+                            chunkConsumer.accept("[ERROR]");
+                            return;
+                        }
+                        parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                     }
-                    parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                } catch (BizException e) {
+                    log.error("[Doubao-stream] 业务异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } catch (IOException e) {
+                    log.error("[Doubao-stream] IO 异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } finally {
+                    MDC.clear();
                 }
-            } catch (BizException e) {
-                log.error("[Doubao-stream] 业务异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } catch (IOException e) {
-                log.error("[Doubao-stream] IO 异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } finally {
-                MDC.clear();
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("[Doubao-stream] 线程池已满，拒绝请求", e);
+            chunkConsumer.accept("[ERROR]");
+        }
     }
 
     /**

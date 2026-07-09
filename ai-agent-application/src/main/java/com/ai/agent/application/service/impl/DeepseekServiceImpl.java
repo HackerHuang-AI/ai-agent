@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
@@ -93,33 +94,38 @@ public class DeepseekServiceImpl implements LlmService {
         log.info("[Deepseek-stream] 开始调用, request={}", request);
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        streamExecutor.submit(() -> {
-            if (mdcContext != null) MDC.setContextMap(mdcContext);
-            try {
-                Request okRequest = new Request.Builder()
-                        .url(request.getEndpoint())
-                        .post(RequestBody.create(requestBody, JSON))
-                        .headers(Headers.of(buildHeaders(request.getApiKey())))
-                        .build();
+        try {
+            streamExecutor.submit(() -> {
+                if (mdcContext != null) MDC.setContextMap(mdcContext);
+                try {
+                    Request okRequest = new Request.Builder()
+                            .url(request.getEndpoint())
+                            .post(RequestBody.create(requestBody, JSON))
+                            .headers(Headers.of(buildHeaders(request.getApiKey())))
+                            .build();
 
-                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-                    if (!response.isSuccessful() || response.body() == null) {
-                        log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
-                        chunkConsumer.accept("[ERROR]");
-                        return;
+                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
+                            chunkConsumer.accept("[ERROR]");
+                            return;
+                        }
+                        parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                     }
-                    parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                } catch (BizException e) {
+                    log.error("[Deepseek-stream] 业务异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } catch (IOException e) {
+                    log.error("[Deepseek-stream] IO 异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } finally {
+                    MDC.clear();
                 }
-            } catch (BizException e) {
-                log.error("[Deepseek-stream] 业务异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } catch (IOException e) {
-                log.error("[Deepseek-stream] IO 异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } finally {
-                MDC.clear();
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("[Deepseek-stream] 线程池已满，拒绝请求", e);
+            chunkConsumer.accept("[ERROR]");
+        }
     }
 
     // ==================== 私有方法 ====================

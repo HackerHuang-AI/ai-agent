@@ -16,6 +16,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @Description: LLM 流式调用线程池统一配置。
@@ -26,7 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>启动时从 Nacos {@code ai-agent-thread-pool.json} 读取参数，读不到则使用 PoolDef 中的默认值</li>
  *   <li>Nacos 配置变更时遍历枚举热更新所有线程池参数，无需重启</li>
  *   <li>队列使用内部类 {@link ResizableLinkedBlockingQueue}，支持运行时动态修改容量</li>
- *   <li>拒绝策略采用 CallerRunsPolicy：队列满时由调用方线程执行，起到背压效果，不丢任务</li>
+ *   <li>拒绝策略：队列满时记录错误日志、累计计数并抛出 RejectedExecutionException，由调用方感知压力后返回 [ERROR]，避免阻塞 Tomcat 线程</li>
+ *   <li>定时快照：每 60 秒打印各线程池 active/queue/completed/rejected 指标，用于问题排查</li>
  * </ul>
  *
  * <p>Nacos 配置示例（ai-agent-thread-pool.json）：
@@ -89,6 +91,12 @@ public class LlmThreadPoolConfig {
 
     private final Map<PoolDef, ThreadPoolExecutor> executors = new EnumMap<>(PoolDef.class);
 
+    /** 各线程池累计拒绝任务计数，key 与 executors 一一对应，用于定时快照日志 */
+    private final Map<PoolDef, AtomicLong> rejectedCounts = new EnumMap<>(PoolDef.class);
+
+    /** 定时快照调度器，字段持有以便 @PreDestroy 优先停止，避免关闭期间仍触发 logStats */
+    private ScheduledExecutorService statsScheduler;
+
     @Autowired
     private NacosConfig nacosConfig;
 
@@ -139,10 +147,10 @@ public class LlmThreadPoolConfig {
     @Bean("dsTokenPlanStreamExecutor")
     public ThreadPoolExecutor dsTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.DS_TOKENPLAN); }
 
-    // ==================== Nacos 热更新 ====================
+    // ==================== Nacos 热更新 + 定时状态快照 ====================
 
     @PostConstruct
-    public void registerNacosListener() {
+    public void registerNacosListenerAndStartStats() {
         nacosConfig.addListener(NacosDataIdEnum.AI_AGENT_THREAD_POOL.dataId(), new Listener() {
             @Override
             public Executor getExecutor() { return null; }
@@ -153,20 +161,44 @@ public class LlmThreadPoolConfig {
                 executors.forEach((def, executor) -> hotUpdate(executor, def));
             }
         });
+
+        // 每 60 秒打印一次各线程池状态快照，用于排查线程池积压/拒绝问题
+        statsScheduler = Executors.newSingleThreadScheduledExecutor(
+                r -> { Thread t = new Thread(r, "llm-pool-stats"); t.setDaemon(true); return t; });
+        statsScheduler.scheduleAtFixedRate(this::logStats, 60, 60, TimeUnit.SECONDS);
+    }
+
+    private void logStats() {
+        executors.forEach((def, executor) -> {
+            AtomicLong rejected = rejectedCounts.get(def); // 必然存在，createAndRegister 已 put
+            log.info("[LlmThreadPool-Stats] {} active={}/{} queue={}/{} completed={} rejected={}",
+                    def.nacosKey,
+                    executor.getActiveCount(), executor.getMaximumPoolSize(),
+                    executor.getQueue().size(),
+                    ((ResizableLinkedBlockingQueue<?>) executor.getQueue()).getCapacity(),
+                    executor.getCompletedTaskCount(),
+                    rejected != null ? rejected.get() : 0);
+        });
     }
 
     // ==================== 优雅关闭 ====================
 
     @PreDestroy
     public void shutdown() {
+        // 先停快照调度器，避免 Spring 关闭期间 logStats 访问正在被清理的 executors
+        if (statsScheduler != null) {
+            statsScheduler.shutdownNow();
+        }
         executors.forEach((def, executor) -> shutdownExecutor(executor, def.nacosKey));
     }
 
     // ==================== 私有方法 ====================
 
     private ThreadPoolExecutor createAndRegister(PoolDef def) {
+        AtomicLong rejected = new AtomicLong(0);
+        rejectedCounts.put(def, rejected);
         ThreadPoolParam param = readParam(def);
-        ThreadPoolExecutor executor = buildExecutor(param, def.nacosKey);
+        ThreadPoolExecutor executor = buildExecutor(param, def.nacosKey, rejected);
         executors.put(def, executor);
         log.info("[LlmThreadPool] {} 初始化完成, param={}", def.nacosKey, param);
         return executor;
@@ -237,9 +269,9 @@ public class LlmThreadPoolConfig {
         return param;
     }
 
-    private ThreadPoolExecutor buildExecutor(ThreadPoolParam param, String poolName) {
+    private ThreadPoolExecutor buildExecutor(ThreadPoolParam param, String poolName, AtomicLong rejectedCount) {
         ResizableLinkedBlockingQueue<Runnable> queue =
-                new ResizableLinkedBlockingQueue<>(param.getQueueCapacity());
+                new ResizableLinkedBlockingQueue<>(param.getQueueCapacity(), poolName);
         return new ThreadPoolExecutor(
                 param.getCorePoolSize(),
                 param.getMaxPoolSize(),
@@ -247,7 +279,17 @@ public class LlmThreadPoolConfig {
                 TimeUnit.SECONDS,
                 queue,
                 new NamedThreadFactory(poolName),
-                new ThreadPoolExecutor.CallerRunsPolicy()
+                // 拒绝策略：记录日志 + 计数 + 抛出异常，让调用方感知服务压力
+                // 不使用 CallerRunsPolicy，避免 LLM 长耗时任务阻塞 Tomcat 线程导致雪崩
+                (r, executor) -> {
+                    rejectedCount.incrementAndGet();
+                    log.error("[LlmThreadPool] {} 线程池已满，拒绝任务: active={}/{}, queue={}/{}",
+                            poolName,
+                            executor.getActiveCount(), executor.getMaximumPoolSize(),
+                            executor.getQueue().size(),
+                            ((ResizableLinkedBlockingQueue<?>) executor.getQueue()).getCapacity());
+                    throw new RejectedExecutionException("LLM 线程池已满: " + poolName);
+                }
         );
     }
 
@@ -261,10 +303,13 @@ public class LlmThreadPoolConfig {
     private static class ResizableLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
 
         private volatile int capacity;
+        /** 所属线程池名称，用于日志区分；由外部在构造时传入 */
+        private final String poolName;
 
-        ResizableLinkedBlockingQueue(int capacity) {
+        ResizableLinkedBlockingQueue(int capacity, String poolName) {
             super(Integer.MAX_VALUE);
             this.capacity = capacity;
+            this.poolName = poolName;
         }
 
         public int getCapacity() {
@@ -277,7 +322,7 @@ public class LlmThreadPoolConfig {
             }
             int old = this.capacity;
             this.capacity = newCapacity;
-            log.info("[ResizableQueue] 队列容量变更: {} → {}", old, newCapacity);
+            log.info("[ResizableQueue] {} 队列容量变更: {} → {}", poolName, old, newCapacity);
         }
 
         @Override

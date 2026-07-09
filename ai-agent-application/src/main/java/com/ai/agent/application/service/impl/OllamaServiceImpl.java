@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
@@ -108,29 +109,34 @@ public class OllamaServiceImpl implements LlmService {
         log.info("[Ollama-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
-        streamExecutor.submit(() -> {
-            if (mdcContext != null) MDC.setContextMap(mdcContext);
-            try {
-                Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-                    if (!response.isSuccessful() || response.body() == null) {
-                        String errBody = response.body() != null ? response.body().string() : "";
-                        log.error("[Ollama-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                        chunkConsumer.accept("[ERROR]");
-                        return;
+        try {
+            streamExecutor.submit(() -> {
+                if (mdcContext != null) MDC.setContextMap(mdcContext);
+                try {
+                    Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
+                    try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            String errBody = response.body() != null ? response.body().string() : "";
+                            log.error("[Ollama-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
+                            chunkConsumer.accept("[ERROR]");
+                            return;
+                        }
+                        parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
                     }
-                    parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                } catch (BizException e) {
+                    log.error("[Ollama-stream] 业务异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } catch (IOException e) {
+                    log.error("[Ollama-stream] IO 异常", e);
+                    chunkConsumer.accept("[ERROR]");
+                } finally {
+                    MDC.clear();
                 }
-            } catch (BizException e) {
-                log.error("[Ollama-stream] 业务异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } catch (IOException e) {
-                log.error("[Ollama-stream] IO 异常", e);
-                chunkConsumer.accept("[ERROR]");
-            } finally {
-                MDC.clear();
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("[Ollama-stream] 线程池已满，拒绝请求", e);
+            chunkConsumer.accept("[ERROR]");
+        }
     }
 
     // ==================== 请求构建 ====================
