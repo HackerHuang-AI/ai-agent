@@ -248,7 +248,7 @@ public class NacosConfig {
 
     /**
      * 向指定 DataId 注册额外的配置变更监听器。
-     * 监听器会在 Nacos 推送变更时回调，此时 {@link NacosConfigUtil} 缓存已更新完毕，可直接调用读取。
+     * 监听器会在 Nacos 推送变更时回调，此时 {@link com.ai.agent.infrastructure.utils.NacosConfigUtil} 缓存已更新完毕，可直接调用读取。
      *
      * @param dataId   目标 DataId（需带后缀）
      * @param listener Nacos Listener 实现

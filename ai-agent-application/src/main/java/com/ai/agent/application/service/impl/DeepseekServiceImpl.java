@@ -72,8 +72,17 @@ public class DeepseekServiceImpl implements LlmService {
 
         try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
             String responseBody = response.body() != null ? response.body().string() : "";
-            if (!response.isSuccessful() || responseBody.isEmpty()) {
-                log.error("[Deepseek-chat] HTTP 失败, code={}", response.code());
+            if (!response.isSuccessful()) {
+                if (response.code() >= 400 && response.code() < 500) {
+                    // 4xx：客户端错误，不触发 RetryUtil 重试，直接抛出
+                    log.error("[Deepseek-chat] HTTP {}，不可重试, body={}", response.code(), responseBody);
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                }
+                log.warn("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
+                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+            }
+            if (responseBody.isEmpty()) {
+                log.error("[Deepseek-chat] 响应体为空");
                 throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
             LlmResponse result = parseResponse(responseBody, request.getModelCode());

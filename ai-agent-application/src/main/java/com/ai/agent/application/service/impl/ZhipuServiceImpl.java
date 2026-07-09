@@ -49,8 +49,6 @@ public class ZhipuServiceImpl implements LlmService {
     
     private static final ObjectMapper MAPPER      = new ObjectMapper();
 
-    private static final int  MAX_ATTEMPTS   = 3;
-    private static final long BASE_DELAY_MS  = 1000L;
     /** JWT 有效期：30 分钟 */
     private static final long JWT_EXPIRE_MS  = 30 * 60 * 1000L;
 
@@ -69,43 +67,35 @@ public class ZhipuServiceImpl implements LlmService {
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
 
-        Exception lastException = null;
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try {
-                Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
-                    String responseBody = response.body() != null ? response.body().string() : "";
-                    if (!response.isSuccessful()) {
-                        String platformErr = extractErrorMessage(responseBody);
-                        if (response.code() >= 400 && response.code() < 500) {
-                            log.error("[Zhipu-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
-                            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
-                        }
-                        log.warn("[Zhipu-chat] HTTP {}，尝试 {}/{}, platformError={}", response.code(), attempt, MAX_ATTEMPTS, platformErr);
-                        lastException = new IOException("HTTP " + response.code());
-                    } else if (responseBody.isEmpty()) {
-                        log.warn("[Zhipu-chat] 响应体为空，尝试 {}/{}", attempt, MAX_ATTEMPTS);
-                        lastException = new IOException("响应体为空");
-                    } else {
-                        LlmResponse result = parseResponse(responseBody, request.getModelCode());
-                        log.info("[Zhipu-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+        try {
+            Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
+            try (Response response = okHttpConfig.getLlmClient().newCall(okRequest).execute()) {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    String platformErr = extractErrorMessage(responseBody);
+                    if (response.code() >= 400 && response.code() < 500) {
+                        log.error("[Zhipu-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
+                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                    }
+                    log.warn("[Zhipu-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                }
+                if (responseBody.isEmpty()) {
+                    log.error("[Zhipu-chat] 响应体为空");
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                }
+                LlmResponse result = parseResponse(responseBody, request.getModelCode());
+                log.info("[Zhipu-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
                                 System.currentTimeMillis() - start);
-                        return result;
-                    }
-                }
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.warn("[Zhipu-chat] IO 异常，尝试 {}/{}: {}", attempt, MAX_ATTEMPTS, e.getMessage());
-                lastException = e;
+                return result;
             }
-            if (attempt < MAX_ATTEMPTS) {
-                sleepQuietly(BASE_DELAY_MS * attempt);
-            }
+        } catch (BizException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[Zhipu-chat] IO 异常", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
-        log.error("[Zhipu-chat] 重试 {} 次后仍失败", MAX_ATTEMPTS, lastException);
-        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
     }
 
     @Override
@@ -308,12 +298,5 @@ public class ZhipuServiceImpl implements LlmService {
         return s != null && s.length() > 200 ? s.substring(0, 200) + "..." : s;
     }
 
-    private static void sleepQuietly(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
 }
 

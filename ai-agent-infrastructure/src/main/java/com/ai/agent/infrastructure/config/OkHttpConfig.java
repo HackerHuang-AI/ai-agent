@@ -161,7 +161,7 @@ public class OkHttpConfig {
         return param;
     }
 
-    /** 获取 LLM 请求重试参数，每次调用实时读 Nacos 缓存 */
+    /** 获取 LLM 请求重试参数（全局兜底），每次调用实时读 Nacos 缓存 */
     public RetryParam getLlmRetryParam() {
         RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, LLM_RETRY_KEY, RetryParam.class);
         if (param == null) {
@@ -169,6 +169,39 @@ public class OkHttpConfig {
             return DEFAULT_LLM_RETRY_PARAM;
         }
         return param;
+    }
+
+    /**
+     * 获取指定平台的 LLM 重试参数，支持按平台独立配置。
+     *
+     * <p>查找顺序：
+     * <ol>
+     *   <li>读 Nacos {@code ai-agent-http.json} 中以 platform 命名的 key（如 {@code "doubao"}）</li>
+     *   <li>无平台专属配置时，fallback 到全局 {@code llmRetry} 配置</li>
+     * </ol>
+     *
+     * <p>Nacos 配置示例：
+     * <pre>{@code
+     * {
+     *   "llmRetry": { "maxRetries": 2, "intervalMs": 1000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 },
+     *   "doubao":   { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
+     *   "deepseek": { "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
+     * }
+     * }</pre>
+     *
+     * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
+     */
+    public RetryParam getLlmRetryParam(String platform) {
+        if (platform != null && !platform.isBlank()) {
+            RetryParam platformParam = NacosConfigUtil.getObject(
+                    NacosDataIdEnum.AI_AGENT_HTTP, platform.toLowerCase(), RetryParam.class);
+            if (platformParam != null) {
+                log.debug("[OkHttpConfig] 使用平台专属重试参数, platform={}", platform);
+                return platformParam;
+            }
+        }
+        // 无平台专属配置，fallback 到全局 llmRetry
+        return getLlmRetryParam();
     }
 
     // ==================== Nacos 热更新 ====================

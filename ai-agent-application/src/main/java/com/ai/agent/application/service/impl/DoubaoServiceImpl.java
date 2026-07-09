@@ -8,9 +8,9 @@ import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +74,12 @@ public class DoubaoServiceImpl implements LlmService {
             String responseBody = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
                 String platformMsg = extractErrorMessage(responseBody);
-                log.error("[Doubao-chat] HTTP 失败, httpStatus={}, platformError={}", response.code(), platformMsg);
+                if (response.code() >= 400 && response.code() < 500) {
+                    // 4xx：客户端错误，不触发 RetryUtil 重试，直接抛出
+                    log.error("[Doubao-chat] HTTP {}，不可重试, platformError={}", response.code(), platformMsg);
+                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+                }
+                log.warn("[Doubao-chat] HTTP {} 失败, platformError={}", response.code(), platformMsg);
                 throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
             }
             if (responseBody.isEmpty()) {
