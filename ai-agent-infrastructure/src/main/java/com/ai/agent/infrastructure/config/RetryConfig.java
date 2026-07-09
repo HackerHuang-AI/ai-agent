@@ -2,6 +2,7 @@ package com.ai.agent.infrastructure.config;
 
 import com.ai.agent.infrastructure.config.param.RetryParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.enums.PlatformRetryDef;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
@@ -16,10 +17,18 @@ import java.util.concurrent.Executor;
  *
  * <p>设计要点：
  * <ul>
+ *   <li>平台与 Nacos key 的映射由 {@link PlatformRetryDef} 枚举统一管理，新增平台只需加一行枚举项</li>
+ *   <li>两层兜底：① Nacos {@code ai-agent-retry.json} 可配兜底；② 代码内置默认值不可配兜底</li>
  *   <li>重试参数读时生效，无需重建任何对象，Nacos 变更后下一次调用即使用新参数</li>
- *   <li>查找顺序：平台专属 key → 全局 LLM key {@code "llm"} → 通用 key {@code "default"} → 代码默认值</li>
- *   <li>与 OkHttp 连接配置完全解耦，调用方只关心"失败了怎么办"，无需感知 HTTP 客户端细节</li>
+ *   <li>与 OkHttp 连接配置完全解耦，调用方只关心"失败了怎么办"</li>
  * </ul>
+ *
+ * <p>查找链路：
+ * <pre>
+ *   platform → PlatformRetryDef.of(platform) → 枚举项（找不到返回 DEFAULT）
+ *     → def.nacosKey → Nacos 读取
+ *     → 读不到 → 代码内置默认值
+ * </pre>
  *
  * <p>Nacos 配置示例（ai-agent-retry.json）：
  * <pre>{@code
@@ -42,21 +51,11 @@ import java.util.concurrent.Executor;
 @Component
 public class RetryConfig {
 
-    // ==================== Nacos key，与 ai-agent-retry.json 中的 key 对应 ====================
+    /** 通用请求重试的 Nacos key（非 LLM 场景） */
     private static final String RETRY_DEFAULT_KEY = "default";
-    private static final String RETRY_LLM_KEY     = "llm";
 
-    // ==================== 默认参数（Nacos 未配置时兜底）====================
+    /** 代码内置兜底参数（两层兜底的第二层，不可配置） */
     private static final RetryParam DEFAULT_RETRY_PARAM = new RetryParam();
-    private static final RetryParam DEFAULT_LLM_RETRY_PARAM;
-
-    static {
-        DEFAULT_LLM_RETRY_PARAM = new RetryParam();
-        DEFAULT_LLM_RETRY_PARAM.setMaxRetries(2);
-        DEFAULT_LLM_RETRY_PARAM.setIntervalMs(1000);
-        DEFAULT_LLM_RETRY_PARAM.setBackoffMultiplier(2.0);
-        DEFAULT_LLM_RETRY_PARAM.setMaxWaitMs(60_000);
-    }
 
     @Autowired
     private NacosConfig nacosConfig;
@@ -71,64 +70,52 @@ public class RetryConfig {
 
             @Override
             public void receiveConfigInfo(String configInfo) {
-                // 重试参数读时生效，此处仅记录日志，无需手动刷新任何缓存
                 log.info("[RetryConfig] 收到 ai-agent-retry.json 变更，重试参数下次调用自动生效");
             }
         });
         log.info("[RetryConfig] 初始化完成，已注册 Nacos 监听器");
     }
 
-    // ==================== 对外暴露：获取重试参数（读时生效）====================
+    // ==================== 对外暴露 ====================
 
     /**
-     * 获取通用请求重试参数。
-     * 读 Nacos {@code ai-agent-retry.json} 中的 {@code "default"} key，未配置时使用代码默认值。
+     * 获取通用请求重试参数（无平台场景）。
+     *
+     * <p>读 Nacos {@code ai-agent-retry.json} 中的 {@code "default"} key，
+     * 未配置时使用代码内置默认值兜底。
      */
     public RetryParam getRetryParam() {
-        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
+        RetryParam param = NacosConfigUtil.getObject(
+                NacosDataIdEnum.AI_AGENT_RETRY, RETRY_DEFAULT_KEY, RetryParam.class);
         if (param == null) {
-            log.debug("[RetryConfig] Nacos 未配置 retry.default，使用默认值");
+            log.debug("[RetryConfig] Nacos 未配置 retry.default，使用代码默认值");
             return DEFAULT_RETRY_PARAM;
         }
         return param;
     }
 
     /**
-     * 获取 LLM 请求重试参数（全局兜底）。
-     * 读 Nacos {@code ai-agent-retry.json} 中的 {@code "llm"} key，未配置时使用代码默认值。
-     */
-    public RetryParam getLlmRetryParam() {
-        RetryParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_RETRY, RETRY_LLM_KEY, RetryParam.class);
-        if (param == null) {
-            log.debug("[RetryConfig] Nacos 未配置 retry.llm，使用默认值");
-            return DEFAULT_LLM_RETRY_PARAM;
-        }
-        return param;
-    }
-
-    /**
-     * 获取指定平台的 LLM 重试参数，支持按平台独立配置。
+     * 获取指定平台的重试参数。
      *
-     * <p>查找顺序（均读自 {@code ai-agent-retry.json}）：
+     * <p>查找链路：
      * <ol>
-     *   <li>平台专属 key（如 {@code "doubao"}）</li>
-     *   <li>全局 LLM 兜底 key {@code "llm"}</li>
-     *   <li>代码默认值</li>
+     *   <li>{@link PlatformRetryDef#of(String)} 查找枚举项，找不到返回 {@link PlatformRetryDef#DEFAULT}</li>
+     *   <li>用枚举项的 {@code nacosKey} 去 Nacos {@code ai-agent-retry.json} 读配置</li>
+     *   <li>Nacos 未配置时使用代码内置默认值兜底</li>
      * </ol>
      *
      * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
      */
-    public RetryParam getLlmRetryParam(String platform) {
-        if (platform != null && !platform.isBlank()) {
-            RetryParam platformParam = NacosConfigUtil.getObject(
-                    NacosDataIdEnum.AI_AGENT_RETRY, platform.toLowerCase(), RetryParam.class);
-            if (platformParam != null) {
-                log.debug("[RetryConfig] 使用平台专属重试参数, platform={}", platform);
-                return platformParam;
-            }
+    public RetryParam getRetryParam(String platform) {
+        PlatformRetryDef def = PlatformRetryDef.of(platform);
+        log.debug("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);
+        RetryParam param = NacosConfigUtil.getObject(
+                NacosDataIdEnum.AI_AGENT_RETRY, def.nacosKey, RetryParam.class);
+        if (param == null) {
+            log.debug("[RetryConfig] Nacos 未配置 retry.{}，使用代码默认值", def.nacosKey);
+            return DEFAULT_RETRY_PARAM;
         }
-        // 无平台专属配置，fallback 到全局 llm 重试
-        return getLlmRetryParam();
+        return param;
     }
 }
 

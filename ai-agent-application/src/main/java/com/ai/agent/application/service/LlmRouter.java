@@ -63,7 +63,7 @@ public class LlmRouter {
         log.info("[LlmRouter] platform={}, modelCode={}", platform, request.getModelCode());
         LlmResponse result = RetryUtil.retry(
                 () -> service.chat(request),
-                retryConfig.getLlmRetryParam(platform));
+                retryConfig.getRetryParam(platform));
         if (result == null) {
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
