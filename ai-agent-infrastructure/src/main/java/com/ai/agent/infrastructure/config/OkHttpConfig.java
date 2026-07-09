@@ -34,18 +34,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Nacos 配置示例（ai-agent-http.json）—— 只放网络连接参数：
  * <pre>{@code
  * {
- *   "okhttp": {
- *     "connectTimeoutSeconds": 5,
- *     "readTimeoutSeconds": 15,
- *     "writeTimeoutSeconds": 10,
- *     "llmReadTimeoutSeconds": 120,
- *     "llmWriteTimeoutSeconds": 30,
- *     "llmConnectTimeoutSeconds": 10,
- *     "maxIdleConnections": 50,
- *     "keepAliveMinutes": 5
- *   },
- *   "doubao": { "llmReadTimeoutSeconds": 180 },
- *   "deepseek": { "llmReadTimeoutSeconds": 60 }
+ *   "okhttp": { "connectTimeoutSeconds": 5, "readTimeoutSeconds": 15, "writeTimeoutSeconds": 10, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
+ *   "llm":    { "readTimeoutSeconds": 120, "writeTimeoutSeconds": 30, "connectTimeoutSeconds": 10 },
+ *   "doubao": { "readTimeoutSeconds": 180 },
+ *   "deepseek": { "readTimeoutSeconds": 60 }
  * }
  * }</pre>
  *
@@ -71,8 +63,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OkHttpConfig {
 
     // ==================== Nacos key ====================
-    /** ai-agent-http.json 中 OkHttp 连接参数的 key */
-    private static final String OKHTTP_KEY       = "okhttp";
+    /** ai-agent-http.json 中各超时块的 key */
+    private static final String OKHTTP_KEY        = "okhttp";
+    private static final String LLM_KEY           = "llm";
     /** ai-agent-retry.json 中各重试块的 key */
     private static final String RETRY_DEFAULT_KEY = "default";
     private static final String RETRY_LLM_KEY     = "llm";
@@ -138,27 +131,26 @@ public class OkHttpConfig {
     }
 
     /**
-     * 获取 LLM 专用 OkHttpClient，使用全局 LLM 超时参数。
-     * 每次调用在基础 Client 上 newBuilder() 叠加当前超时参数，共享同一连接池。
-     * Nacos 超时参数热更新后，下一次请求即使用新参数，无需重建 Client，无连接抖动。
+     * 获取 LLM 专用 OkHttpClient，使用 {@code "llm"} 全局超时块。
+     * 每次调用实时读 Nacos 缓存，Nacos 热更新后下一次请求即生效，无连接抖动。
      */
     public OkHttpClient getLlmClient() {
-        OkHttpParam p = currentParamRef.get();
+        OkHttpParam p = readLlmOkHttpParam();
         return baseClientRef.get().newBuilder()
-                .connectTimeout(p.getLlmConnectTimeoutSeconds(), TimeUnit.SECONDS)
-                .readTimeout(p.getLlmReadTimeoutSeconds(), TimeUnit.SECONDS)
-                .writeTimeout(p.getLlmWriteTimeoutSeconds(), TimeUnit.SECONDS)
+                .connectTimeout(p.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
+                .readTimeout(p.getReadTimeoutSeconds(), TimeUnit.SECONDS)
+                .writeTimeout(p.getWriteTimeoutSeconds(), TimeUnit.SECONDS)
                 .build();
     }
 
     /**
      * 获取指定平台的 LLM OkHttpClient，支持按平台独立配置超时参数。
      *
-     * <p>查找顺序：
+     * <p>查找顺序（均读自 {@code ai-agent-http.json}）：
      * <ol>
-     *   <li>读 Nacos {@code ai-agent-http.json} 中以 platform 命名的 key（如 {@code "doubao"}），
-     *       仅覆盖配置中出现的字段，未配置字段继承全局 okhttp 参数</li>
-     *   <li>无平台专属配置时，fallback 到全局 LLM 超时参数</li>
+     *   <li>平台专属 key（如 {@code "doubao"}）—— 仅需配置与 llm 块不同的字段</li>
+     *   <li>全局 LLM 兜底 key {@code "llm"}</li>
+     *   <li>代码默认值</li>
      * </ol>
      *
      * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
@@ -170,9 +162,9 @@ public class OkHttpConfig {
             if (platformParam != null) {
                 log.debug("[OkHttpConfig] 使用平台专属超时参数, platform={}", platform);
                 return baseClientRef.get().newBuilder()
-                        .connectTimeout(platformParam.getLlmConnectTimeoutSeconds(), TimeUnit.SECONDS)
-                        .readTimeout(platformParam.getLlmReadTimeoutSeconds(), TimeUnit.SECONDS)
-                        .writeTimeout(platformParam.getLlmWriteTimeoutSeconds(), TimeUnit.SECONDS)
+                        .connectTimeout(platformParam.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
+                        .readTimeout(platformParam.getReadTimeoutSeconds(), TimeUnit.SECONDS)
+                        .writeTimeout(platformParam.getWriteTimeoutSeconds(), TimeUnit.SECONDS)
                         .build();
             }
         }
@@ -311,11 +303,22 @@ public class OkHttpConfig {
 
     // ==================== 读取参数 ====================
 
+    /** 读取全局 OkHttp 连接参数（{@code "okhttp"} 块），用于构建基础 Client 和普通请求 */
     private OkHttpParam readOkHttpParam() {
         OkHttpParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OKHTTP_KEY, OkHttpParam.class);
         if (param == null) {
             log.debug("[OkHttpConfig] Nacos 未配置 okhttp 参数，使用默认值");
             return DEFAULT_OKHTTP_PARAM;
+        }
+        return param;
+    }
+
+    /** 读取 LLM 全局超时参数（{@code "llm"} 块），fallback 到 {@code "okhttp"} 块 */
+    private OkHttpParam readLlmOkHttpParam() {
+        OkHttpParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, LLM_KEY, OkHttpParam.class);
+        if (param == null) {
+            log.debug("[OkHttpConfig] Nacos 未配置 llm 超时参数，fallback 到 okhttp 全局参数");
+            return currentParamRef.get(); // 直接用已缓存的 okhttp 参数，避免重复读取
         }
         return param;
     }
