@@ -4,13 +4,8 @@ import com.ai.agent.infrastructure.config.param.RetryParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.alibaba.nacos.api.config.listener.Listener;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.Executor;
 
 /**
  * @Description: 重试策略动态配置中心，独立于 OkHttp 连接配置。
@@ -20,6 +15,7 @@ import java.util.concurrent.Executor;
  *   <li>平台与 Nacos key 的映射由 {@link RetryConfigEnum} 枚举统一管理，新增平台只需加一行枚举项</li>
  *   <li>两层兜底：① Nacos {@code ai-agent-retry.json} 可配兜底；② 代码内置默认值不可配兜底</li>
  *   <li>重试参数读时生效，无需重建任何对象，Nacos 变更后下一次调用即使用新参数</li>
+ *   <li>缓存更新由 {@link NacosConfig} 统一负责，本类无需额外注册监听器</li>
  *   <li>与 OkHttp 连接配置完全解耦，调用方只关心"失败了怎么办"</li>
  * </ul>
  *
@@ -34,7 +30,6 @@ import java.util.concurrent.Executor;
  * <pre>{@code
  * {
  *   "default": { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 2.0, "maxWaitMs": 30000 },
- *   "llm":     { "maxRetries": 2, "intervalMs": 1000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 },
  *   "doubao":  { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
  *   "deepseek":{ "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
  * }
@@ -56,25 +51,6 @@ public class RetryConfig {
 
     /** 代码内置兜底参数（两层兜底的第二层，不可配置） */
     private static final RetryParam DEFAULT_RETRY_PARAM = new RetryParam();
-
-    @Autowired
-    private NacosConfig nacosConfig;
-
-    // ==================== 初始化 ====================
-
-    @PostConstruct
-    public void init() {
-        nacosConfig.addListener(NacosDataIdEnum.AI_AGENT_RETRY.dataId(), new Listener() {
-            @Override
-            public Executor getExecutor() { return null; }
-
-            @Override
-            public void receiveConfigInfo(String configInfo) {
-                log.info("[RetryConfig] 收到 ai-agent-retry.json 变更，重试参数下次调用自动生效");
-            }
-        });
-        log.info("[RetryConfig] 初始化完成，已注册 Nacos 监听器");
-    }
 
     // ==================== 对外暴露 ====================
 
