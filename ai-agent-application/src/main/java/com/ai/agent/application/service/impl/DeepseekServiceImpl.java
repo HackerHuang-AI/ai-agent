@@ -255,10 +255,18 @@ public class DeepseekServiceImpl implements LlmService {
                     .usage(LlmUsage.builder()
                             .inputTokens(input)
                             .outputTokens(output)
-                            .totalTokens(usage.path("total_tokens").asInt(0) > 0 ? usage.path("total_tokens").asInt() : input + output)
-                            .cachedTokens(cacheHit > 0 ? cacheHit : null)
-                            .reasoningTokens(usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0) > 0
-                                    ? usage.path("completion_tokens_details").path("reasoning_tokens").asInt() : null)
+                            .totalTokens(!usage.path("total_tokens").isMissingNode() ? usage.path("total_tokens").asInt() : input + output)
+                            // Deepseek cacheHit 在顶层 usage（非 details 嵌套），有字段就填包括 0
+                            .inputTokensDetails(!usage.path("prompt_cache_hit_tokens").isMissingNode()
+                                    ? LlmInputTokensDetails.builder()
+                                            .cachedTokens(cacheHit)
+                                            .build()
+                                    : null)
+                            .outputTokensDetails(!usage.path("completion_tokens_details").isMissingNode()
+                                    ? LlmOutputTokensDetails.builder()
+                                            .reasoningTokens(usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0))
+                                            .build()
+                                    : null)
                             .build())
                     .build();
         } catch (IOException e) {
