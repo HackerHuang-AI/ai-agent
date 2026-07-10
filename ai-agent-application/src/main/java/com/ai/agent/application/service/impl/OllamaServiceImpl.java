@@ -132,6 +132,16 @@ public class OllamaServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * Ollama 本地部署模型是否支持多模态取决于具体加载的模型（如 llava 系列支持视觉），
+     * 当前接口层尚未针对多模态协议进行适配，暂不支持，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Ollama] 多模态接口暂未适配：是否支持视觉取决于本地部署的具体模型（如 llava），当前通用接口层尚未完成对接");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

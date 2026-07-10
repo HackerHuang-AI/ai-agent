@@ -39,5 +39,22 @@ public interface LlmService {
      * @param chunkConsumer 每个流式 chunk 的回调
      */
     void chatStream(LlmRequest request, Consumer<String> chunkConsumer);
+
+    /**
+     * 多模态对话，支持图片+文本混合输入。
+     *
+     * <p>各平台必须显式实现本方法：
+     * <ul>
+     *   <li>支持多模态的平台：完成协议适配后调用对应 API</li>
+     *   <li>暂不支持的平台：打印平台专属日志说明原因，并返回 {@code null}</li>
+     * </ul>
+     *
+     * <p>入参复用 {@link LlmRequest}，messages 中每条消息的 {@code contents} 字段
+     * 描述多内容块（TEXT / IMAGE / …）。
+     *
+     * @param request 统一入参，messages.contents 中含图片等非文本内容
+     * @return 统一响应；若平台不支持则返回 {@code null}
+     */
+    LlmResponse multimodalChat(LlmRequest request);
 }
 

@@ -144,6 +144,16 @@ public class AnthropicServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * Anthropic Claude 3 系列具备视觉能力，但其多模态协议使用 content 数组中的 image 块传输图片，
+     * 与当前通用多模态接口的 LlmRequest 结构尚未完成适配，暂不支持，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Anthropic] 多模态接口暂未适配：Claude 视觉能力需通过 content image 块传入图片，当前通用接口层尚未完成对接");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

@@ -132,6 +132,15 @@ public class MimoServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * MiMo 为专注推理的纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[MiMo] 暂不支持多模态：MiMo 为纯文本推理模型，不具备图片理解能力");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

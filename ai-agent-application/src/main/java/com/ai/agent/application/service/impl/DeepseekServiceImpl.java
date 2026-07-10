@@ -140,6 +140,16 @@ public class DeepseekServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * Deepseek 当前主力模型（deepseek-chat / deepseek-reasoner）为纯文本推理模型，
+     * 不具备图片理解能力，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Deepseek] 暂不支持多模态：当前接入的 deepseek-chat / deepseek-reasoner 为纯文本模型，不具备图片理解能力");
+        return null;
+    }
+
     // ==================== 私有方法 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

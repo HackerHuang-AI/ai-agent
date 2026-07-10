@@ -145,6 +145,42 @@ public class DoubaoServiceImpl implements LlmService {
     }
 
     /**
+     * 统一接口入口：将 LlmRequest 中的 messages 转换为 Responses API input 格式后调用。
+     * 覆盖 LlmService 的 default 实现，豆包支持多模态。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        if (request.getMessages() == null || request.getMessages().isEmpty()) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "messages 不能为空");
+        }
+        List<Map<String, Object>> input = request.getMessages().stream().map(msg -> {
+            if (msg.getContents() == null || msg.getContents().isEmpty()) {
+                throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "多模态消息的 contents 不能为空");
+            }
+            List<Map<String, Object>> contentList = msg.getContents().stream()
+                    .map(c -> {
+                        if (c.getType() == null || c.getValue() == null || c.getValue().isBlank()) {
+                            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "contents 中 type/value 不能为空");
+                        }
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        switch (c.getType()) {
+                            case IMAGE -> { item.put("type", "input_image"); item.put("image_url", c.getValue()); }
+                            case TEXT  -> { item.put("type", "input_text");  item.put("text", c.getValue()); }
+                            default    -> throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL,
+                                    "豆包多模态暂不支持 " + c.getType() + " 类型");
+                        }
+                        return item;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            Map<String, Object> message = new LinkedHashMap<>();
+            message.put("role", msg.getRole());
+            message.put("content", contentList);
+            return message;
+        }).collect(java.util.stream.Collectors.toList());
+        return multimodalChat(request.getModelCode(), input, request.getApiKey(), request.getEndpoint());
+    }
+
+    /**
      * 多模态对话（Responses API）
      * 支持图片+文本混合输入，调用 /v3/responses 协议
      */

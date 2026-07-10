@@ -132,6 +132,16 @@ public class GeminiServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * Google Gemini 原生支持多模态，但其协议使用 parts 数组传入 inline_data 图片块，
+     * 与当前通用多模态接口的 LlmRequest 结构尚未完成适配，暂不支持，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Gemini] 多模态接口暂未适配：Gemini 原生支持视觉，但其 parts/inline_data 协议与当前通用接口层尚未完成对接");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

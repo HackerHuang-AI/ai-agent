@@ -132,6 +132,15 @@ public class DsTokenPlanServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * 阿里灵积 TokenPlan 当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[DsTokenPlan] 暂不支持多模态：阿里灵积 TokenPlan 当前接入版本为纯文本模型，不具备图片理解能力");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

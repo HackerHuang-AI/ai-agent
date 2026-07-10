@@ -132,6 +132,15 @@ public class TokenhubServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * 腾讯 TokenHub 当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[TokenHub] 暂不支持多模态：当前接入的腾讯 TokenHub 版本为纯文本模型，不具备图片理解能力");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

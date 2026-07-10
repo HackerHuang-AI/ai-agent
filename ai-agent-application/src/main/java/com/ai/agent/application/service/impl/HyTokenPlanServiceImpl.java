@@ -132,6 +132,15 @@ public class HyTokenPlanServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * 腾讯混元 TokenPlan 当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[HyTokenPlan] 暂不支持多模态：腾讯混元 TokenPlan 当前接入版本为纯文本模型，不具备图片理解能力");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

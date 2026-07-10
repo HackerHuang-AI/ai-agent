@@ -132,6 +132,16 @@ public class OpenAiServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * OpenAI GPT-4o Vision 支持多模态，但其协议通过 Chat Completions 的 image_url 传入，
+     * 与当前通用多模态接口的 LlmRequest 结构尚未完成适配，暂不支持，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[OpenAI] 多模态接口暂未适配：GPT-4o Vision 需通过 Chat Completions image_url 协议传入图片，当前通用接口层尚未完成对接");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

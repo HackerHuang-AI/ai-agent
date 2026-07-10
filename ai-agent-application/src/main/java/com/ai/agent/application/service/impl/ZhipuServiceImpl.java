@@ -137,6 +137,16 @@ public class ZhipuServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * 智谱 GLM-4V 系列具备视觉能力，但其多模态协议与当前通用接口的 LlmRequest 结构尚未完成适配，
+     * 暂不支持，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Zhipu] 多模态接口暂未适配：GLM-4V 支持图片理解，但当前通用接口层尚未完成对接");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

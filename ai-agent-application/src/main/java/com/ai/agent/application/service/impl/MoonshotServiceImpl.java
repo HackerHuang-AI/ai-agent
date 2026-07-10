@@ -132,6 +132,15 @@ public class MoonshotServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * Moonshot（Kimi）当前不支持图片输入，仅支持超长文本理解，暂不支持多模态，返回 null。
+     */
+    @Override
+    public LlmResponse multimodalChat(LlmRequest request) {
+        log.warn("[Moonshot] 暂不支持多模态：Kimi 当前版本仅支持超长文本理解，不具备图片输入能力");
+        return null;
+    }
+
     // ==================== 请求构建 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {

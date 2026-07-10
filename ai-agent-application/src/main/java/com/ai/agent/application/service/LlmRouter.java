@@ -63,6 +63,22 @@ public class LlmRouter {
     }
 
     /**
+     * 根据 platform 路由到对应 Service 执行多模态调用。
+     *
+     * <p>若平台不支持多模态，对应 Service 的 default 实现会打印日志并返回 {@code null}，
+     * 本方法将 {@code null} 原样返回，由 Controller 层决定如何处理。
+     *
+     * @param platform platform 标识（不区分大小写）
+     * @param request  统一入参，messages.contents 中含图片等多模态内容
+     * @return 统一响应；平台不支持时返回 {@code null}
+     */
+    public LlmResponse multimodalChat(String platform, LlmRequest request) {
+        LlmService service = resolve(platform);
+        log.info("[LlmRouter] multimodal platform={}, modelCode={}", platform, request.getModelCode());
+        return service.multimodalChat(request);
+    }
+
+    /**
      * 根据 platform 路由到对应 Service 执行流式调用
      *
      * @param platform      platform 标识（不区分大小写）
