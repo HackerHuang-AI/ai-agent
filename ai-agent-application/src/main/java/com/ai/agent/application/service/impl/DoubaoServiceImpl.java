@@ -3,16 +3,13 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.DoubaoBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
-import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -205,7 +202,7 @@ public class DoubaoServiceImpl implements LlmService {
                 }
                 LlmResponse result = parseMultimodalResponse(responseBody, model);
                 log.info("[Doubao-multimodal] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
-                        result.getInputTokens(), result.getOutputTokens(),
+                        result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                         System.currentTimeMillis() - start);
                 return result;
             }
@@ -319,17 +316,39 @@ public class DoubaoServiceImpl implements LlmService {
 
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
-            JsonNode root = MAPPER.readTree(responseJson);
-            JsonNode choice = root.path("choices").path(0);
-            String content = choice.path("message").path("content").asText("");
-            String finishReason = choice.path("finish_reason").asText("");
+            JsonNode root  = MAPPER.readTree(responseJson);
             JsonNode usage = root.path("usage");
+            int input  = usage.path("prompt_tokens").asInt(0);
+            int output = usage.path("completion_tokens").asInt(0);
+
+            List<LlmChoice> choices = new ArrayList<>();
+            for (JsonNode c : root.path("choices")) {
+                JsonNode msg = c.path("message");
+                String reasoningContent = null;
+                JsonNode reasoningNode = msg.path("reasoning_content");
+                if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
+                    reasoningContent = reasoningNode.asText("");
+                }
+                choices.add(LlmChoice.builder()
+                        .content(msg.path("content").asText(""))
+                        .reasoningContent(reasoningContent)
+                        .finishReason(c.path("finish_reason").asText(""))
+                        .build());
+            }
             return LlmResponse.builder()
-                    .content(content)
+                    .requestId(root.path("id").asText(null))
                     .modelCode(modelCode)
-                    .inputTokens(usage.path("prompt_tokens").asInt(0))
-                    .outputTokens(usage.path("completion_tokens").asInt(0))
-                    .finishReason(finishReason)
+                    .createdAt(root.path("created").asLong(0) > 0 ? root.path("created").asLong() : null)
+                    .choices(choices)
+                    .usage(LlmUsage.builder()
+                            .inputTokens(input)
+                            .outputTokens(output)
+                            .totalTokens(usage.path("total_tokens").asInt(0) > 0 ? usage.path("total_tokens").asInt() : input + output)
+                            .cachedTokens(usage.path("prompt_tokens_details").path("cached_tokens").asInt(0) > 0
+                                    ? usage.path("prompt_tokens_details").path("cached_tokens").asInt() : null)
+                            .reasoningTokens(usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0) > 0
+                                    ? usage.path("completion_tokens_details").path("reasoning_tokens").asInt() : null)
+                            .build())
                     .build();
         } catch (IOException e) {
             log.error("[Doubao-chat] 响应解析失败", e);
@@ -396,15 +415,66 @@ public class DoubaoServiceImpl implements LlmService {
 
     private LlmResponse parseMultimodalResponse(String responseJson, String model) {
         try {
+            log.debug("[Doubao-multimodal] 原始响应: {}", responseJson);
             JsonNode root = MAPPER.readTree(responseJson);
-            String content = root.path("output").path(0).path("content").path(0).path("text").asText("");
             JsonNode usage = root.path("usage");
+            int input  = usage.path("input_tokens").asInt(0);
+            int output = usage.path("output_tokens").asInt(0);
+
+            // 解析 output[]：遇到 type=reasoning 填 summary，遇到 type=message 填 content
+            List<LlmOutputItem> outputItems = new ArrayList<>();
+            for (JsonNode item : root.path("output")) {
+                String type   = item.path("type").asText("");
+                String status = item.path("status").asText(null);
+                String id     = item.path("id").asText(null);
+
+                if ("reasoning".equals(type)) {
+                    List<LlmContentBlock> summaryBlocks = new ArrayList<>();
+                    for (JsonNode s : item.path("summary")) {
+                        summaryBlocks.add(LlmContentBlock.builder()
+                                .type(s.path("type").asText(""))
+                                .text(s.path("text").asText(""))
+                                .build());
+                    }
+                    outputItems.add(LlmOutputItem.builder()
+                            .id(id).type(type).status(status)
+                            .summary(summaryBlocks)
+                            .build());
+                } else if ("message".equals(type)) {
+                    List<LlmContentBlock> contentBlocks = new ArrayList<>();
+                    for (JsonNode c : item.path("content")) {
+                        contentBlocks.add(LlmContentBlock.builder()
+                                .type(c.path("type").asText(""))
+                                .text(c.path("text").asText(""))
+                                .build());
+                    }
+                    outputItems.add(LlmOutputItem.builder()
+                            .id(id).type(type).status(status)
+                            .role(item.path("role").asText(null))
+                            .content(contentBlocks)
+                            .build());
+                }
+            }
+            if (outputItems.stream().noneMatch(o -> "message".equals(o.getType()))) {
+                log.warn("[Doubao-multimodal] output 中未找到 type=message 节点，原始响应: {}", responseJson);
+            }
+
             return LlmResponse.builder()
-                    .content(content)
+                    .requestId(root.path("id").asText(null))
                     .modelCode(model)
-                    .inputTokens(usage.path("input_tokens").asInt(0))
-                    .outputTokens(usage.path("output_tokens").asInt(0))
-                    .finishReason("stop")
+                    .createdAt(root.path("created_at").asLong(0) > 0 ? root.path("created_at").asLong() : null)
+                    .status(root.path("status").asText(null))
+                    .maxOutputTokens(root.path("max_output_tokens").asInt(0) > 0 ? root.path("max_output_tokens").asInt() : null)
+                    .output(outputItems)
+                    .usage(LlmUsage.builder()
+                            .inputTokens(input)
+                            .outputTokens(output)
+                            .totalTokens(usage.path("total_tokens").asInt(0) > 0 ? usage.path("total_tokens").asInt() : input + output)
+                            .cachedTokens(usage.path("input_tokens_details").path("cached_tokens").asInt(0) > 0
+                                    ? usage.path("input_tokens_details").path("cached_tokens").asInt() : null)
+                            .reasoningTokens(usage.path("output_tokens_details").path("reasoning_tokens").asInt(0) > 0
+                                    ? usage.path("output_tokens_details").path("reasoning_tokens").asInt() : null)
+                            .build())
                     .build();
         } catch (IOException e) {
             log.error("[Doubao-multimodal] 响应解析失败", e);

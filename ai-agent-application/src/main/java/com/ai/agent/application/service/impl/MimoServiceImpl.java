@@ -2,10 +2,7 @@ package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -94,7 +91,7 @@ public class MimoServiceImpl implements LlmService {
         }, retryConfig.getRetryParam("mimo"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[MiMo-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
-                                request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
+                                request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                                 System.currentTimeMillis() - start);
         return result;
     }
@@ -219,17 +216,39 @@ public class MimoServiceImpl implements LlmService {
 
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
-            JsonNode root   = MAPPER.readTree(responseJson);
-            JsonNode choice = root.path("choices").path(0);
-            String content  = choice.path("message").path("content").asText("");
-            String finish   = choice.path("finish_reason").asText("");
-            JsonNode usage  = root.path("usage");
+            JsonNode root  = MAPPER.readTree(responseJson);
+            JsonNode usage = root.path("usage");
+            int input  = usage.path("prompt_tokens").asInt(0);
+            int output = usage.path("completion_tokens").asInt(0);
+
+            List<LlmChoice> choices = new ArrayList<>();
+            for (JsonNode c : root.path("choices")) {
+                JsonNode msg = c.path("message");
+                String reasoningContent = null;
+                JsonNode reasoningNode = msg.path("reasoning_content");
+                if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
+                    reasoningContent = reasoningNode.asText("");
+                }
+                choices.add(LlmChoice.builder()
+                        .content(msg.path("content").asText(""))
+                        .reasoningContent(reasoningContent)
+                        .finishReason(c.path("finish_reason").asText(""))
+                        .build());
+            }
             return LlmResponse.builder()
-                    .content(content)
+                    .requestId(root.path("id").asText(null))
                     .modelCode(modelCode)
-                    .inputTokens(usage.path("prompt_tokens").asInt(0))
-                    .outputTokens(usage.path("completion_tokens").asInt(0))
-                    .finishReason(finish)
+                    .createdAt(root.path("created").asLong(0) > 0 ? root.path("created").asLong() : null)
+                    .choices(choices)
+                    .usage(LlmUsage.builder()
+                            .inputTokens(input)
+                            .outputTokens(output)
+                            .totalTokens(usage.path("total_tokens").asInt(0) > 0 ? usage.path("total_tokens").asInt() : input + output)
+                            .cachedTokens(usage.path("prompt_tokens_details").path("cached_tokens").asInt(0) > 0
+                                    ? usage.path("prompt_tokens_details").path("cached_tokens").asInt() : null)
+                            .reasoningTokens(usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0) > 0
+                                    ? usage.path("completion_tokens_details").path("reasoning_tokens").asInt() : null)
+                            .build())
                     .build();
         } catch (IOException e) {
             log.error("[MiMo-chat] 响应解析失败", e);

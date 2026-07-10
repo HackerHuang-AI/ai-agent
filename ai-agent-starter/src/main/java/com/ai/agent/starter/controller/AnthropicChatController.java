@@ -117,11 +117,14 @@ public class AnthropicChatController {
 
     private LlmResponseVO toVO(LlmResponse response) {
         return LlmResponseVO.builder()
-                .content(response.getContent())
+                .requestId(response.getRequestId())
                 .modelCode(response.getModelCode())
-                .inputTokens(response.getInputTokens())
-                .outputTokens(response.getOutputTokens())
-                .finishReason(response.getFinishReason())
+                .createdAt(response.getCreatedAt())
+                .choices(response.getChoices())
+                .status(response.getStatus())
+                .maxOutputTokens(response.getMaxOutputTokens())
+                .output(response.getOutput())
+                .usage(response.getUsage())
                 .extraData(response.getExtraData())
                 .build();
     }

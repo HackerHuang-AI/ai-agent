@@ -2,10 +2,7 @@ package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -229,30 +226,40 @@ public class DeepseekServiceImpl implements LlmService {
 
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
-            JsonNode root = MAPPER.readTree(responseJson);
-            JsonNode choice = root.path("choices").path(0);
-            JsonNode message = choice.path("message");
-            String content = message.path("content").asText("");
-            String finishReason = choice.path("finish_reason").asText("");
+            JsonNode root  = MAPPER.readTree(responseJson);
             JsonNode usage = root.path("usage");
+            int input  = usage.path("prompt_tokens").asInt(0);
+            int output = usage.path("completion_tokens").asInt(0);
+            // Deepseek 私有：prompt_cache_hit_tokens 在顶层 usage（非 details 嵌套）
+            int cacheHit = usage.path("prompt_cache_hit_tokens").asInt(0);
 
-            Map<String, Object> extraData = new HashMap<>();
-            JsonNode reasoningNode = message.path("reasoning_content");
-            if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
-                extraData.put("reasoning_content", reasoningNode.asText(""));
+            List<LlmChoice> choices = new ArrayList<>();
+            for (JsonNode c : root.path("choices")) {
+                JsonNode msg = c.path("message");
+                String reasoningContent = null;
+                JsonNode reasoningNode = msg.path("reasoning_content");
+                if (!reasoningNode.isMissingNode() && !reasoningNode.isNull()) {
+                    reasoningContent = reasoningNode.asText("");
+                }
+                choices.add(LlmChoice.builder()
+                        .content(msg.path("content").asText(""))
+                        .reasoningContent(reasoningContent)
+                        .finishReason(c.path("finish_reason").asText(""))
+                        .build());
             }
-            int cacheHitTokens = usage.path("prompt_cache_hit_tokens").asInt(0);
-            if (cacheHitTokens > 0) {
-                extraData.put("cache_hit_tokens", cacheHitTokens);
-            }
-
             return LlmResponse.builder()
-                    .content(content)
+                    .requestId(root.path("id").asText(null))
                     .modelCode(modelCode)
-                    .inputTokens(usage.path("prompt_tokens").asInt(0))
-                    .outputTokens(usage.path("completion_tokens").asInt(0))
-                    .finishReason(finishReason)
-                    .extraData(extraData.isEmpty() ? null : extraData)
+                    .createdAt(root.path("created").asLong(0) > 0 ? root.path("created").asLong() : null)
+                    .choices(choices)
+                    .usage(LlmUsage.builder()
+                            .inputTokens(input)
+                            .outputTokens(output)
+                            .totalTokens(usage.path("total_tokens").asInt(0) > 0 ? usage.path("total_tokens").asInt() : input + output)
+                            .cachedTokens(cacheHit > 0 ? cacheHit : null)
+                            .reasoningTokens(usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0) > 0
+                                    ? usage.path("completion_tokens_details").path("reasoning_tokens").asInt() : null)
+                            .build())
                     .build();
         } catch (IOException e) {
             log.error("[Deepseek-chat] 响应解析失败", e);

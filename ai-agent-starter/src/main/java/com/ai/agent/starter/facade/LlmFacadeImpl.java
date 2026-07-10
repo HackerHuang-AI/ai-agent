@@ -1,10 +1,7 @@
 package com.ai.agent.starter.facade;
 
 import com.ai.agent.application.enums.ContentTypeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
 import com.ai.agent.client.dto.LlmFacadeMessage;
 import com.ai.agent.client.dto.LlmFacadeRequest;
@@ -61,12 +58,15 @@ public class LlmFacadeImpl implements LlmFacade {
         LlmResponse resp = llmRouter.chat(request.getPlatform(), llmRequest);
 
         // 3. 领域响应 → Facade DTO
+        // LlmFacadeResponse 是 Dubbo 对外接口契约，保持字段不变，从新结构中适配取值
+        LlmChoice firstChoice = (resp.getChoices() != null && !resp.getChoices().isEmpty())
+                ? resp.getChoices().get(0) : null;
         LlmFacadeResponse facadeResponse = new LlmFacadeResponse();
-        facadeResponse.setContent(resp.getContent());
+        facadeResponse.setContent(firstChoice != null ? firstChoice.getContent() : null);
         facadeResponse.setModelCode(resp.getModelCode());
-        facadeResponse.setInputTokens(resp.getInputTokens());
-        facadeResponse.setOutputTokens(resp.getOutputTokens());
-        facadeResponse.setFinishReason(resp.getFinishReason());
+        facadeResponse.setInputTokens(resp.getUsage() != null ? resp.getUsage().getInputTokens() : 0);
+        facadeResponse.setOutputTokens(resp.getUsage() != null ? resp.getUsage().getOutputTokens() : 0);
+        facadeResponse.setFinishReason(firstChoice != null ? firstChoice.getFinishReason() : null);
         facadeResponse.setExtraData(resp.getExtraData());
         return facadeResponse;
     }

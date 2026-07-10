@@ -2,10 +2,7 @@ package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -104,7 +101,7 @@ public class AnthropicServiceImpl implements LlmService {
         }, retryConfig.getRetryParam("anthropic"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Anthropic-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
-                                request.getModelCode(), result.getInputTokens(), result.getOutputTokens(),
+                                request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                                 System.currentTimeMillis() - start);
         return result;
     }
@@ -229,7 +226,13 @@ public class AnthropicServiceImpl implements LlmService {
 
     // ==================== 响应解析 ====================
 
-    /** Anthropic 响应结构：content[0].text，token 字段 input_tokens/output_tokens */
+    /**
+     * Anthropic 响应结构：content[0].text，token 字段 input_tokens/output_tokens。
+     * 与 OpenAI 差异：
+     *   - 无 choices 结构，内容在 root.content[] 中，用单个 LlmChoice 封装保持统一。
+     *   - 无 created 字段，用请求发起时间兼底。
+     *   - 无 total_tokens，由 input + output 自算。
+     */
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
             JsonNode root     = MAPPER.readTree(responseJson);
@@ -237,12 +240,21 @@ public class AnthropicServiceImpl implements LlmService {
             String stopReason = root.path("stop_reason").asText("");
             String finish     = "end_turn".equals(stopReason) ? "stop" : stopReason;
             JsonNode usage    = root.path("usage");
+            int input  = usage.path("input_tokens").asInt(0);
+            int output = usage.path("output_tokens").asInt(0);
             return LlmResponse.builder()
-                    .content(content)
+                    .requestId(root.path("id").asText(null))
                     .modelCode(modelCode)
-                    .inputTokens(usage.path("input_tokens").asInt(0))
-                    .outputTokens(usage.path("output_tokens").asInt(0))
-                    .finishReason(finish)
+                    .createdAt(System.currentTimeMillis() / 1000)
+                    .choices(List.of(LlmChoice.builder()
+                            .content(content)
+                            .finishReason(finish)
+                            .build()))
+                    .usage(LlmUsage.builder()
+                            .inputTokens(input)
+                            .outputTokens(output)
+                            .totalTokens(input + output)
+                            .build())
                     .build();
         } catch (IOException e) {
             log.error("[Anthropic-chat] 响应解析失败", e);
