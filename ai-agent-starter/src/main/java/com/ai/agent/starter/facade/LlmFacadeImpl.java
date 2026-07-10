@@ -64,8 +64,9 @@ public class LlmFacadeImpl implements LlmFacade {
         LlmFacadeResponse facadeResponse = new LlmFacadeResponse();
         facadeResponse.setContent(firstChoice != null ? firstChoice.getContent() : null);
         facadeResponse.setModelCode(resp.getModelCode());
-        facadeResponse.setInputTokens(resp.getUsage() != null ? resp.getUsage().getInputTokens() : 0);
-        facadeResponse.setOutputTokens(resp.getUsage() != null ? resp.getUsage().getOutputTokens() : 0);
+        LlmUsage usage = resp.getUsage();
+        facadeResponse.setInputTokens(usage != null && usage.getInputTokens() != null ? usage.getInputTokens() : 0);
+        facadeResponse.setOutputTokens(usage != null && usage.getOutputTokens() != null ? usage.getOutputTokens() : 0);
         facadeResponse.setFinishReason(firstChoice != null ? firstChoice.getFinishReason() : null);
         facadeResponse.setExtraData(resp.getExtraData());
         return facadeResponse;
