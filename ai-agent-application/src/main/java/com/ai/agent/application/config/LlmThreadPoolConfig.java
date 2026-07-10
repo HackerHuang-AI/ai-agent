@@ -169,6 +169,7 @@ public class LlmThreadPoolConfig {
     }
 
     private void logStats() {
+        log.info("[LlmThreadPool-Stats] view");
         executors.forEach((def, executor) -> {
             AtomicLong rejected = rejectedCounts.get(def); // 必然存在，createAndRegister 已 put
             log.info("[LlmThreadPool-Stats] {} active={}/{} queue={}/{} completed={} rejected={}",

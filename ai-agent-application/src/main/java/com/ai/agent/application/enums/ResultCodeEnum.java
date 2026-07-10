@@ -1,6 +1,7 @@
 package com.ai.agent.application.enums;
 
-import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
  * @Description: 统一响应状态码枚举，配合 Result<T> 使用。
@@ -11,7 +12,6 @@ import lombok.Getter;
  * @Date: Created in 2026/5/29
  * @Version: 1.0
  */
-@Getter
 public enum ResultCodeEnum {
 
     SUCCESS("00", "成功"),
@@ -25,6 +25,17 @@ public enum ResultCodeEnum {
         this.defaultMessage = defaultMessage;
     }
 
+    /** Jackson 序列化时输出此值（"00"/"01"），而非枚举名 */
+    @JsonValue
+    public String getCode() {
+        return code;
+    }
+
+    public String getDefaultMessage() {
+        return defaultMessage;
+    }
+
+    @JsonCreator
     public static ResultCodeEnum fromCode(String code) {
         if (code == null) {
             return null;
