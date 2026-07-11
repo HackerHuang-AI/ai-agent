@@ -87,12 +87,8 @@ public class DeepseekServiceImpl implements LlmService {
             try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
-                    if (response.code() >= 400 && response.code() < 500) {
-                        log.error("[Deepseek-chat] HTTP {}，不可重试, body={}", response.code(), responseBody);
-                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                    }
-                    log.warn("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                    log.error("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
+                    throwByHttpCode(response.code(), responseBody);
                 }
                 if (responseBody.isEmpty()) {
                     log.error("[Deepseek-chat] 响应体为空");
@@ -130,8 +126,13 @@ public class DeepseekServiceImpl implements LlmService {
                             .build();
 
                     try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            log.error("[Deepseek-stream] HTTP 失败, code={}", response.code());
+                        if (!response.isSuccessful()) {
+                            String errorBody = response.body() != null ? response.body().string() : "";
+                            log.error("[Deepseek-stream] HTTP {} 失败, body={}", response.code(), errorBody);
+                            throwByHttpCode(response.code(), errorBody);
+                        }
+                        if (response.body() == null) {
+                            log.error("[Deepseek-stream] 响应体为空");
                             chunkConsumer.accept("[ERROR]");
                             return;
                         }
@@ -286,6 +287,41 @@ public class DeepseekServiceImpl implements LlmService {
             }
         }
         return parts;
+    }
+
+    /**
+     * 按 Deepseek HTTP 错误码路由到对应业务异常，并携带平台返回的 error.message。
+     * 401 → 认证失败；402 → 余额不足；422/400 → 参数错误；429 → 限速；其余 → 通用调用失败。
+     */
+    private void throwByHttpCode(int httpCode, String responseBody) {
+        String platformMsg = extractPlatformMessage(responseBody);
+        ErrorCodeEnum errorCode = switch (httpCode) {
+            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
+            case 402 -> ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
+            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
+            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
+            default -> ErrorCodeEnum.LLM_CALL_FAILED;
+        };
+        throw new BizException(errorCode, platformMsg);
+    }
+
+    /**
+     * 从 Deepseek 错误响应体中提取 error.message 字段。
+     * 格式：{"error": {"message": "...", "type": "...", "code": "..."}}
+     * 解析失败时返回原始响应体（截断至 200 字符）。
+     */
+    private String extractPlatformMessage(String responseBody) {
+        if (responseBody == null || responseBody.isEmpty()) return "平台未返回错误信息";
+        try {
+            JsonNode error = MAPPER.readTree(responseBody).path("error");
+            if (!error.isMissingNode()) {
+                String msg = error.path("message").asText("");
+                String type = error.path("code").asText("");
+                return msg.isEmpty() ? responseBody : (type.isEmpty() ? msg : "[" + type + "] " + msg);
+            }
+        } catch (IOException ignored) {
+        }
+        return responseBody.length() > 200 ? responseBody.substring(0, 200) : responseBody;
     }
 
     private Map<String, String> buildHeaders(String apiKey) {

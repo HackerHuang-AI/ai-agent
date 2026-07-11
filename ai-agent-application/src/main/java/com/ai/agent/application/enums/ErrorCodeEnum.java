@@ -35,7 +35,10 @@ public enum ErrorCodeEnum {
     LLM_RESPONSE_PARSE_FAILED("2002005", "error.2002005", "LLM 响应解析失败"),
     LLM_MODEL_NOT_SUPPORT_VISION("2002006", "error.2002006", "该模型不支持图片输入"),
     LLM_MODEL_NOT_SUPPORT_VIDEO("2002007", "error.2002007", "该模型不支持视频输入"),
-    LLM_CONTENT_TYPE_NOT_SUPPORTED("2002008", "error.2002008", "该平台不支持此内容类型");
+    LLM_CONTENT_TYPE_NOT_SUPPORTED("2002008", "error.2002008", "该平台不支持此内容类型"),
+    LLM_AUTH_FAILED("2002009", "error.2002009", "API Key 认证失败，请检查密钥是否正确"),
+    LLM_INSUFFICIENT_BALANCE("2002010", "error.2002010", "账号余额不足，请前往平台充值"),
+    LLM_RATE_LIMIT("2002011", "error.2002011", "请求速率超限，请降低调用频率后重试");
 
     /** 错误码，格式：系统编码(2) + 模块编码(2) + 错误序号(3) */
     private final String code;
