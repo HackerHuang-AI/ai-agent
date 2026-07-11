@@ -156,3 +156,52 @@ data: [DONE]
 | 流式 `usage` 时机 | 需额外参数开启 | 在最后正式帧自动附带 |
 | Endpoint | `api.openai.com/v1/chat/completions` | `api.minimaxi.com/v1/text/chatcompletion_v2`（旧域名 `api.minimax.chat` 已废弃） |
 
+---
+
+## 八、错误码处理
+
+### HTTP 错误响应体格式
+
+```json
+{
+  "error": {
+    "message": "Invalid API key."
+  }
+}
+```
+
+### 业务错误响应体格式（HTTP 200 时）
+
+```json
+{
+  "base_resp": {
+    "status_code": 1004,
+    "status_msg": "api key invalid"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+### Minimax 业务错误码（`base_resp.status_code`）
+
+| `status_code` | 说明 | 对应处理 |
+|--------------|------|---------|
+| 0 | 成功 | 正常返回 |
+| 1000 | 未知错误 | `LLM_CALL_FAILED` |
+| 1001 | 超时 | `LLM_CALL_FAILED` |
+| 1002 | 触发限速 | `LLM_RATE_LIMIT` |
+| 1004 | 认证失败 | `LLM_AUTH_FAILED` |
+| 1008 | 余额不足 | `LLM_INSUFFICIENT_BALANCE` |
+| 2013 | 参数非法 | `PARAM_ILLEGAL` |
+
+> ⚠️ Minimax HTTP 200 不等于业务成功，需检查 `base_resp.status_code`，非 0 视为错误（Service 层统一映射到 `LLM_CALL_FAILED`，错误信息来自 `status_msg`）。
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

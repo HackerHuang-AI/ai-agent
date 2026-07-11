@@ -201,3 +201,43 @@ data: {"type":"message_stop"}
 | 流式事件类型 | 单一 chunk 格式 | **多种事件类型（start/delta/stop）** |
 | tools 参数字段 | `parameters` | **`input_schema`** |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "invalid x-api-key"
+  }
+}
+```
+
+> ⚠️ **非标准 OpenAI 格式**：错误体顶层有 `type: "error"` 标识，错误码在 `error.type`（字符串类型），而非 `error.code`（整数）。
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | `x-api-key` 无效或格式错误 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法（如缺少必填的 `max_tokens`） |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 529 | `LLM_RATE_LIMIT`(2002011) | 服务过载（Overloaded），与限速同等处理 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+### Anthropic 常见 `error.type` 值
+
+| `error.type` | 说明 |
+|--------------|------|
+| `authentication_error` | 认证失败，检查 x-api-key |
+| `invalid_request_error` | 参数非法 |
+| `rate_limit_error` | 频率超限 |
+| `overloaded_error` | 服务过载（HTTP 529） |
+| `api_error` | 平台内部错误 |
+
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，错误信息格式为 `[type] message`（如 `[authentication_error] invalid x-api-key`）。
+

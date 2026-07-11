@@ -151,3 +151,31 @@ data: [DONE]
 | `enable_search` | 不存在 | **特有**（Qwen 系列），开启联网搜索 |
 | 计费模式 | 按量 | 预购包量 |
 
+---
+
+## 九、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "InvalidApiKey",
+    "message": "The API key is invalid."
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | Token Plan API Key 无效或已过期 |
+| 402 | `LLM_INSUFFICIENT_BALANCE`(2002010) | Token 包已耗尽，需补充购买 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> ⚠️ 402 在 Token Plan 模式下表示 Token 包已消耗完，需在控制台补购，映射到 `LLM_INSUFFICIENT_BALANCE`。
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

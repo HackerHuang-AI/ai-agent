@@ -240,3 +240,32 @@ data: [DONE]
 | 原生流式格式 | SSE | **JSON 数组流（非 SSE）** |
 | `safetyRatings` | 无 | **特有**，内容安全评分 |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式（OpenAI 兼容接口）
+
+```json
+{
+  "error": {
+    "code": 401,
+    "message": "API key not valid. Please pass a valid API key.",
+    "status": "UNAUTHENTICATED"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效 |
+| 403 | `LLM_AUTH_FAILED`(2002009) | API Key 无对应模型权限 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限（免费额度用尽也会触发） |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> ⚠️ Gemini 的 403 表示 API Key 对该模型无访问权限（如试图调用 Gemini Ultra 但 Key 未开通），与 401 同样映射到 `LLM_AUTH_FAILED`。
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，错误信息格式为 `[code] message`。
+

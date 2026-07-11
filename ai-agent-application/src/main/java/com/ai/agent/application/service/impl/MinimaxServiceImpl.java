@@ -73,12 +73,8 @@ public class MinimaxServiceImpl implements LlmService {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
-                        if (response.code() >= 400 && response.code() < 500) {
-                            log.error("[Minimax-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
-                            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
-                        }
-                        log.warn("[Minimax-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
-                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                        log.error("[Minimax-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                        throwByHttpCode(response.code(), platformErr);
                     }
                     if (responseBody.isEmpty()) {
                         log.error("[Minimax-chat] 响应体为空");
@@ -114,7 +110,7 @@ public class MinimaxServiceImpl implements LlmService {
                         if (!response.isSuccessful() || response.body() == null) {
                             String errBody = response.body() != null ? response.body().string() : "";
                             log.error("[Minimax-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                            chunkConsumer.accept("[ERROR]");
+                            chunkConsumer.accept("[ERROR:" + response.code() + "]");
                             return;
                         }
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
@@ -329,11 +325,24 @@ public class MinimaxServiceImpl implements LlmService {
 
     // ==================== 工具方法 ====================
 
+    private void throwByHttpCode(int httpCode, String platformMsg) {
+        // Minimax: 错误码与 OpenAI 一致，另有业务错误通过 base_resp.status_code 商定
+        ErrorCodeEnum errorCode = switch (httpCode) {
+            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
+            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
+            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
+            default -> ErrorCodeEnum.LLM_CALL_FAILED;
+        };
+        throw new BizException(errorCode, platformMsg);
+    }
+
     private String extractErrorMessage(String responseBody) {
         try {
             JsonNode root = MAPPER.readTree(responseBody);
-            String msg = root.path("error").path("message").asText("");
+            JsonNode errorNode = root.path("error");
+            String msg = errorNode.path("message").asText("");
             if (msg.isEmpty()) {
+                // Minimax 业务错误在 base_resp.status_msg
                 msg = root.path("base_resp").path("status_msg").asText("");
             }
             return msg.isEmpty() ? truncate(responseBody) : msg;

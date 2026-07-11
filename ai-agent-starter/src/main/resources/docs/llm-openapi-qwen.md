@@ -146,3 +146,30 @@ data: [DONE]
 | 视觉模型命名 | `gpt-4o` 内置视觉 | 视觉能力需选 `qwen-vl-*` 系列 |
 | 思考模型 | `o` 系列 | `qwq-32b`（通过 `enable_thinking` 控制） |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "InvalidApiKey",
+    "message": "The API key is invalid."
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 402 | `LLM_INSUFFICIENT_BALANCE`(2002010) | 账号余额不足 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> 流式接口（`chatStream`）遇到 HTTP 错误时，会向 SSE 通道推送 `[ERROR:{httpCode}]` 标记；同步接口直接抛 `BizException`，包含错误码枚举和平台原始错误信息。
+

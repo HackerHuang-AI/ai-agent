@@ -143,3 +143,31 @@ data: [DONE]
 - `gpt-5` 系列的 `temperature` 固定为 `1`，传其他值会被忽略
 - 流式模式下 `usage` 默认不返回，需额外传 `"stream_options": {"include_usage": true}`
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "message": "You exceeded your current quota.",
+    "type": "insufficient_quota",
+    "code": "insufficient_quota"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 402 | `LLM_INSUFFICIENT_BALANCE`(2002010) | 账号余额不足 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> 流式接口（`chatStream`）遇到 HTTP 错误时，会向 SSE 通道推送 `[ERROR:{httpCode}]` 标记；同步接口直接抛 `BizException`，包含错误码枚举和平台原始错误信息（格式为 `[code] message`）。
+

@@ -139,3 +139,31 @@ data: [DONE]
 | `temperature` on reasoner | 可设置 | **不可设置**，传入会报错 |
 | 模型数量 | 多 | 仅 `deepseek-chat` 和 `deepseek-reasoner` |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Invalid API key provided.",
+    "type": "authentication_error"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 402 | `LLM_INSUFFICIENT_BALANCE`(2002010) | 账号余额不足 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法（如 reasoner 模型传了 temperature） |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> 流式接口（`chatStream`）遇到 HTTP 错误时，会向 SSE 通道推送 `[ERROR:{httpCode}]` 标记（如 `[ERROR:429]`）；同步接口直接抛 `BizException`，包含错误码枚举和平台原始错误信息。
+

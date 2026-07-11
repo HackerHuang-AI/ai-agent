@@ -70,12 +70,8 @@ public class DsTokenPlanServiceImpl implements LlmService {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
-                        if (response.code() >= 400 && response.code() < 500) {
-                            log.error("[DashscopeTokenPlan-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
-                            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
-                        }
-                        log.warn("[DashscopeTokenPlan-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
-                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                        log.error("[DashscopeTokenPlan-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                        throwByHttpCode(response.code(), platformErr);
                     }
                     if (responseBody.isEmpty()) {
                         log.error("[DashscopeTokenPlan-chat] 响应体为空");
@@ -111,7 +107,7 @@ public class DsTokenPlanServiceImpl implements LlmService {
                         if (!response.isSuccessful() || response.body() == null) {
                             String errBody = response.body() != null ? response.body().string() : "";
                             log.error("[DashscopeTokenPlan-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                            chunkConsumer.accept("[ERROR]");
+                            chunkConsumer.accept("[ERROR:" + response.code() + "]");
                             return;
                         }
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
@@ -295,11 +291,26 @@ public class DsTokenPlanServiceImpl implements LlmService {
 
     // ==================== 工具方法 ====================
 
+    private void throwByHttpCode(int httpCode, String platformMsg) {
+        // 阿里灵积 TokenPlan，错误码与阐里通一致
+        ErrorCodeEnum errorCode = switch (httpCode) {
+            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
+            case 402 -> ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
+            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
+            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
+            default -> ErrorCodeEnum.LLM_CALL_FAILED;
+        };
+        throw new BizException(errorCode, platformMsg);
+    }
+
     private String extractErrorMessage(String responseBody) {
         try {
             JsonNode root = MAPPER.readTree(responseBody);
-            String msg = root.path("error").path("message").asText("");
-            return msg.isEmpty() ? truncate(responseBody) : msg;
+            JsonNode errorNode = root.path("error");
+            String msg = errorNode.path("message").asText("");
+            if (msg.isEmpty()) return truncate(responseBody);
+            String code = errorNode.path("code").asText("");
+            return code.isEmpty() ? msg : "[" + code + "] " + msg;
         } catch (Exception e) {
             return truncate(responseBody);
         }

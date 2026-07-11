@@ -146,3 +146,29 @@ data: [DONE]
 | API Key 格式 | `sk-...` | `bce-v3/ALTAK-...` |
 | 模型数量 | 多 | 自有 ERNIE 系列 + 聚合第三方模型 |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "AuthenticationError",
+    "message": "Invalid API key."
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法（如 `temperature` 超出 `[0,1]` 范围） |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

@@ -262,3 +262,30 @@ Content-Type: application/json
 | `num_ctx` | 不暴露 | **可控制**上下文窗口大小 |
 | 计费 | 按 token 计费 | **免费**，本地算力 |
 
+---
+
+## 九、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "message": "model 'llama3.2' not found, try pulling it first"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | 开启了 API Key 认证但未提供或 Key 错误 |
+| 403 | `LLM_AUTH_FAILED`(2002009) | 请求来源 IP 未在白名单（配置了访问控制） |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法（如模型名不存在） |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 并发请求超出本地处理能力 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> ⚠️ Ollama 默认无认证，401/403 仅在显式配置鉴权后出现。常见错误是模型未下载（`model not found`），触发 `PARAM_ILLEGAL`。
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

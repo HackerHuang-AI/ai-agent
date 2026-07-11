@@ -138,3 +138,29 @@ data: [DONE]
 | 模型数量 | 多 | 当前仅 `mimo-v2.5` 系列 |
 | 适用场景 | 通用 | 深度推理、数学、代码 |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Invalid API key provided."
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | API Key 无效或已过期 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

@@ -182,3 +182,30 @@ data: [DONE]
 | 流式 `usage` | 需额外参数开启 | 在最后一帧自动返回 |
 | `finish_reason` 值 | `stop/length/tool_calls/content_filter` | 额外有 `network_error` |
 
+---
+
+## 八、错误码处理
+
+### 错误响应体格式
+
+```json
+{
+  "error": {
+    "code": "1113",
+    "message": "API key invalid"
+  }
+}
+```
+
+### HTTP 状态码 → 系统错误码映射
+
+| HTTP 状态码 | 系统错误码 | 说明 |
+|------------|-----------|------|
+| 401 | `LLM_AUTH_FAILED`(2002009) | JWT 签名失败或 API Key 格式错误 |
+| 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法 |
+| 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
+| 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
+
+> ⚠️ 智谱认证使用本地生成的 JWT Token（非直接 Bearer API Key），JWT 过期（30分钟）也会触发 401。
+> 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
+

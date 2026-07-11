@@ -80,12 +80,8 @@ public class AnthropicServiceImpl implements LlmService {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
-                        if (response.code() >= 400 && response.code() < 500) {
-                            log.error("[Anthropic-chat] HTTP {}，不可重试, platformError={}", response.code(), platformErr);
-                            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
-                        }
-                        log.warn("[Anthropic-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
-                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformErr);
+                        log.error("[Anthropic-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                        throwByHttpCode(response.code(), platformErr);
                     }
                     if (responseBody.isEmpty()) {
                         log.error("[Anthropic-chat] 响应体为空");
@@ -123,7 +119,7 @@ public class AnthropicServiceImpl implements LlmService {
                             String errBody = response.body() != null ? response.body().string() : "";
                             log.error("[Anthropic-stream] HTTP 失败, code={}, error={}",
                                     response.code(), extractErrorMessage(errBody));
-                            chunkConsumer.accept("[ERROR]");
+                            chunkConsumer.accept("[ERROR:" + response.code() + "]");
                             return;
                         }
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
@@ -309,11 +305,26 @@ public class AnthropicServiceImpl implements LlmService {
 
     // ==================== 工具方法 ====================
 
+    private void throwByHttpCode(int httpCode, String platformMsg) {
+        // Anthropic: 401=认证失败, 400=参数非法, 429=限速, 529=过载(同限速)
+        ErrorCodeEnum errorCode = switch (httpCode) {
+            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
+            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
+            case 429, 529 -> ErrorCodeEnum.LLM_RATE_LIMIT;
+            default -> ErrorCodeEnum.LLM_CALL_FAILED;
+        };
+        throw new BizException(errorCode, platformMsg);
+    }
+
     private String extractErrorMessage(String responseBody) {
         try {
             JsonNode root = MAPPER.readTree(responseBody);
-            String msg = root.path("error").path("message").asText("");
-            return msg.isEmpty() ? truncate(responseBody) : msg;
+            // Anthropic 错误结构：{"type":"error","error":{"type":"...","message":"..."}}
+            JsonNode errorNode = root.path("error");
+            String msg = errorNode.path("message").asText("");
+            if (msg.isEmpty()) return truncate(responseBody);
+            String type = errorNode.path("type").asText("");
+            return type.isEmpty() ? msg : "[" + type + "] " + msg;
         } catch (Exception e) {
             return truncate(responseBody);
         }
