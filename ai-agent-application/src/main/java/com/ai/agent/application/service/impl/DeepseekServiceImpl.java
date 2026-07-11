@@ -47,8 +47,15 @@ public class DeepseekServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG = "[DONE]";
-    /** extraParams 中的 skip_temperature 标志，用于 deepseek-reasoner 等不支持 temperature 的模型 */
+    /** extraParams 内部控制标志：跳过 temperature（deepseek-reasoner 不支持 temperature） */
     private static final String SKIP_TEMPERATURE_KEY = "skip_temperature";
+    /** extraParams 专属 key：思考模式类型，值为 "enabled" 或 "disabled"，组装为 thinking.type */
+    private static final String THINKING_TYPE_KEY = "thinking_type";
+    /** extraParams 专属 key：推理强度，值为 "high" 或 "max"，组装为 thinking.reasoning_effort */
+    private static final String REASONING_EFFORT_KEY = "reasoning_effort";
+    /** extraParams 透传时需要过滤的框架内部 key */
+    private static final Set<String> INTERNAL_KEYS = Set.of(
+            SKIP_TEMPERATURE_KEY, THINKING_TYPE_KEY, REASONING_EFFORT_KEY);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -192,6 +199,7 @@ public class DeepseekServiceImpl implements LlmService {
     // ==================== 私有方法 ====================
 
     private String buildRequestBody(LlmRequest request, boolean stream) {
+        Map<String, Object> extra = request.getExtraParams();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", request.getModelCode());
         body.put("stream", stream);
@@ -199,9 +207,9 @@ public class DeepseekServiceImpl implements LlmService {
             body.put("stream_options", Map.of("include_usage", true));
         }
         body.put("messages", buildMessages(request));
-        // 读取 extraParams 中的 skip_temperature 标志：true 时跳过 temperature（如 deepseek-reasoner）
-        boolean skipTemperature = request.getExtraParams() != null
-                && Boolean.TRUE.equals(request.getExtraParams().get(SKIP_TEMPERATURE_KEY));
+
+        // skip_temperature：deepseek-reasoner 不支持 temperature
+        boolean skipTemperature = extra != null && Boolean.TRUE.equals(extra.get(SKIP_TEMPERATURE_KEY));
         if (request.getTemperature() != null && !skipTemperature) {
             body.put("temperature", request.getTemperature());
         }
@@ -211,10 +219,24 @@ public class DeepseekServiceImpl implements LlmService {
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
-        if (request.getExtraParams() != null) {
-            request.getExtraParams().forEach((k, v) -> {
-                // skip_temperature 是框架内部控制标志，不透传到平台请求体
-                if (!SKIP_TEMPERATURE_KEY.equals(k)) {
+
+        // thinking：从 extraParams 中提取 thinking_type / reasoning_effort，组装为平台所需对象结构
+        // 示例：extraParams.thinking_type="enabled", extraParams.reasoning_effort="high"
+        //       → 请求体：{"thinking": {"type": "enabled", "reasoning_effort": "high"}}
+        if (extra != null && extra.containsKey(THINKING_TYPE_KEY)) {
+            Map<String, Object> thinking = new LinkedHashMap<>();
+            thinking.put("type", extra.get(THINKING_TYPE_KEY));
+            if (extra.containsKey(REASONING_EFFORT_KEY)) {
+                thinking.put("reasoning_effort", extra.get(REASONING_EFFORT_KEY));
+            }
+            body.put("thinking", thinking);
+        }
+
+        // 透传其余 extraParams（过滤框架内部 key）
+        // 支持的透传参数包括：response_format、tools、tool_choice、stop、logprobs、top_logprobs、user_id 等
+        if (extra != null) {
+            extra.forEach((k, v) -> {
+                if (!INTERNAL_KEYS.contains(k)) {
                     body.put(k, v);
                 }
             });
