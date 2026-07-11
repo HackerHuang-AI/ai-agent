@@ -6,13 +6,12 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.service.impl.MimoServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,17 +44,17 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/mimo")
 public class MimoChatController {
 
-    private final LlmService llmService;
+    private final MimoServiceImpl mimoService;
 
-    public MimoChatController(@Qualifier("mimoServiceImpl") LlmService llmService) {
-        this.llmService = llmService;
+    public MimoChatController(MimoServiceImpl mimoService) {
+        this.mimoService = mimoService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
         log.info("[MiMo-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = llmService.chat(toServiceRequest(req));
+            LlmResponse response = mimoService.chat(toServiceRequest(req));
             log.info("[MiMo-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,7 +69,7 @@ public class MimoChatController {
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
         log.info("[MiMo-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        mimoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 

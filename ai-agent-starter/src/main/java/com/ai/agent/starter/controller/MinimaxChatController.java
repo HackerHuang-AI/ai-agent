@@ -6,13 +6,12 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.service.impl.MinimaxServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,17 +44,17 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/minimax")
 public class MinimaxChatController {
 
-    private final LlmService llmService;
+    private final MinimaxServiceImpl minimaxService;
 
-    public MinimaxChatController(@Qualifier("minimaxServiceImpl") LlmService llmService) {
-        this.llmService = llmService;
+    public MinimaxChatController(MinimaxServiceImpl minimaxService) {
+        this.minimaxService = minimaxService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
         log.info("[Minimax-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = llmService.chat(toServiceRequest(req));
+            LlmResponse response = minimaxService.chat(toServiceRequest(req));
             log.info("[Minimax-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,7 +69,7 @@ public class MinimaxChatController {
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
         log.info("[Minimax-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        minimaxService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 

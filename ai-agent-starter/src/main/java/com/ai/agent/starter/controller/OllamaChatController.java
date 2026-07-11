@@ -6,13 +6,12 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.service.impl.OllamaServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,17 +44,17 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/ollama")
 public class OllamaChatController {
 
-    private final LlmService llmService;
+    private final OllamaServiceImpl ollamaService;
 
-    public OllamaChatController(@Qualifier("ollamaServiceImpl") LlmService llmService) {
-        this.llmService = llmService;
+    public OllamaChatController(OllamaServiceImpl ollamaService) {
+        this.ollamaService = ollamaService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
         log.info("[Ollama-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = llmService.chat(toServiceRequest(req));
+            LlmResponse response = ollamaService.chat(toServiceRequest(req));
             log.info("[Ollama-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,7 +69,7 @@ public class OllamaChatController {
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
         log.info("[Ollama-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        llmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        ollamaService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 

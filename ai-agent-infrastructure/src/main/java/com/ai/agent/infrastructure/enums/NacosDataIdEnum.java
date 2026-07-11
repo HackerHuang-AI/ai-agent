@@ -26,6 +26,9 @@ public enum NacosDataIdEnum {
     /** 豆包平台默认凭证配置，对应 Nacos 上的 ai-agent-doubao.json */
     AI_AGENT_DOUBAO("ai-agent-doubao.json"),
 
+    /** Deepseek 平台默认凭证配置，对应 Nacos 上的 ai-agent-deepseek.json */
+    AI_AGENT_DEEPSEEK("ai-agent-deepseek.json"),
+
     /** Qwen（阿里云百炼）平台默认凭证配置，对应 Nacos 上的 ai-agent-qwen.json */
     AI_AGENT_QWEN("ai-agent-qwen.json"),
 
