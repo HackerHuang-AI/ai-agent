@@ -76,12 +76,8 @@ public class DoubaoServiceImpl implements LlmService {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
-                    if (response.code() >= 400 && response.code() < 500) {
-                        log.error("[Doubao-chat] HTTP {}，不可重试, platformError={}", response.code(), platformMsg);
-                        throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
-                    }
-                    log.warn("[Doubao-chat] HTTP {} 失败, platformError={}", response.code(), platformMsg);
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+                    log.error("[Doubao-chat] HTTP {} 失败, platformError={}", response.code(), platformMsg);
+                    throwByHttpCode(response.code(), platformMsg);
                 }
                 if (responseBody.isEmpty()) {
                     log.error("[Doubao-chat] 响应体为空");
@@ -119,10 +115,14 @@ public class DoubaoServiceImpl implements LlmService {
                             .build();
 
                     try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
-                        if (!response.isSuccessful() || response.body() == null) {
+                        if (!response.isSuccessful()) {
                             String errBody = response.body() != null ? response.body().string() : "";
-                            log.error("[Doubao-stream] HTTP 失败, httpStatus={}, platformError={}",
-                                    response.code(), extractErrorMessage(errBody));
+                            String platformMsg = extractErrorMessage(errBody);
+                            log.error("[Doubao-stream] HTTP {} 失败, platformError={}", response.code(), platformMsg);
+                            throwByHttpCode(response.code(), platformMsg);
+                        }
+                        if (response.body() == null) {
+                            log.error("[Doubao-stream] 响应体为空");
                             chunkConsumer.accept("[ERROR]");
                             return;
                         }
@@ -229,8 +229,8 @@ public class DoubaoServiceImpl implements LlmService {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
-                    log.error("[Doubao-multimodal] HTTP 失败, httpStatus={}, platformError={}", response.code(), platformMsg);
-                    throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, platformMsg);
+                    log.error("[Doubao-multimodal] HTTP {} 失败, platformError={}", response.code(), platformMsg);
+                    throwByHttpCode(response.code(), platformMsg);
                 }
                 if (responseBody.isEmpty()) {
                     log.error("[Doubao-multimodal] 响应体为空");
@@ -441,14 +441,33 @@ public class DoubaoServiceImpl implements LlmService {
         return NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "multimodal", DoubaoBO.class);
     }
 
+    /**
+     * 按火山方舟 HTTP 错误码路由到对应业务异常。
+     * 401 → 认证失败；400/422 → 参数错误；429 → 限速；其余 → 通用调用失败。
+     * 注：火山方舟无独立 402 余额不足码，余额问题通常通过 400 + error.code 区分。
+     */
+    private void throwByHttpCode(int httpCode, String platformMsg) {
+        ErrorCodeEnum errorCode = switch (httpCode) {
+            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
+            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
+            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
+            default -> ErrorCodeEnum.LLM_CALL_FAILED;
+        };
+        throw new BizException(errorCode, platformMsg);
+    }
+
     private String extractErrorMessage(String responseBody) {
         try {
             JsonNode root = MAPPER.readTree(responseBody);
-            String msg = root.path("error").path("message").asText("");
-            return msg.isEmpty() ? truncate(responseBody) : msg;
-        } catch (Exception e) {
-            return truncate(responseBody);
+            JsonNode error = root.path("error");
+            if (!error.isMissingNode()) {
+                String msg = error.path("message").asText("");
+                String code = error.path("code").asText("");
+                return msg.isEmpty() ? truncate(responseBody) : (code.isEmpty() ? msg : "[" + code + "] " + msg);
+            }
+        } catch (Exception ignored) {
         }
+        return truncate(responseBody);
     }
 
     private static String truncate(String s) {
