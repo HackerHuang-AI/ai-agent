@@ -6,6 +6,7 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
@@ -184,7 +185,7 @@ public class DoubaoChatController {
         List<LlmMessage> messages = vo.getMessages().stream()
                 .map(m -> LlmMessage.builder()
                         .role(m.getRole())
-                        .contents(List.of(new MessageContent(m.getType(), m.getValue(), m.getDetail())))
+                        .contents(List.of(new MessageContent(m.getType() != null ? m.getType() : ContentTypeEnum.TEXT, m.getValue(), m.getDetail())))
                         .build())
                 .collect(Collectors.toList());
         return LlmRequest.builder()

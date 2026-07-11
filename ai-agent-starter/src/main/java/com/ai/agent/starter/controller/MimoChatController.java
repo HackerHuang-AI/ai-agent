@@ -1,6 +1,7 @@
 package com.ai.agent.starter.controller;
 
 import com.ai.agent.application.common.BizException;
+import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
@@ -99,7 +100,7 @@ public class MimoChatController {
         List<LlmMessage> messages = vo.getMessages().stream()
                 .map(m -> LlmMessage.builder()
                         .role(m.getRole())
-                        .contents(List.of(new MessageContent(m.getType(), m.getValue(), m.getDetail())))
+                        .contents(List.of(new MessageContent(m.getType() != null ? m.getType() : ContentTypeEnum.TEXT, m.getValue(), m.getDetail())))
                         .build())
                 .collect(Collectors.toList());
         return LlmRequest.builder()
