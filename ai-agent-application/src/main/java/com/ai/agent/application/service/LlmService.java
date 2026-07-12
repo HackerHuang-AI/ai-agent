@@ -3,6 +3,7 @@ package com.ai.agent.application.service;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -56,5 +57,18 @@ public interface LlmService {
      * @return 统一响应；若平台不支持则返回 {@code null}
      */
     LlmResponse multimodalChat(LlmRequest request);
+
+    /**
+     * 查询平台支持的模型列表。
+     *
+     * <p>平台有公开 REST 接口时：发起 HTTP 调用返回真实列表。
+     * <p>平台无公开接口时：默认返回 {@code null}，各平台 ServiceImpl 可按需覆盖。
+     *
+     * @param apiKey API Key；为空时从 Nacos 兜底
+     * @return 模型 id 列表；平台不支持时返回 {@code null}
+     */
+    default List<String> listModels(String apiKey) {
+        return null;
+    }
 }
 

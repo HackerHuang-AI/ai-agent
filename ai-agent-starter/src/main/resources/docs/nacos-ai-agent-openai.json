@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://api.openai.com/v1/chat/completions",
+    "modelCode": "gpt-4.1"
+  }
+}
+

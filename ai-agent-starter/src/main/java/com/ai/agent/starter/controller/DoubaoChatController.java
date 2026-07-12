@@ -9,6 +9,7 @@ import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
+import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import com.ai.agent.starter.controller.vo.MessageContentVO;
@@ -54,6 +55,29 @@ public class DoubaoChatController {
 
     public DoubaoChatController(DoubaoServiceImpl doubaoService) {
         this.doubaoService = doubaoService;
+    }
+
+    /**
+     * 查询豆包平台支持的模型列表
+     * POST /api/doubao/models
+     *
+     * <p>apiKey / endpoint 可选，为空时从 Nacos ai-agent-doubao.json chat 块兜底。
+     * 若传入则使用调用方自定义凭证，适用于多租户场景。
+     */
+    @PostMapping("/models")
+    public Result<List<String>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+        String apiKey = req != null ? req.getApiKey() : null;
+        log.info("[Doubao-models] 开始查询模型列表, apiKey={}", apiKey != null ? "已传" : "Nacos兜底");
+        try {
+            List<String> models = doubaoService.listModels(apiKey);
+            log.info("[Doubao-models] 查询成功, count={}", models != null ? models.size() : 0);
+            return Result.success(models);
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Doubao-models] 系统异常", e);
+            throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
+        }
     }
 
     /**

@@ -1,16 +1,20 @@
 package com.ai.agent.application.service.impl;
 
+import com.ai.agent.application.bo.MoonshotBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.ai.agent.infrastructure.utils.RetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -60,6 +64,7 @@ public class MoonshotServiceImpl implements LlmService {
 
     @Override
     public LlmResponse chat(LlmRequest request) {
+        fillDefaults(request);
         log.info("[Moonshot-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
@@ -94,6 +99,7 @@ public class MoonshotServiceImpl implements LlmService {
 
     @Override
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
+        fillDefaults(request);
         String requestBody = buildRequestBody(request, true);
         log.info("[Moonshot-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
@@ -135,6 +141,39 @@ public class MoonshotServiceImpl implements LlmService {
     public LlmResponse multimodalChat(LlmRequest request) {
         log.warn("[Moonshot] 暂不支持多模态：Kimi 当前版本仅支持超长文本理解，不具备图片输入能力");
         return null;
+    }
+
+    // ==================== 凭证兜底 ====================
+
+    /**
+     * 入参兜底：调用方未传的字段从 Nacos ai-agent-moonshot.json 的 chat 块补全。
+     * 补完后校验必填项，缺失时抛异常。
+     */
+    private void fillDefaults(LlmRequest request) {
+        MoonshotBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey())
+                || StringUtils.isBlank(request.getEndpoint())
+                || StringUtils.isBlank(request.getModelCode())) {
+            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_MOONSHOT, "chat", MoonshotBO.class);
+        }
+        if (StringUtils.isBlank(request.getApiKey()))
+            request.setApiKey(cfg != null ? cfg.getApiKey() : null);
+        if (StringUtils.isBlank(request.getEndpoint()))
+            request.setEndpoint(cfg != null ? cfg.getEndpoint() : null);
+        if (StringUtils.isBlank(request.getModelCode()))
+            request.setModelCode(cfg != null ? cfg.getModelCode() : null);
+        if (StringUtils.isBlank(request.getApiKey())) {
+            log.error("[Moonshot] apiKey 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        if (StringUtils.isBlank(request.getEndpoint())) {
+            log.error("[Moonshot] endpoint 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        if (StringUtils.isBlank(request.getModelCode())) {
+            log.error("[Moonshot] modelCode 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
     }
 
     // ==================== 请求构建 ====================

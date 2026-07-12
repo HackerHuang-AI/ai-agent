@@ -571,5 +571,52 @@ public class DoubaoServiceImpl implements LlmService {
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
+
+    // ==================== 模型列表 ====================
+
+    /**
+     * 查询豆包平台支持的模型列表。
+     * 调用火山方舟 GET /api/v3/models 接口，返回所有已部署模型的 id 列表。
+     * apiKey / endpoint 为空时从 Nacos ai-agent-doubao.json chat 块兜底。
+     */
+    @Override
+    public List<String> listModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            DoubaoBO cfg = getChatConfig();
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) {
+            log.error("[Doubao-models] apiKey 未配置");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+
+        String modelsUrl = "https://ark.cn-beijing.volces.com/api/v3/models";
+        Request okRequest = new Request.Builder()
+                .url(modelsUrl)
+                .get()
+                .header("Authorization", "Bearer " + apiKey)
+                .build();
+
+        try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                log.error("[Doubao-models] HTTP {} 失败, body={}", response.code(), truncate(body));
+                throwByHttpCode(response.code(), extractErrorMessage(body));
+            }
+            JsonNode root = MAPPER.readTree(body);
+            List<String> ids = new ArrayList<>();
+            for (JsonNode item : root.path("data")) {
+                String id = item.path("id").asText("");
+                if (!id.isEmpty()) ids.add(id);
+            }
+            log.info("[Doubao-models] 获取模型列表成功, count={}", ids.size());
+            return ids;
+        } catch (BizException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[Doubao-models] IO 异常", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
+    }
 }
 
