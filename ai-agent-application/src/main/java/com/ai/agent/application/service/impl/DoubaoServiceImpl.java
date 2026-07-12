@@ -580,7 +580,7 @@ public class DoubaoServiceImpl implements LlmService {
      * apiKey / endpoint 为空时从 Nacos ai-agent-doubao.json chat 块兜底。
      */
     @Override
-    public List<String> listModels(String apiKey) {
+    public List<LlmModelInfo> listModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
             DoubaoBO cfg = getChatConfig();
             apiKey = cfg != null ? cfg.getApiKey() : null;
@@ -604,19 +604,77 @@ public class DoubaoServiceImpl implements LlmService {
                 throwByHttpCode(response.code(), extractErrorMessage(body));
             }
             JsonNode root = MAPPER.readTree(body);
-            List<String> ids = new ArrayList<>();
+            List<LlmModelInfo> result = new ArrayList<>();
             for (JsonNode item : root.path("data")) {
-                String id = item.path("id").asText("");
-                if (!id.isEmpty()) ids.add(id);
+                result.add(parseDoubaoModel(item));
             }
-            log.info("[Doubao-models] 获取模型列表成功, count={}", ids.size());
-            return ids;
+            log.info("[Doubao-models] 获取模型列表成功, count={}", result.size());
+            return result;
         } catch (BizException e) {
             throw e;
         } catch (IOException e) {
             log.error("[Doubao-models] IO 异常", e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
+    }
+
+    private LlmModelInfo parseDoubaoModel(JsonNode item) {
+        // token_limits
+        JsonNode tokenLimits = item.path("token_limits");
+        Integer contextWindow  = tokenLimits.isMissingNode() ? null : tokenLimits.path("context_window").asInt(0);
+        Integer maxInputTokens = tokenLimits.isMissingNode() ? null : tokenLimits.path("max_input_token_length").asInt(0);
+        Integer maxOutputTokens= tokenLimits.isMissingNode() ? null : tokenLimits.path("max_output_token_length").asInt(0);
+
+        // modalities
+        JsonNode modalities = item.path("modalities");
+        List<String> inputModalities  = jsonArrayToList(modalities.path("input_modalities"));
+        List<String> outputModalities = jsonArrayToList(modalities.path("output_modalities"));
+
+        // features
+        JsonNode features       = item.path("features");
+        JsonNode batch          = features.path("batch");
+        JsonNode structuredOut  = features.path("structured_outputs");
+        JsonNode tools          = features.path("tools");
+        Boolean supportBatch       = batch.isMissingNode()         ? null : (batch.path("batch_chat").asBoolean(false) || batch.path("batch_job").asBoolean(false));
+        Boolean supportJsonObject  = structuredOut.isMissingNode() ? null : structuredOut.path("json_object").asBoolean(false);
+        Boolean supportJsonSchema  = structuredOut.isMissingNode() ? null : structuredOut.path("json_schema").asBoolean(false);
+        Boolean supportFuncCall    = tools.isMissingNode()         ? null : tools.path("function_calling").asBoolean(false);
+
+        // task_type
+        List<String> taskTypes = jsonArrayToList(item.path("task_type"));
+
+        long created = item.path("created").asLong(0);
+
+        return LlmModelInfo.builder()
+                .id(item.path("id").asText(null))
+                .name(item.path("name").asText(null))
+                .ownedBy(item.path("owned_by").asText(null))
+                .created(created > 0 ? created : null)
+                .status(item.path("status").asText(null))
+                .domain(item.path("domain").asText(null))
+                .version(item.path("version").asText(null))
+                .taskTypes(taskTypes.isEmpty() ? null : taskTypes)
+                .inputModalities(inputModalities.isEmpty() ? null : inputModalities)
+                .outputModalities(outputModalities.isEmpty() ? null : outputModalities)
+                .contextWindow(contextWindow)
+                .maxInputTokens(maxInputTokens)
+                .maxOutputTokens(maxOutputTokens)
+                .supportBatch(supportBatch)
+                .supportJsonObject(supportJsonObject)
+                .supportJsonSchema(supportJsonSchema)
+                .supportFunctionCalling(supportFuncCall)
+                .build();
+    }
+
+    private List<String> jsonArrayToList(JsonNode node) {
+        List<String> list = new ArrayList<>();
+        if (node != null && node.isArray()) {
+            for (JsonNode n : node) {
+                String v = n.asText("");
+                if (!v.isEmpty()) list.add(v);
+            }
+        }
+        return list;
     }
 }
 

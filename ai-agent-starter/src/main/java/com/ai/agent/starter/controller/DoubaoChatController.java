@@ -3,10 +3,7 @@ package com.ai.agent.starter.controller;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmCredentialVO;
@@ -65,11 +62,11 @@ public class DoubaoChatController {
      * 若传入则使用调用方自定义凭证，适用于多租户场景。
      */
     @PostMapping("/models")
-    public Result<List<String>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+    public Result<List<LlmModelInfo>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
         String apiKey = req != null ? req.getApiKey() : null;
         log.info("[Doubao-models] 开始查询模型列表, apiKey={}", apiKey != null ? "已传" : "Nacos兜底");
         try {
-            List<String> models = doubaoService.listModels(apiKey);
+            List<LlmModelInfo> models = doubaoService.listModels(apiKey);
             log.info("[Doubao-models] 查询成功, count={}", models != null ? models.size() : 0);
             return Result.success(models);
         } catch (BizException e) {
