@@ -60,6 +60,7 @@ public class OpenAiServiceImpl implements LlmService {
 
     @Override
     public LlmResponse chat(LlmRequest request) {
+        fillDefaults(request);
         log.info("[OpenAI-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
@@ -94,6 +95,7 @@ public class OpenAiServiceImpl implements LlmService {
 
     @Override
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
+        fillDefaults(request);
         String requestBody = buildRequestBody(request, true);
         log.info("[OpenAI-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
@@ -136,6 +138,39 @@ public class OpenAiServiceImpl implements LlmService {
     public LlmResponse multimodalChat(LlmRequest request) {
         log.warn("[OpenAI] 多模态接口暂未适配：GPT-4o Vision 需通过 Chat Completions image_url 协议传入图片，当前通用接口层尚未完成对接");
         return null;
+    }
+
+    // ==================== 凭证兜底 ====================
+
+    /**
+     * 入参兜底：调用方未传的字段从 Nacos ai-agent-openai.json 的 chat 块补全。
+     * 补完后校验必填项，缺失时抛异常。
+     */
+    private void fillDefaults(LlmRequest request) {
+        OpenAiBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey())
+                || StringUtils.isBlank(request.getEndpoint())
+                || StringUtils.isBlank(request.getModelCode())) {
+            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAiBO.class);
+        }
+        if (StringUtils.isBlank(request.getApiKey()))
+            request.setApiKey(cfg != null ? cfg.getApiKey() : null);
+        if (StringUtils.isBlank(request.getEndpoint()))
+            request.setEndpoint(cfg != null ? cfg.getEndpoint() : null);
+        if (StringUtils.isBlank(request.getModelCode()))
+            request.setModelCode(cfg != null ? cfg.getModelCode() : null);
+        if (StringUtils.isBlank(request.getApiKey())) {
+            log.error("[OpenAI] apiKey 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        if (StringUtils.isBlank(request.getEndpoint())) {
+            log.error("[OpenAI] endpoint 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        if (StringUtils.isBlank(request.getModelCode())) {
+            log.error("[OpenAI] modelCode 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
     }
 
     // ==================== 请求构建 ====================
