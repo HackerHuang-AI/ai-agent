@@ -3,12 +3,10 @@ package com.ai.agent.starter.controller;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.impl.QianfanServiceImpl;
 import com.ai.agent.starter.common.Result;
+import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
@@ -29,6 +27,7 @@ import java.util.stream.Collectors;
 /**
  * @Description: Moonshot（Kimi）平台对话接口
  *
+ *               POST /api/qianfan/models       查询平台支持的模型列表
  *               POST /api/qianfan/chat        同步对话
  *               POST /api/qianfan/chat/stream  流式对话，SSE 实时推送 chunk
  *
@@ -49,6 +48,22 @@ public class QianfanChatController {
 
     public QianfanChatController(QianfanServiceImpl qianfanService) {
         this.qianfanService = qianfanService;
+    }
+
+    @PostMapping("/models")
+    public Result<List<LlmModelInfo>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+        String apiKey = req != null ? req.getApiKey() : null;
+        log.info("[Qianfan-models] 开始查询模型列表, apiKey={}", apiKey != null ? "已传" : "Nacos兑底");
+        try {
+            List<LlmModelInfo> models = qianfanService.listModels(apiKey);
+            log.info("[Qianfan-models] 查询成功, count={}", models != null ? models.size() : 0);
+            return Result.success(models);
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Qianfan-models] 系统异常", e);
+            throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
+        }
     }
 
     @PostMapping("/chat")

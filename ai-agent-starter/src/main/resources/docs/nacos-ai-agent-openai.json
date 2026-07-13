@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "apiKey": "sk-proj-HfiKyma9bSpvi0_pByLX_7CegCc_m1rp1jbhCNdiSgZlhMIfaJB5v4YXqSnhEFgCftBSdp68j4JT3BlbkFJ0vxrxDIHtvcOTgsdE2CMLuvJt0td_iSGGZcCj_2cPlk1Idx9G5x4GDHN-rTaEtCBYF7U_C-RYA",
     "endpoint": "https://api.openai.com/v1/chat/completions",
     "modelCode": "gpt-4.1"
   }

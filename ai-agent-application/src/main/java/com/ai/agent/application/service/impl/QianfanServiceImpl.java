@@ -143,6 +143,79 @@ public class QianfanServiceImpl implements LlmService {
         return null;
     }
 
+    @Override
+    public List<LlmModelInfo> listModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            QianfanBO cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) {
+            log.error("[Qianfan-models] apiKey 未配置");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        Request okRequest = new Request.Builder()
+                .url("https://qianfan.baidubce.com/v2/models")
+                .get()
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .build();
+        try (Response response = okHttpConfig.getLlmClient("qianfan").newCall(okRequest).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                log.error("[Qianfan-models] HTTP {} 失败, body={}", response.code(), truncate(body));
+                throwByHttpCode(response.code(), extractErrorMessage(body));
+            }
+            JsonNode root = MAPPER.readTree(body);
+            List<LlmModelInfo> result = new ArrayList<>();
+            for (JsonNode item : root.path("data")) {
+                result.add(parseQianfanModel(item));
+            }
+            log.info("[Qianfan-models] 获取模型列表成功, count={}", result.size());
+            return result;
+        } catch (BizException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[Qianfan-models] IO 异常", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
+    }
+
+    private LlmModelInfo parseQianfanModel(JsonNode item) {
+        JsonNode arch = item.path("architecture");
+        List<String> inputModalities  = jsonArrayToList(arch.path("input_modalities"));
+        List<String> outputModalities = jsonArrayToList(arch.path("output_modalities"));
+
+        Integer contextWindow    = item.path("context_length").isNull() || item.path("context_length").isMissingNode()
+                ? null : item.path("context_length").asInt(0);
+        Integer maxOutputTokens  = item.path("max_completions_tokens").isNull() || item.path("max_completions_tokens").isMissingNode()
+                ? null : item.path("max_completions_tokens").asInt(0);
+        Integer maxInputTokens   = item.path("prompt_tokens").isNull() || item.path("prompt_tokens").isMissingNode()
+                ? null : item.path("prompt_tokens").asInt(0);
+
+        long created = item.path("created").asLong(0);
+        return LlmModelInfo.builder()
+                .id(item.path("id").asText(null))
+                .name(item.path("id").asText(null))
+                .ownedBy(item.path("owned_by").asText(null))
+                .created(created > 0 ? created : null)
+                .status("active")
+                .domain(item.path("type").asText(null))
+                .inputModalities(inputModalities.isEmpty() ? null : inputModalities)
+                .outputModalities(outputModalities.isEmpty() ? null : outputModalities)
+                .contextWindow(contextWindow)
+                .maxInputTokens(maxInputTokens)
+                .maxOutputTokens(maxOutputTokens)
+                .build();
+    }
+
+    private List<String> jsonArrayToList(JsonNode node) {
+        List<String> list = new ArrayList<>();
+        if (node != null && node.isArray()) {
+            node.forEach(n -> list.add(n.asText()));
+        }
+        return list;
+    }
+
     // ==================== 凭证兜底 ====================
 
     private void fillDefaults(LlmRequest request) {

@@ -1,8 +1,8 @@
 {
   "chat": {
-    "apiKey": "bce-v3/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "apiKey": "bce-v3/ALTAK-eH0hBDh48o44dnCA4Pyds/c3f6d614d9e659eed65a90b988e942f98e906575",
     "endpoint": "https://qianfan.baidubce.com/v2/chat/completions",
-    "modelCode": "ernie-4.5-8k"
+    "modelCode": "ernie-4.5-turbo-32k"
   }
 }
 
