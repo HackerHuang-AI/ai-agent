@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "ollama",
+    "endpoint": "http://localhost:11434/v1/chat/completions",
+    "modelCode": "llama3.2"
+  }
+}
+

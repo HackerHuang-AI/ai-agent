@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://api.xiaomimimo.com/v1/chat/completions",
+    "modelCode": "MiMo-7B-RL"
+  }
+}
+

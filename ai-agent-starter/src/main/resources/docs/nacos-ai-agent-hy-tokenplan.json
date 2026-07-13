@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://api.lkeap.cloud.tencent.com/plan/v3/chat/completions",
+    "modelCode": "hunyuan-turbos-latest"
+  }
+}
+

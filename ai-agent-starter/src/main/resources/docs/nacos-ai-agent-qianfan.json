@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "bce-v3/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://qianfan.baidubce.com/v2/chat/completions",
+    "modelCode": "ernie-4.5-8k"
+  }
+}
+

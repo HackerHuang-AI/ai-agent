@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://tokenhub.tencentmaas.com/v1/chat/completions",
+    "modelCode": "hunyuan-turbos"
+  }
+}
+

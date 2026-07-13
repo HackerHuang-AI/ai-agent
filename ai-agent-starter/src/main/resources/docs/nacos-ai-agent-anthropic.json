@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "modelCode": "claude-3-5-sonnet-20241022"
+  }
+}
+

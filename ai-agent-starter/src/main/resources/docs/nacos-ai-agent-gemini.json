@@ -1,0 +1,8 @@
+{
+  "chat": {
+    "apiKey": "AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "modelCode": "gemini-2.0-flash"
+  }
+}
+
