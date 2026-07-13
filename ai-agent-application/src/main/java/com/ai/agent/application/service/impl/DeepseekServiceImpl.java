@@ -403,6 +403,8 @@ public class DeepseekServiceImpl implements LlmService {
                     chunkConsumer.accept(chunk);
                 }
             }
+            // 流正常读完但未收到 [DONE] 帧（服务端偶发），兜底关闭 SSE 连接
+            chunkConsumer.accept(null);
         } catch (IOException e) {
             log.error("[Deepseek-stream] 流式响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);

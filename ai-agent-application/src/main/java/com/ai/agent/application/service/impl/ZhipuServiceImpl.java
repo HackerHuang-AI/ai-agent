@@ -352,6 +352,8 @@ public class ZhipuServiceImpl implements LlmService {
                     chunkConsumer.accept(chunk);
                 }
             }
+            // 流正常读完但未收到 [DONE] 帧（服务端偶发），兜底关闭 SSE 连接
+            chunkConsumer.accept(null);
         } catch (IOException e) {
             log.error("[Zhipu-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
