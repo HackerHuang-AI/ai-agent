@@ -36,7 +36,6 @@ public enum RetryConfigEnum {
     OLLAMA       ("ollama"),
     QIANFAN      ("qianfan"),
     TOKENHUB     ("tokenhub"),
-    DS_TOKENPLAN ("ds_tokenplan"),
 
     /** 兜底项：找不到专属枚举时使用，对应 Nacos 中的全局通用重试配置 */
     DEFAULT      ("default"),

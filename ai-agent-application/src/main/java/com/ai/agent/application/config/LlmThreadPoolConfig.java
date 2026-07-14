@@ -68,7 +68,6 @@ public class LlmThreadPoolConfig {
         OLLAMA          ("ollama-stream-pool",              5, 30,  50, 60),
         QIANFAN         ("qianfan-stream-pool",             5, 30,  50, 60),
         TOKENHUB        ("tokenhub-stream-pool",            5, 30,  50, 60),
-        DS_TOKENPLAN    ("dashscope-tokenplan-stream-pool", 5, 30,  50, 60),
         ;
 
         final String nacosKey;
@@ -141,10 +140,7 @@ public class LlmThreadPoolConfig {
     public ThreadPoolExecutor tokenhubStreamExecutor()       { return createAndRegister(PoolDef.TOKENHUB); }
 
 
-    @Bean("dsTokenPlanStreamExecutor")
-    public ThreadPoolExecutor dsTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.DS_TOKENPLAN); }
-
-    // ==================== Nacos 热更新 + 定时状态快照 ====================
+// ==================== Nacos 热更新
 
     @PostConstruct
     public void registerNacosListenerAndStartStats() {

@@ -36,7 +36,6 @@ public enum OkHttpConfigEnum {
     OLLAMA       ("ollama"),
     QIANFAN      ("qianfan"),
     TOKENHUB     ("tokenhub"),
-    DS_TOKENPLAN ("ds_tokenplan"),
 
     /** 兜底项：找不到专属枚举时使用，对应 Nacos ai-agent-http.json 中的 {@code "default"} 全局超时配置块 */
     DEFAULT      ("default"),

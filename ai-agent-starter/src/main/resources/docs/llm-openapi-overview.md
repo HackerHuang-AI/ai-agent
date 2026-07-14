@@ -84,7 +84,6 @@ data: [DONE]
 | [llm-openapi-openai.md](llm-openapi-openai.md) | OpenAI 原生协议（基准参考） |
 | [llm-openapi-deepseek.md](llm-openapi-deepseek.md) | Deepseek，OpenAI 兼容，含 `reasoning_content` |
 | [llm-openapi-qwen.md](llm-openapi-qwen.md) | Qwen 阿里云百炼，OpenAI 兼容，含 `enable_search` |
-| [llm-openapi-dashscope-tokenplan.md](llm-openapi-dashscope-tokenplan.md) | 阿里云灵积 Token Plan，预购包量，聚合多家模型 |
 | [llm-openapi-doubao.md](llm-openapi-doubao.md) | 豆包字节跳动，model 填 endpoint_id |
 | [llm-openapi-minimax.md](llm-openapi-minimax.md) | Minimax，自有协议，差异最大 |
 | [llm-openapi-zhipu.md](llm-openapi-zhipu.md) | 智谱 GLM，JWT 认证 |

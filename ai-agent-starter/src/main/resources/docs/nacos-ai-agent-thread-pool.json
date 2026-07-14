@@ -76,12 +76,6 @@
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
-  },
-  "dashscope-tokenplan-stream-pool": {
-    "corePoolSize": 5,
-    "maxPoolSize": 30,
-    "queueCapacity": 50,
-    "keepAliveSeconds": 60
   }
 }
 
