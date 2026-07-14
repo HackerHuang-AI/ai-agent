@@ -7,7 +7,10 @@ import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
+import okhttp3.ConnectionPool;
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -117,17 +120,23 @@ public class OkHttpConfig {
     }
 
     /**
-     * 获取指定业务场景的 OkHttpClient，支持按场景独立配置超时参数。
+     * 获取指定业务场景的 OkHttpClient，支持按场景独立配置超时与代理。
      *
      * <p>查找链路（均读自 {@code ai-agent-http.json}）：
      * <ol>
-     *   <li>有平台专属块（如 {@code "doubao"}）→ 直接使用，全量自定义</li>
-     *   <li>无专属块 → fallback 到 {@code "default"} 全局块</li>
-     *   <li>{@code "default"} 也未配置 → 使用 {@code "okhttp"} 块（代码默认值兜底）</li>
+     *   <li>有平台专属块（如 {@code "gemini"}）→ 直接使用，全量自定义（含代理）</li>
+     *   <li>无专属块 → fallback 到 {@code "default"} 全局块（通常不含代理）</li>
+     *   <li>{@code "default"} 也未配置 → 使用代码默认值兜底（无代理）</li>
      * </ol>
-     * <p>与 RetryConfig 设计完全对齐：平台 → default → 代码默认值，无 llm 中间层。
      *
-     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "doubao"}；传 null 或空串走 default 兜底）
+     * <p>代理配置说明：
+     * <ul>
+     *   <li>在平台专属块中配置 {@code "proxy"} 字段即可启用，不配置则直连</li>
+     *   <li>fallback 到 default 块时，若 default 块无代理配置，则该平台不走代理</li>
+     *   <li>每次调用实时读取，Nacos 热更新后下一次请求自动生效，无需重启</li>
+     * </ul>
+     *
+     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "gemini"}；传 null 或空串走 default 兜底）
      */
     public OkHttpClient getLlmClient(String scope) {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
@@ -155,8 +164,11 @@ public class OkHttpConfig {
     }
 
     /**
-     * 按需注入代理配置。proxy 为 null 时不做任何设置（不走代理）。
+     * 按需注入代理配置。proxy 为 null 或 host 为空时不做任何设置（直连，不走代理）。
      * 支持 HTTP / SOCKS 两种类型，以及可选的用户名/密码认证。
+     *
+     * <p>代理配置在每次 {@link #getLlmClient(String)} 调用时动态注入，无需重建 baseClient，
+     * Nacos 热更新后下一次请求即自动生效。
      */
     private void applyProxy(OkHttpClient.Builder builder, OkHttpParam.ProxyParam proxy) {
         if (proxy == null || proxy.getHost() == null || proxy.getHost().isBlank()) {
@@ -166,11 +178,15 @@ public class OkHttpConfig {
         builder.proxy(new Proxy(type, new InetSocketAddress(proxy.getHost(), proxy.getPort())));
         if (proxy.getUsername() != null && !proxy.getUsername().isBlank()) {
             String credential = Credentials.basic(proxy.getUsername(), proxy.getPassword());
-            Authenticator proxyAuthenticator = (route, response) ->
-                    response.request().newBuilder()
-                            .header("Proxy-Authorization", credential)
-                            .build();
-            builder.proxyAuthenticator(proxyAuthenticator);
+            builder.proxyAuthenticator((route, response) -> {
+                // 若上一次认证已带过凭证但服务器仍返回 407，说明凭证无效，返回 null 终止重试，避免无限循环
+                if (response.request().header("Proxy-Authorization") != null) {
+                    return null;
+                }
+                return response.request().newBuilder()
+                        .header("Proxy-Authorization", credential)
+                        .build();
+            });
         }
     }
 
