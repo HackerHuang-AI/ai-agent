@@ -1,8 +1,8 @@
 {
   "chat": {
-    "apiKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "apiKey": "sk-HT8m3WFyMwgFH8clu461A4fWsfN48AtRqxzdZJoL20glTphwE",
     "endpoint": "https://tokenhub.tencentmaas.com/v1/chat/completions",
-    "modelCode": "hunyuan-turbos"
+    "modelCode": "hy3"
   }
 }
 
