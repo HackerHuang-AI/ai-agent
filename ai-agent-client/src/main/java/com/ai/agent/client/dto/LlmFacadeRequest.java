@@ -22,7 +22,6 @@ import java.util.Map;
  *   ollama      → Ollama（本地部署）
  *   qianfan     → 百度千帆
  *   tokenhub    → 腾讯 TokenHub
- *   mimo        → MiMo
  * </pre>
  */
 public class LlmFacadeRequest implements Serializable {
