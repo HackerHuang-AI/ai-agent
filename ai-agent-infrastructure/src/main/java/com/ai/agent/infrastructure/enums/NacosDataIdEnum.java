@@ -62,9 +62,6 @@ public enum NacosDataIdEnum {
     /** 腾讯 TokenHub 平台默认凭证配置，对应 Nacos 上的 ai-agent-tokenhub.json */
     AI_AGENT_TOKENHUB("ai-agent-tokenhub.json"),
 
-    /** 腾讯混元 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-hy-tokenplan.json */
-    AI_AGENT_HY_TOKENPLAN("ai-agent-hy-tokenplan.json"),
-
     /** 阿里云灵积 Token Plan 默认凭证配置，对应 Nacos 上的 ai-agent-dashscope-tokenplan.json */
     AI_AGENT_DASHSCOPE_TOKENPLAN("ai-agent-dashscope-tokenplan.json"),
 

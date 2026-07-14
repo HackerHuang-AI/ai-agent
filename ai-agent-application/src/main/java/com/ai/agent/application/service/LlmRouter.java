@@ -97,8 +97,7 @@ public class LlmRouter {
      * 其余平台 Bean 名 = platform.toLowerCase() + "ServiceImpl"，无需在此声明。
      */
     private static final Map<String, String> PLATFORM_BEAN_MAP = Map.of(
-            "ds_tokenplan", "dsTokenPlanServiceImpl",
-            "hy_tokenplan", "hyTokenPlanServiceImpl"
+            "ds_tokenplan", "dsTokenPlanServiceImpl"
     );
 
     /**

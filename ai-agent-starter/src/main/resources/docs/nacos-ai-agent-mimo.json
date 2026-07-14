@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-cavfd30a5m75l5098s2sfmt52i41q9s004oej914egl8o1uc",
+    "apiKey": "sk-Hcavfd30a5m75l5098s2sfmt52i41q9s004oej914egl8o1uc",
     "endpoint": "https://api.xiaomimimo.com/v1/chat/completions",
     "modelCode": "mimo-v2.5-pro"
   }

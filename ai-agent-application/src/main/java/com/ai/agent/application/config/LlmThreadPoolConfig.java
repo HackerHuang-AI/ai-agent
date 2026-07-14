@@ -68,7 +68,6 @@ public class LlmThreadPoolConfig {
         OLLAMA          ("ollama-stream-pool",              5, 30,  50, 60),
         QIANFAN         ("qianfan-stream-pool",             5, 30,  50, 60),
         TOKENHUB        ("tokenhub-stream-pool",            5, 30,  50, 60),
-        HY_TOKENPLAN    ("hy-tokenplan-stream-pool",        5, 30,  50, 60),
         DS_TOKENPLAN    ("dashscope-tokenplan-stream-pool", 5, 30,  50, 60),
         ;
 
@@ -141,8 +140,6 @@ public class LlmThreadPoolConfig {
     @Bean("tokenhubStreamExecutor")
     public ThreadPoolExecutor tokenhubStreamExecutor()       { return createAndRegister(PoolDef.TOKENHUB); }
 
-    @Bean("hyTokenPlanStreamExecutor")
-    public ThreadPoolExecutor hyTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.HY_TOKENPLAN); }
 
     @Bean("dsTokenPlanStreamExecutor")
     public ThreadPoolExecutor dsTokenPlanStreamExecutor()    { return createAndRegister(PoolDef.DS_TOKENPLAN); }
