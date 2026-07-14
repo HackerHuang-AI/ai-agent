@@ -7,12 +7,12 @@ import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.ConnectionPool;
-import okhttp3.OkHttpClient;
-import okhttp3.Protocol;
+import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -143,13 +143,35 @@ public class OkHttpConfig {
             p = currentParamRef.get();
         }
 
-        log.debug("[OkHttpConfig] scope={} 最终参数: connect={}s, read={}s, write={}s",
-                scope, p.getConnectTimeoutSeconds(), p.getReadTimeoutSeconds(), p.getWriteTimeoutSeconds());
-        return baseClientRef.get().newBuilder()
+        log.debug("[OkHttpConfig] scope={} 最终参数: connect={}s, read={}s, write={}s, proxy={}",
+                scope, p.getConnectTimeoutSeconds(), p.getReadTimeoutSeconds(), p.getWriteTimeoutSeconds(),
+                p.getProxy() != null ? p.getProxy().getHost() + ":" + p.getProxy().getPort() : "none");
+        OkHttpClient.Builder builder = baseClientRef.get().newBuilder()
                 .connectTimeout(p.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(p.getReadTimeoutSeconds(), TimeUnit.SECONDS)
-                .writeTimeout(p.getWriteTimeoutSeconds(), TimeUnit.SECONDS)
-                .build();
+                .writeTimeout(p.getWriteTimeoutSeconds(), TimeUnit.SECONDS);
+        applyProxy(builder, p.getProxy());
+        return builder.build();
+    }
+
+    /**
+     * 按需注入代理配置。proxy 为 null 时不做任何设置（不走代理）。
+     * 支持 HTTP / SOCKS 两种类型，以及可选的用户名/密码认证。
+     */
+    private void applyProxy(OkHttpClient.Builder builder, OkHttpParam.ProxyParam proxy) {
+        if (proxy == null || proxy.getHost() == null || proxy.getHost().isBlank()) {
+            return;
+        }
+        Proxy.Type type = "SOCKS".equalsIgnoreCase(proxy.getType()) ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
+        builder.proxy(new Proxy(type, new InetSocketAddress(proxy.getHost(), proxy.getPort())));
+        if (proxy.getUsername() != null && !proxy.getUsername().isBlank()) {
+            String credential = Credentials.basic(proxy.getUsername(), proxy.getPassword());
+            Authenticator proxyAuthenticator = (route, response) ->
+                    response.request().newBuilder()
+                            .header("Proxy-Authorization", credential)
+                            .build();
+            builder.proxyAuthenticator(proxyAuthenticator);
+        }
     }
 
     // ==================== Nacos 热更新 ====================

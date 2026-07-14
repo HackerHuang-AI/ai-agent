@@ -60,14 +60,24 @@
     "readTimeoutSeconds": 120,
     "writeTimeoutSeconds": 30,
     "maxIdleConnections": 50,
-    "keepAliveMinutes": 5
+    "keepAliveMinutes": 5,
+    "proxy": {
+      "type": "HTTP",
+      "host": "127.0.0.1",
+      "port": 7890
+    }
   },
   "gemini": {
     "connectTimeoutSeconds": 10,
     "readTimeoutSeconds": 120,
     "writeTimeoutSeconds": 30,
     "maxIdleConnections": 50,
-    "keepAliveMinutes": 5
+    "keepAliveMinutes": 5,
+    "proxy": {
+      "type": "HTTP",
+      "host": "127.0.0.1",
+      "port": 7890
+    }
   },
   "mimo": {
     "connectTimeoutSeconds": 10,

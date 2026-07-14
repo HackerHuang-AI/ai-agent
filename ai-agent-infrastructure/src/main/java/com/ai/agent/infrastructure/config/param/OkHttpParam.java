@@ -37,5 +37,25 @@ public class OkHttpParam {
 
     /** 连接池保活时间（分钟） */
     private int keepAliveMinutes = 5;
+
+    /**
+     * 代理配置，不配置则不走代理。
+     * 仅在平台专属块中配置，如 gemini / anthropic 等需要代理的平台。
+     */
+    private ProxyParam proxy;
+
+    @Data
+    public static class ProxyParam {
+        /** 代理类型：HTTP 或 SOCKS */
+        private String type = "HTTP";
+        /** 代理服务器地址 */
+        private String host;
+        /** 代理服务器端口 */
+        private int port;
+        /** 代理认证用户名（可选，无需认证时不填） */
+        private String username;
+        /** 代理认证密码（可选，无需认证时不填） */
+        private String password;
+    }
 }
 
