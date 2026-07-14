@@ -24,7 +24,6 @@ import java.util.Map;
  *   tokenhub    → 腾讯 TokenHub
  *   mimo        → MiMo
  *   ds_tokenplan  → 阿里灵积 TokenPlan
- *   hy_tokenplan  → 腾讯混元 TokenPlan
  * </pre>
  */
 public class LlmFacadeRequest implements Serializable {

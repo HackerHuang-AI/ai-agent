@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  * <pre>
  *   doubao / openai / deepseek / anthropic / zhipu / qwen
  *   moonshot / minimax / gemini / ollama / qianfan
- *   tokenhub / mimo / ds_tokenplan / hy_tokenplan
+ *   tokenhub / mimo / ds_tokenplan
  * </pre>
  */
 @Slf4j
@@ -93,7 +93,7 @@ public class LlmRouter {
 
     /**
      * platform 值与 Spring Bean 名的特殊映射表。
-     * 原因：ds_tokenplan / hy_tokenplan 含下划线，拼接后无法匹配驼峰 Bean 名，需显式映射。
+     * 原因：ds_tokenplan 含下划线，拼接后无法匹配驼峰 Bean 名，需显式映射。
      * 其余平台 Bean 名 = platform.toLowerCase() + "ServiceImpl"，无需在此声明。
      */
     private static final Map<String, String> PLATFORM_BEAN_MAP = Map.of(

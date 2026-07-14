@@ -91,7 +91,6 @@ data: [DONE]
 | [llm-openapi-moonshot.md](llm-openapi-moonshot.md) | Moonshot Kimi，基本无差异 |
 | [llm-openapi-baidu-qianfan.md](llm-openapi-baidu-qianfan.md) | 百度千帆，temperature 上限为 1，聚合第三方模型 |
 | [llm-openapi-tencent-tokenhub.md](llm-openapi-tencent-tokenhub.md) | 腾讯 TokenHub，聚合平台（混元+DeepSeek+GLM+Kimi+MiniMax） |
-| [llm-openapi-hy-tokenplan.md](llm-openapi-hy-tokenplan.md) | 腾讯混元 Token Plan，预购包量，当前仅混元模型 |
 | [llm-openapi-mimo.md](llm-openapi-mimo.md) | 小米 MiMo，推理模型含 `reasoning_content` |
 | [llm-openapi-ollama.md](llm-openapi-ollama.md) | Ollama 本地部署，含管理接口 |
 | [llm-openapi-anthropic.md](llm-openapi-anthropic.md) | Anthropic Claude，x-api-key 认证，协议差异最大 |
