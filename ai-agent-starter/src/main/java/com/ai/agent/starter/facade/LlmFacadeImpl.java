@@ -99,6 +99,8 @@ public class LlmFacadeImpl implements LlmFacade {
                 .messages(toMessages(request.getMessages()))
                 .temperature(request.getTemperature())
                 .topP(request.getTopP())
+                .topK(request.getTopK())
+                .frequencyPenalty(request.getFrequencyPenalty())
                 .maxTokens(request.getMaxTokens())
                 .extraParams(request.getExtraParams())
                 .stream(stream)

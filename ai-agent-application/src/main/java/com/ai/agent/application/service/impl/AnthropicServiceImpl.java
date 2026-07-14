@@ -216,6 +216,8 @@ public class AnthropicServiceImpl implements LlmService {
 
         if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
         if (request.getTopP() != null) body.put("top_p", request.getTopP());
+        // Anthropic 支持 top_k；不支持 frequency_penalty（该平台无此参数）
+        if (request.getTopK() != null) body.put("top_k", request.getTopK());
         if (request.getExtraParams() != null) body.putAll(request.getExtraParams());
 
         try {

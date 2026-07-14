@@ -54,6 +54,16 @@ public class LlmFacadeRequest implements Serializable {
     /** nucleus sampling，null 时使用平台默认值 */
     private Double topP;
 
+    /**
+     * Top-K 采样，范围 [1, ∞)，null 时不传。OpenAI / Moonshot / Deepseek 不支持会被平台忽略。
+     */
+    private Integer topK;
+
+    /**
+     * 频率惩罚，范围 [-2.0, 2.0]，降低重复率。null 时不传。Anthropic 不支持会被忽略。
+     */
+    private Double frequencyPenalty;
+
     /** 最大输出 token 数，null 时使用平台默认值 */
     private Integer maxTokens;
 
@@ -79,6 +89,10 @@ public class LlmFacadeRequest implements Serializable {
     public void setTemperature(Double temperature) { this.temperature = temperature; }
     public Double getTopP() { return topP; }
     public void setTopP(Double topP) { this.topP = topP; }
+    public Integer getTopK() { return topK; }
+    public void setTopK(Integer topK) { this.topK = topK; }
+    public Double getFrequencyPenalty() { return frequencyPenalty; }
+    public void setFrequencyPenalty(Double frequencyPenalty) { this.frequencyPenalty = frequencyPenalty; }
     public Integer getMaxTokens() { return maxTokens; }
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
     public Map<String, Object> getExtraParams() { return extraParams; }

@@ -195,6 +195,9 @@ public class MoonshotServiceImpl implements LlmService {
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
+        if (request.getFrequencyPenalty() != null) {
+            body.put("frequency_penalty", request.getFrequencyPenalty());
+        }
         if (request.getExtraParams() != null) {
             body.putAll(request.getExtraParams());
         }

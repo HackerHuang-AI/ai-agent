@@ -264,6 +264,12 @@ public class QianfanServiceImpl implements LlmService {
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
+        if (request.getTopK() != null) {
+            body.put("top_k", request.getTopK());
+        }
+        if (request.getFrequencyPenalty() != null) {
+            body.put("frequency_penalty", request.getFrequencyPenalty());
+        }
         if (request.getExtraParams() != null) {
             body.putAll(request.getExtraParams());
         }

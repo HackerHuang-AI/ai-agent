@@ -53,6 +53,20 @@ public class LlmRequest {
     private Double topP;
 
     /**
+     * Top-K 采样：每步只从概率最高的 K 个词中选择，限制候选词数量。
+     * 范围 [1, ∞)，null 时使用平台默认值。
+     * 注意：OpenAI / Moonshot / Deepseek 不支持此参数，会被忽略。
+     */
+    private Integer topK;
+
+    /**
+     * 频率惩罚：按词在已生成文本中出现次数累加惩罚，降低重复率。
+     * 范围 [-2.0, 2.0]，正值降低重复，负值增加重复，null 时使用平台默认值。
+     * 注意：Anthropic（Claude）不支持此参数，会被忽略。
+     */
+    private Double frequencyPenalty;
+
+    /**
      * 单次回复最大 token 数；null 时使用 agent 配置或平台默认值
      */
     private Integer maxTokens;

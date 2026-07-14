@@ -46,14 +46,24 @@ public class LlmRequestVO {
     /** nucleus sampling 参数，范围 (0, 1]，与 temperature 二选一，null 时使用平台默认值 */
     private Double topP;
 
+    /**
+     * Top-K 采样：每步只从概率最高的 K 个词中选择。
+     * 范围 [1, ∞)，null 时使用平台默认。OpenAI / Moonshot / Deepseek 不支持。
+     */
+    private Integer topK;
+
+    /**
+     * 频率惩罚：降低重复词出现概率，范围 [-2.0, 2.0]。
+     * null 时使用平台默认。Anthropic 不支持此参数。
+     */
+    private Double frequencyPenalty;
+
     /** 单次回复最大 token 数，null 时使用平台默认值 */
     private Integer maxTokens;
 
     /**
      * 平台私有扩展参数，合并到请求体最外层。
-     * 示例：
-     *   豆包：{"top_k": 50, "frequency_penalty": 0.5}
-     *   Deepseek：{"frequency_penalty": 0.5, "presence_penalty": 0.3}
+     * 示例：Deepseek：{"presence_penalty": 0.3}
      */
     private Map<String, Object> extraParams;
 }

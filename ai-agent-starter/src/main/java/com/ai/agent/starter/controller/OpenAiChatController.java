@@ -110,6 +110,8 @@ public class OpenAiChatController {
                 .messages(messages)
                 .temperature(vo.getTemperature())
                 .topP(vo.getTopP())
+                .topK(vo.getTopK())
+                .frequencyPenalty(vo.getFrequencyPenalty())
                 .maxTokens(vo.getMaxTokens())
                 .extraParams(vo.getExtraParams())
                 .build();

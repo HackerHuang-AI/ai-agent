@@ -288,6 +288,12 @@ public class DoubaoServiceImpl implements LlmService {
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
+        if (request.getTopK() != null) {
+            body.put("top_k", request.getTopK());
+        }
+        if (request.getFrequencyPenalty() != null) {
+            body.put("frequency_penalty", request.getFrequencyPenalty());
+        }
         // 豆包平台私有参数（通过 extraParams 透传），合并到请求体最外层。
         // 支持的私有参数包括：
         //   top_k            - Top-K 采样，限制每步候选词数量，0 表示不限制；范围 [0, ∞)
