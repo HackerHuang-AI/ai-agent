@@ -54,7 +54,7 @@ public class LlmRequestVO {
 
     /**
      * 频率惩罚：降低重复词出现概率，范围 [-2.0, 2.0]。
-     * null 时使用平台默认。Anthropic 不支持此参数。
+     * null 时不传。Anthropic 不支持，Deepseek 已 deprecated（无效果），Moonshot 文档无此参数。
      */
     private Double frequencyPenalty;
 

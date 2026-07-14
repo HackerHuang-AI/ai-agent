@@ -62,7 +62,10 @@ public class LlmRequest {
     /**
      * 频率惩罚：按词在已生成文本中出现次数累加惩罚，降低重复率。
      * 范围 [-2.0, 2.0]，正值降低重复，负值增加重复，null 时使用平台默认值。
-     * 注意：Anthropic（Claude）不支持此参数，会被忽略。
+     * 注意：
+     *   - Anthropic（Claude）不支持此参数，会被忽略
+     *   - Deepseek 已将此参数标记为 deprecated（传入无效果）
+     *   - Moonshot 文档无此参数，不会注入
      */
     private Double frequencyPenalty;
 

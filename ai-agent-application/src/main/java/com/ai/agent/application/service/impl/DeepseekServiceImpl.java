@@ -220,9 +220,7 @@ public class DeepseekServiceImpl implements LlmService {
         if (request.getMaxTokens() != null) {
             body.put("max_tokens", request.getMaxTokens());
         }
-        if (request.getFrequencyPenalty() != null) {
-            body.put("frequency_penalty", request.getFrequencyPenalty());
-        }
+        // Deepseek frequency_penalty 已标记为 deprecated（官方文档：传入该参数不会产生任何效果），不再注入
 
         // thinking：从 extraParams 中提取 thinking_type / reasoning_effort，组装为平台所需对象结构
         // 示例：extraParams.thinking_type="enabled", extraParams.reasoning_effort="high"

@@ -60,7 +60,8 @@ public class LlmFacadeRequest implements Serializable {
     private Integer topK;
 
     /**
-     * 频率惩罚，范围 [-2.0, 2.0]，降低重复率。null 时不传。Anthropic 不支持会被忽略。
+     * 频率惩罚，范围 [-2.0, 2.0]，降低重复率。null 时不传。
+     * Anthropic 不支持，Deeepseek已 deprecated，Moonshot 文档无此参数。
      */
     private Double frequencyPenalty;
 
