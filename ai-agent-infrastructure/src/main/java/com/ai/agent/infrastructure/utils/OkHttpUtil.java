@@ -130,6 +130,27 @@ public class OkHttpUtil {
         return executeAsync(request);
     }
 
+    // ==================== 同步请求（带 client 重载，供 LLM ServiceImpl 使用）====================
+
+    /**
+     * 使用指定 {@link OkHttpClient} 执行 POST 请求（JSON body）。
+     * 调用方自行通过 {@link OkHttpConfig#getLlmClient(String)} 获取 client，
+     * 日志、耗时、异常处理均由本方法统一处理。
+     */
+    public static String post(String url, String jsonBody, Map<String, String> headers, OkHttpClient client) throws IOException {
+        RequestBody body = RequestBody.create(jsonBody, JSON_MEDIA_TYPE);
+        Request request = buildRequest(new Request.Builder().url(url).post(body), headers).build();
+        return executeRequest(request, client);
+    }
+
+    /**
+     * 使用指定 {@link OkHttpClient} 执行 GET 请求。
+     */
+    public static String get(String url, Map<String, String> headers, OkHttpClient client) throws IOException {
+        Request request = buildRequest(new Request.Builder().url(url).get(), headers).build();
+        return executeRequest(request, client);
+    }
+
     // ==================== 底层执行 ====================
 
     private static String executeRequest(Request request) throws IOException {
@@ -194,6 +215,37 @@ public class OkHttpUtil {
             }
         });
         return future;
+    }
+
+    /**
+     * 使用指定 client 执行请求，统一日志、耗时、异常处理。
+     * 供带 client 参数的重载方法调用。
+     */
+    private static String executeRequest(Request request, OkHttpClient client) throws IOException {
+        long startTime = System.currentTimeMillis();
+        log.debug("发送HTTP请求: {} {}", request.method(), request.url());
+
+        try (Response response = client.newCall(request).execute()) {
+            long costTime = System.currentTimeMillis() - startTime;
+
+            if (!response.isSuccessful()) {
+                log.warn("HTTP请求失败: {} {}, 状态码: {}, 耗时: {}ms",
+                        request.method(), request.url(), response.code(), costTime);
+                throw new IOException("HTTP请求失败: " + response.code() + " " + response.message());
+            }
+
+            ResponseBody responseBody = response.body();
+            String result = responseBody != null ? responseBody.string() : "";
+
+            log.debug("HTTP请求成功: {} {}, 状态码: {}, 耗时: {}ms",
+                    request.method(), request.url(), response.code(), costTime);
+            return result;
+        } catch (IOException e) {
+            long costTime = System.currentTimeMillis() - startTime;
+            log.error("HTTP请求异常: {} {}, 耗时: {}ms, 错误: {}",
+                    request.method(), request.url(), costTime, e.getMessage());
+            throw e;
+        }
     }
 
     // ==================== 工具方法 ====================
