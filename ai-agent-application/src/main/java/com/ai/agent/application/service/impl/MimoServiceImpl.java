@@ -105,14 +105,26 @@ public class MimoServiceImpl implements LlmService {
                 if (mdcContext != null) MDC.setContextMap(mdcContext);
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-                    try (Response response = okHttpConfig.getLlmClient("mimo").newCall(okRequest).execute()) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            String errBody = response.body() != null ? response.body().string() : "";
-                            log.error("[MiMo-stream] HTTP 失败, code={}, platformError={}", response.code(), extractErrorMessage(errBody));
-                            chunkConsumer.accept("[ERROR:" + response.code() + "]");
-                            return;
+                    Response response = AppRetryUtil.retryForStream(() -> {
+                        Response resp = okHttpConfig.getLlmClient("mimo").newCall(okRequest).execute();
+                        if (!resp.isSuccessful()) {
+                            String errBody = resp.body() != null ? resp.body().string() : "";
+                            String platformMsg = extractErrorMessage(errBody);
+                            log.error("[Mimo-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
+                            resp.close();
+                            throwByHttpCode(resp.code(), platformMsg);
                         }
+                        return resp;
+                    }, retryConfig.getRetryParam("mimo"));
+                    if (response == null || response.body() == null) {
+                        log.error("[Mimo] 连接失败或响应体为空");
+                        chunkConsumer.accept("[ERROR]");
+                        return;
+                    }
+                    try {
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                    } finally {
+                        response.close();
                     }
                 } catch (BizException e) {
                     log.error("[MiMo-stream] 业务异常", e);

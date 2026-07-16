@@ -121,18 +121,25 @@ public class DeepseekServiceImpl implements LlmService {
                             .headers(Headers.of(buildHeaders(request.getApiKey())))
                             .build();
 
-                    try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
-                        if (!response.isSuccessful()) {
-                            String errorBody = response.body() != null ? response.body().string() : "";
-                            log.error("[Deepseek-stream] HTTP {} 失败, body={}", response.code(), errorBody);
-                            throwByHttpCode(response.code(), errorBody);
+                    Response response = AppRetryUtil.retryForStream(() -> {
+                        Response resp = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute();
+                        if (!resp.isSuccessful()) {
+                            String errBody = resp.body() != null ? resp.body().string() : "";
+                            log.error("[Deepseek-stream] HTTP {} 失败, body={}", resp.code(), errBody);
+                            resp.close();
+                            throwByHttpCode(resp.code(), errBody);
                         }
-                        if (response.body() == null) {
-                            log.error("[Deepseek-stream] 响应体为空");
-                            chunkConsumer.accept("[ERROR]");
-                            return;
-                        }
+                        return resp;
+                    }, retryConfig.getRetryParam("deepseek"));
+                    if (response == null || response.body() == null) {
+                        log.error("[Deepseek] 连接失败或响应体为空");
+                        chunkConsumer.accept("[ERROR]");
+                        return;
+                    }
+                    try {
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                    } finally {
+                        response.close();
                     }
                 } catch (BizException e) {
                     log.error("[Deepseek-stream] 业务异常", e);

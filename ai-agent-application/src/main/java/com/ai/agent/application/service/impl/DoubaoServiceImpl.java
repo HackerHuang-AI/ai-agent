@@ -110,19 +110,26 @@ public class DoubaoServiceImpl implements LlmService {
                             .headers(Headers.of(buildHeaders(request.getApiKey())))
                             .build();
 
-                    try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
-                        if (!response.isSuccessful()) {
-                            String errBody = response.body() != null ? response.body().string() : "";
+                    Response response = AppRetryUtil.retryForStream(() -> {
+                        Response resp = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute();
+                        if (!resp.isSuccessful()) {
+                            String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
-                            log.error("[Doubao-stream] HTTP {} 失败, platformError={}", response.code(), platformMsg);
-                            throwByHttpCode(response.code(), platformMsg);
+                            log.error("[Doubao-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
+                            resp.close();
+                            throwByHttpCode(resp.code(), platformMsg);
                         }
-                        if (response.body() == null) {
-                            log.error("[Doubao-stream] 响应体为空");
-                            chunkConsumer.accept("[ERROR]");
-                            return;
-                        }
+                        return resp;
+                    }, retryConfig.getRetryParam("doubao"));
+                    if (response == null || response.body() == null) {
+                        log.error("[Doubao] 连接失败或响应体为空");
+                        chunkConsumer.accept("[ERROR]");
+                        return;
+                    }
+                    try {
                         parseStreamResponse(response.body(), request.getModelCode(), chunkConsumer);
+                    } finally {
+                        response.close();
                     }
                 } catch (BizException e) {
                     log.error("[Doubao-stream] 业务异常", e);

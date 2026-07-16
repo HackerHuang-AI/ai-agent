@@ -3,6 +3,7 @@ package com.ai.agent.application.utils;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.infrastructure.config.param.RetryParam;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Response;
 
 import java.util.Collection;
 import java.util.concurrent.Callable;
@@ -78,11 +79,32 @@ public class AppRetryUtil {
      */
     public static <T> T retry(Callable<T> callable, RetryParam param,
                                Collection<String> nonRetryableCodes) {
-        // 优先级：显式传入 > Nacos 配置
         Collection<String> effectiveCodes = (nonRetryableCodes != null)
                 ? nonRetryableCodes
                 : param.getNonRetryableCodes();
 
+        return doRetry(callable, param.getMaxRetries(), param.getIntervalMs(),
+                param.getBackoffMultiplier(), param.getMaxWaitMs(), effectiveCodes);
+    }
+
+    /**
+     * 专为流式请求设计的重试方法，返回已确认 HTTP 成功的 {@link Response}。
+     *
+     * <p>重试边界：HTTP 连接建立阶段（execute() + isSuccessful() 校验），
+     * 一旦 Response 成功返回，后续推送阶段由调用方负责，不再重试。
+     *
+     * <p>调用方职责：
+     * <ul>
+     *   <li>返回 null 时说明全部重试失败，向 chunkConsumer 发送 "[ERROR]"</li>
+     *   <li>返回非 null 时，必须在 finally 块中调用 {@code response.close()} 释放连接</li>
+     * </ul>
+     *
+     * @param callable 执行 HTTP 请求并校验状态码的逻辑；HTTP 非 200 时应先 close Response 再抛 BizException
+     * @param param    重试参数（maxRetries/intervalMs/backoffMultiplier/maxWaitMs）
+     * @return 已确认 HTTP 成功的 Response；全部重试失败时返回 null
+     */
+    public static Response retryForStream(Callable<Response> callable, RetryParam param) {
+        Collection<String> effectiveCodes = param.getNonRetryableCodes();
         return doRetry(callable, param.getMaxRetries(), param.getIntervalMs(),
                 param.getBackoffMultiplier(), param.getMaxWaitMs(), effectiveCodes);
     }
