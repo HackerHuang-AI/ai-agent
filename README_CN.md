@@ -216,7 +216,21 @@ mvn spring-boot:run -pl ai-agent-starter -Dspring.profiles.active=dev
 
 ## 生产部署注意事项
 
-- **鉴权与限流**：由 API 网关层统一处理，本服务不内置
-- **监控**：暴露 `/actuator/health` 端点，指标上报后续接入
 - **代理**：通过 `ai-agent-http.json` 的 `proxy` 字段按平台配置（适用于需要代理的海外平台）
+
+### 关联仓库（暂未开放）
+
+本服务是更大规模分布式 AI 后端系统的一部分，以下组件作为独立仓库存在，**目前暂未开源**：
+
+| 仓库 | 职责 |
+|------|------|
+| `ai-gateway` | API 网关 —— 鉴权、限流、负载均衡 |
+| `ai-analysis` | 请求分析、成本追踪、用量统计 |
+| `ai-orchestration` | 多 Agent 工作流编排 |
+| `ai-knowledge` | RAG 知识库集成 |
+| `ai-memory` | 对话记忆与上下文管理 |
+| `ai-mcp` | MCP（模型上下文协议）服务端集成 |
+| `ai-eval` | 模型评估与基准测试 |
+
+> 鉴权、限流、监控均由网关层与分析层统一处理，本仓库不内置上述能力——这是架构上的刻意设计。
 

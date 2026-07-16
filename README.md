@@ -214,7 +214,21 @@ mvn spring-boot:run -pl ai-agent-starter -Dspring.profiles.active=dev
 
 ## Production Notes
 
-- **Auth & Rate Limiting**: handled at the API gateway layer, not in this service
-- **Monitoring**: expose `/actuator/health` — metrics integration is planned
 - **Proxy**: per-platform proxy config supported in `ai-agent-http.json` (useful for Anthropic / Gemini)
+
+### Related Repositories (Not Yet Public)
+
+This service is part of a larger distributed AI backend system. The following components exist as separate repositories but are **not yet open-sourced**:
+
+| Repository | Responsibility |
+|------------|---------------|
+| `ai-gateway` | API gateway — authentication, rate limiting, load balancing |
+| `ai-analysis` | Request analytics, cost tracking, usage statistics |
+| `ai-orchestration` | Multi-agent workflow orchestration |
+| `ai-knowledge` | RAG knowledge base integration |
+| `ai-memory` | Conversation memory and context management |
+| `ai-mcp` | MCP (Model Context Protocol) server integration |
+| `ai-eval` | Model evaluation and benchmarking |
+
+> Auth, rate limiting, and monitoring are handled at the gateway and analysis layers respectively, not within this repository — by design.
 
