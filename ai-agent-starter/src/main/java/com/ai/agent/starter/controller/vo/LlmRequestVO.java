@@ -23,6 +23,9 @@ import java.util.Map;
 @Data
 public class LlmRequestVO {
 
+    /** 平台标识，统一接口必传，平台专属接口不需要传。支持：doubao / openai / deepseek / anthropic / zhipu / qwen / moonshot / minimax / gemini / ollama / qianfan / tokenhub / mimo */
+    private String platform;
+
     /** API Key，可选（支持 Nacos 兜底的平台可不传） */
     private String apiKey;
 
