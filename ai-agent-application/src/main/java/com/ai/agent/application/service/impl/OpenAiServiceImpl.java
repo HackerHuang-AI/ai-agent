@@ -1,16 +1,21 @@
 package com.ai.agent.application.service.impl;
 
+import com.ai.agent.application.bo.OpenAiBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
+import com.ai.agent.application.enums.http.OpenAiHttpCode;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
-import com.ai.agent.infrastructure.utils.RetryUtil;
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -23,11 +28,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
-import com.ai.agent.application.bo.OpenAiBO;
-import com.ai.agent.application.enums.http.OpenAiHttpCode;
-import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * @Description: Moonshot（Kimi）平台 LLM 服务实现
@@ -70,7 +70,7 @@ public class OpenAiServiceImpl implements LlmService {
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
 
-        LlmResponse result = RetryUtil.retry(() -> {
+        LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
             try (Response response = okHttpConfig.getLlmClient("openai").newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";

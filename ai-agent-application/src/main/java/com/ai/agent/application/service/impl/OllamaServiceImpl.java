@@ -1,16 +1,16 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.OllamaBO;
-import com.ai.agent.application.enums.http.OllamaHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
+import com.ai.agent.application.enums.http.OllamaHttpCode;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.infrastructure.utils.RetryUtil;
+import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -70,7 +70,7 @@ public class OllamaServiceImpl implements LlmService {
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
 
-        LlmResponse result = RetryUtil.retry(() -> {
+        LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
             try (Response response = okHttpConfig.getLlmClient("ollama").newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";

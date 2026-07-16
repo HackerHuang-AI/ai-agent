@@ -1,16 +1,16 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.DoubaoBO;
-import com.ai.agent.application.enums.http.DoubaoHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
+import com.ai.agent.application.enums.http.DoubaoHttpCode;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.infrastructure.utils.RetryUtil;
+import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +67,7 @@ public class DoubaoServiceImpl implements LlmService {
         log.info("[Doubao-chat] 开始调用, request={}", request);
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
-        LlmResponse result = RetryUtil.retry(() -> {
+        LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = new Request.Builder()
                     .url(request.getEndpoint())
                     .post(RequestBody.create(requestBody, JSON))
