@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.DoubaoBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.DoubaoHttpCode;
+import com.ai.agent.application.enums.http.DoubaoHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -85,11 +85,6 @@ public class DoubaoServiceImpl implements LlmService {
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
                 return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("[Doubao-chat] IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("doubao"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -217,15 +212,21 @@ public class DoubaoServiceImpl implements LlmService {
 
         log.info("[Doubao-multimodal] 开始调用, model={}, endpoint={}", model, endpoint);
         long start = System.currentTimeMillis();
-
+        String requestBody;
         try {
-            String requestBody = MAPPER.writeValueAsString(bodyMap);
+            requestBody = MAPPER.writeValueAsString(bodyMap);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        final String finalEndpoint = endpoint;
+        final String finalApiKey = apiKey;
+        final String finalModel = model;
+        LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = new Request.Builder()
-                    .url(endpoint)
+                    .url(finalEndpoint)
                     .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(apiKey)))
+                    .headers(Headers.of(buildHeaders(finalApiKey)))
                     .build();
-
             try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
@@ -237,18 +238,14 @@ public class DoubaoServiceImpl implements LlmService {
                     log.error("[Doubao-multimodal] 响应体为空");
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
-                LlmResponse result = parseMultimodalResponse(responseBody, model);
-                log.info("[Doubao-multimodal] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
-                        result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
-                        System.currentTimeMillis() - start);
-                return result;
+                return parseMultimodalResponse(responseBody, finalModel);
             }
-        } catch (BizException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("[Doubao-multimodal] IO 异常", e);
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        }
+        }, retryConfig.getRetryParam("doubao"));
+        if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        log.info("[Doubao-multimodal] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
+                result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
+                System.currentTimeMillis() - start);
+        return result;
     }
 
     /**
@@ -455,12 +452,12 @@ public class DoubaoServiceImpl implements LlmService {
      */
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == DoubaoHttpCode.UNAUTHORIZED.getCode()) {
+        if (httpCode == DoubaoHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == DoubaoHttpCode.BAD_REQUEST.getCode()
-                || httpCode == DoubaoHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == DoubaoHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == DoubaoHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == DoubaoHttpCode.RATE_LIMIT.getCode()) {
+        } else if (httpCode == DoubaoHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

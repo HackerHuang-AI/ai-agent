@@ -9,7 +9,7 @@ import lombok.Getter;
  * <p>注：Ollama 通常为本地部署；403 表示未设置认证或权限不足，与 401 同属认证类错误。
  */
 @Getter
-public enum OllamaHttpCode {
+public enum OllamaHttpCodeEnum {
 
     UNAUTHORIZED  (401, "未设置认证或 API Key 无效"),
     FORBIDDEN     (403, "无访问权限"),
@@ -20,7 +20,7 @@ public enum OllamaHttpCode {
     private final int code;
     private final String description;
 
-    OllamaHttpCode(int code, String description) {
+    OllamaHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

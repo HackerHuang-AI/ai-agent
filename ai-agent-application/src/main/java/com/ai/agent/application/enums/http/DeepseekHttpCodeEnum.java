@@ -3,12 +3,12 @@ package com.ai.agent.application.enums.http;
 import lombok.Getter;
 
 /**
- * OpenAI 平台 HTTP 响应状态码枚举。
+ * Deepseek 平台 HTTP 响应状态码枚举。
  *
- * <p>参考：<a href="https://platform.openai.com/docs/guides/error-codes">OpenAI 错误码文档</a>
+ * <p>参考：<a href="https://api-docs.deepseek.com/zh-cn/quick_start/error_codes">Deepseek 错误码文档</a>
  */
 @Getter
-public enum OpenAiHttpCode {
+public enum DeepseekHttpCodeEnum {
 
     UNAUTHORIZED      (401, "API Key 无效或已过期"),
     INSUFFICIENT_FUNDS(402, "账号余额不足"),
@@ -19,7 +19,7 @@ public enum OpenAiHttpCode {
     private final int code;
     private final String description;
 
-    OpenAiHttpCode(int code, String description) {
+    DeepseekHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

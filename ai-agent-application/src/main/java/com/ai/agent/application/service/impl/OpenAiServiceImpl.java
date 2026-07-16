@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.OpenAiBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.OpenAiHttpCode;
+import com.ai.agent.application.enums.http.OpenAiHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -84,11 +84,6 @@ public class OpenAiServiceImpl implements LlmService {
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("openai"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -339,14 +334,14 @@ public class OpenAiServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == OpenAiHttpCode.UNAUTHORIZED.getCode()) {
+        if (httpCode == OpenAiHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == OpenAiHttpCode.INSUFFICIENT_FUNDS.getCode()) {
+        } else if (httpCode == OpenAiHttpCodeEnum.INSUFFICIENT_FUNDS.getCode()) {
             errorCode = ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
-        } else if (httpCode == OpenAiHttpCode.BAD_REQUEST.getCode()
-                || httpCode == OpenAiHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == OpenAiHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == OpenAiHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == OpenAiHttpCode.RATE_LIMIT.getCode()) {
+        } else if (httpCode == OpenAiHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

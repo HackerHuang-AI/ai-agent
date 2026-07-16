@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.AnthropicBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.AnthropicHttpCode;
+import com.ai.agent.application.enums.http.AnthropicHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -94,11 +94,6 @@ public class AnthropicServiceImpl implements LlmService {
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("anthropic"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -346,13 +341,13 @@ public class AnthropicServiceImpl implements LlmService {
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Anthropic: 401=认证失败, 400=参数非法, 429=限速, 529=过载(同限速)
         ErrorCodeEnum errorCode;
-        if (httpCode == AnthropicHttpCode.UNAUTHORIZED.getCode()) {
+        if (httpCode == AnthropicHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == AnthropicHttpCode.BAD_REQUEST.getCode()
-                || httpCode == AnthropicHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == AnthropicHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == AnthropicHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == AnthropicHttpCode.RATE_LIMIT.getCode()
-                || httpCode == AnthropicHttpCode.OVERLOADED.getCode()) {
+        } else if (httpCode == AnthropicHttpCodeEnum.RATE_LIMIT.getCode()
+                || httpCode == AnthropicHttpCodeEnum.OVERLOADED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

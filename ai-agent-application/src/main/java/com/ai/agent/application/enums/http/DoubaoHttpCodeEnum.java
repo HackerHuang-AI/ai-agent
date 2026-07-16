@@ -9,7 +9,7 @@ import lombok.Getter;
  * <p>注：火山方舟无独立 402 余额不足码，余额问题通过 400 + error.code 字段区分。
  */
 @Getter
-public enum DoubaoHttpCode {
+public enum DoubaoHttpCodeEnum {
 
     UNAUTHORIZED (401, "API Key 无效或已过期"),
     BAD_REQUEST  (400, "请求参数错误"),
@@ -19,7 +19,7 @@ public enum DoubaoHttpCode {
     private final int code;
     private final String description;
 
-    DoubaoHttpCode(int code, String description) {
+    DoubaoHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

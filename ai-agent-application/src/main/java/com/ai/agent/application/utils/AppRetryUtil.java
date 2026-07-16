@@ -1,5 +1,6 @@
-package com.ai.agent.application.common;
+package com.ai.agent.application.utils;
 
+import com.ai.agent.application.common.BizException;
 import com.ai.agent.infrastructure.config.param.RetryParam;
 import lombok.extern.slf4j.Slf4j;
 

@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.ZhipuBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.ZhipuHttpCode;
+import com.ai.agent.application.enums.http.ZhipuHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -89,11 +89,6 @@ public class ZhipuServiceImpl implements LlmService {
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("zhipu"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -371,12 +366,12 @@ public class ZhipuServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == ZhipuHttpCode.UNAUTHORIZED.getCode()) {
+        if (httpCode == ZhipuHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == ZhipuHttpCode.BAD_REQUEST.getCode()
-                || httpCode == ZhipuHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == ZhipuHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == ZhipuHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == ZhipuHttpCode.RATE_LIMIT.getCode()) {
+        } else if (httpCode == ZhipuHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

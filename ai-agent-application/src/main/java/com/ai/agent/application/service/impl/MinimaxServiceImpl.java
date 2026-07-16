@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.MinimaxBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.MinimaxHttpCode;
+import com.ai.agent.application.enums.http.MinimaxHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -87,11 +87,6 @@ public class MinimaxServiceImpl implements LlmService {
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("minimax"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -376,12 +371,12 @@ public class MinimaxServiceImpl implements LlmService {
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Minimax: 错误码与 OpenAI 一致，另有业务错误通过 base_resp.status_code 商定
         ErrorCodeEnum errorCode;
-        if (httpCode == MinimaxHttpCode.UNAUTHORIZED.getCode()) {
+        if (httpCode == MinimaxHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == MinimaxHttpCode.BAD_REQUEST.getCode()
-                || httpCode == MinimaxHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == MinimaxHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == MinimaxHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == MinimaxHttpCode.RATE_LIMIT.getCode()) {
+        } else if (httpCode == MinimaxHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

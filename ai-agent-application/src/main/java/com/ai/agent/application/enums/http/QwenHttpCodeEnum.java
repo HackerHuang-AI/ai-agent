@@ -8,7 +8,7 @@ import lombok.Getter;
  * <p>参考：<a href="https://help.aliyun.com/zh/model-studio/developer-reference/error-code">通义千问错误码文档</a>
  */
 @Getter
-public enum QwenHttpCode {
+public enum QwenHttpCodeEnum {
 
     UNAUTHORIZED      (401, "API Key 无效或已过期"),
     INSUFFICIENT_FUNDS(402, "账号余额不足"),
@@ -19,7 +19,7 @@ public enum QwenHttpCode {
     private final int code;
     private final String description;
 
-    QwenHttpCode(int code, String description) {
+    QwenHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

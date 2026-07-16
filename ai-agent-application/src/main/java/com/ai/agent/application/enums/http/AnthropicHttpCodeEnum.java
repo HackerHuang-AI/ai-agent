@@ -9,7 +9,7 @@ import lombok.Getter;
  * <p>注：529 为 Anthropic 自定义的服务过载码，语义等同于限速，触发重试策略。
  */
 @Getter
-public enum AnthropicHttpCode {
+public enum AnthropicHttpCodeEnum {
 
     UNAUTHORIZED  (401, "API Key 无效或已过期"),
     BAD_REQUEST   (400, "请求参数错误"),
@@ -20,7 +20,7 @@ public enum AnthropicHttpCode {
     private final int code;
     private final String description;
 
-    AnthropicHttpCode(int code, String description) {
+    AnthropicHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

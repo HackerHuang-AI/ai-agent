@@ -3,12 +3,12 @@ package com.ai.agent.application.enums.http;
 import lombok.Getter;
 
 /**
- * MiMo（腾讯混元）平台 HTTP 响应状态码枚举。
+ * TokenHub（腾讯混元 Token 计划）平台 HTTP 响应状态码枚举。
  *
  * <p>参考：<a href="https://cloud.tencent.com/document/product/1729/97732">腾讯混元错误码文档</a>
  */
 @Getter
-public enum MimoHttpCode {
+public enum TokenhubHttpCodeEnum {
 
     UNAUTHORIZED  (401, "API Key 无效或已过期"),
     BAD_REQUEST   (400, "请求参数错误"),
@@ -18,7 +18,7 @@ public enum MimoHttpCode {
     private final int code;
     private final String description;
 
-    MimoHttpCode(int code, String description) {
+    TokenhubHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

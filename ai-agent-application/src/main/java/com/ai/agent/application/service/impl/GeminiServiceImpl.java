@@ -3,14 +3,14 @@ package com.ai.agent.application.service.impl;
 import com.ai.agent.application.bo.GeminiBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.GeminiHttpCode;
+import com.ai.agent.application.enums.http.GeminiHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
-import com.ai.agent.application.common.AppRetryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -84,11 +84,6 @@ public class GeminiServiceImpl implements LlmService {
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
-            } catch (BizException e) {
-                throw e;
-            } catch (IOException e) {
-                log.error("IO 异常", e);
-                throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
             }
         }, retryConfig.getRetryParam("gemini"));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -339,13 +334,13 @@ public class GeminiServiceImpl implements LlmService {
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Gemini: 通过 OpenAI 兼容层接入，错误码与 OpenAI 一致
         ErrorCodeEnum errorCode;
-        if (httpCode == GeminiHttpCode.UNAUTHORIZED.getCode()
-                || httpCode == GeminiHttpCode.FORBIDDEN.getCode()) {
+        if (httpCode == GeminiHttpCodeEnum.UNAUTHORIZED.getCode()
+                || httpCode == GeminiHttpCodeEnum.FORBIDDEN.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == GeminiHttpCode.BAD_REQUEST.getCode()
-                || httpCode == GeminiHttpCode.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == GeminiHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == GeminiHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == GeminiHttpCode.RATE_LIMIT.getCode()) {
+        } else if (httpCode == GeminiHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
