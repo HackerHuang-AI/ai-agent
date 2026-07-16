@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.net.URI;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -131,13 +132,14 @@ public class OllamaServiceImpl implements LlmService {
     }
 
     /**
-     * Ollama 本地部署模型是否支持多模态取决于具体加载的模型（如 llava 系列支持视觉），
-     * 当前接口层尚未针对多模态协议进行适配，暂不支持，返回 null。
+     * Ollama 多模态对话，需本地加载视觉模型（如 llava、moondream、minicpm-v 等）。
+     * 走 OpenAI 兼容协议（/v1/chat/completions），图片通过 image_url 结构传入，与 chat() 链路完全一致。
+     * 若加载的模型不支持视觉，Ollama 会返回 400 错误。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Ollama] 多模态接口暂未适配：是否支持视觉取决于本地部署的具体模型（如 llava），当前通用接口层尚未完成对接");
-        return null;
+        log.info("[Ollama-multimodal] 开始调用，请确认本地已加载视觉模型（如 llava / moondream / minicpm-v）");
+        return chat(request);
     }
 
     // ==================== 凭证兜底 ====================
@@ -321,6 +323,59 @@ public class OllamaServiceImpl implements LlmService {
         } catch (IOException e) {
             log.error("[Ollama-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+        }
+    }
+
+    @Override
+    public List<LlmModelInfo> listModels(String apiKey) {
+        OllamaBO cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
+        String endpoint = cfg != null ? cfg.getEndpoint() : null;
+        if (StringUtils.isBlank(endpoint)) {
+            log.error("[Ollama-models] endpoint 未配置");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        // 从 chat endpoint 截取基础地址，拼接 /api/tags
+        String tagsUrl;
+        try {
+            URI uri = new URI(endpoint);
+            tagsUrl = uri.getScheme() + "://" + uri.getHost()
+                    + (uri.getPort() != -1 ? ":" + uri.getPort() : "") + "/api/tags";
+        } catch (Exception e) {
+            log.error("[Ollama-models] endpoint 格式非法: {}", endpoint);
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        String effectiveApiKey = StringUtils.isNotBlank(apiKey) ? apiKey
+                : (cfg.getApiKey() != null ? cfg.getApiKey() : "ollama");
+        Request okRequest = new Request.Builder()
+                .url(tagsUrl)
+                .get()
+                .header("Authorization", "Bearer " + effectiveApiKey)
+                .build();
+        try (Response response = okHttpConfig.getLlmClient("ollama").newCall(okRequest).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                log.error("[Ollama-models] HTTP {} 失败, body={}", response.code(), truncate(body));
+                throwByHttpCode(response.code(), extractErrorMessage(body));
+            }
+            JsonNode root = MAPPER.readTree(body);
+            List<LlmModelInfo> result = new ArrayList<>();
+            for (JsonNode item : root.path("models")) {
+                String name = item.path("name").asText(null);
+                long sizeBytes = item.path("size").asLong(0);
+                result.add(LlmModelInfo.builder()
+                        .id(name)
+                        .name(name)
+                        .ownedBy("ollama")
+                        .extra(sizeBytes > 0 ? Map.of("size", sizeBytes) : null)
+                        .build());
+            }
+            log.info("[Ollama-models] 获取模型列表成功, count={}", result.size());
+            return result;
+        } catch (BizException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("[Ollama-models] IO 异常", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
     }
 
