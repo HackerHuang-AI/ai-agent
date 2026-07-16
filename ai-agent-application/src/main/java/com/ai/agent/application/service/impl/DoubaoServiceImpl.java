@@ -1,6 +1,7 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.DoubaoBO;
+import com.ai.agent.application.enums.http.DoubaoHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -453,12 +454,17 @@ public class DoubaoServiceImpl implements LlmService {
      * 注：火山方舟无独立 402 余额不足码，余额问题通常通过 400 + error.code 区分。
      */
     private void throwByHttpCode(int httpCode, String platformMsg) {
-        ErrorCodeEnum errorCode = switch (httpCode) {
-            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
-            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
-            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
-            default -> ErrorCodeEnum.LLM_CALL_FAILED;
-        };
+        ErrorCodeEnum errorCode;
+        if (httpCode == DoubaoHttpCode.UNAUTHORIZED.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == DoubaoHttpCode.BAD_REQUEST.getCode()
+                || httpCode == DoubaoHttpCode.UNPROCESSABLE.getCode()) {
+            errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
+        } else if (httpCode == DoubaoHttpCode.RATE_LIMIT.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
+        } else {
+            errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
+        }
         throw new BizException(errorCode, platformMsg);
     }
 

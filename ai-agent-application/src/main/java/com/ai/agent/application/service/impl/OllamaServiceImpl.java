@@ -1,6 +1,7 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.OllamaBO;
+import com.ai.agent.application.enums.http.OllamaHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -332,12 +333,18 @@ public class OllamaServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Ollama 本地部署，401/403 通常表示没有设置认证或权限不足
-        ErrorCodeEnum errorCode = switch (httpCode) {
-            case 401, 403 -> ErrorCodeEnum.LLM_AUTH_FAILED;
-            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
-            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
-            default -> ErrorCodeEnum.LLM_CALL_FAILED;
-        };
+        ErrorCodeEnum errorCode;
+        if (httpCode == OllamaHttpCode.UNAUTHORIZED.getCode()
+                || httpCode == OllamaHttpCode.FORBIDDEN.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == OllamaHttpCode.BAD_REQUEST.getCode()
+                || httpCode == OllamaHttpCode.UNPROCESSABLE.getCode()) {
+            errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
+        } else if (httpCode == OllamaHttpCode.RATE_LIMIT.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
+        } else {
+            errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
+        }
         throw new BizException(errorCode, platformMsg);
     }
 

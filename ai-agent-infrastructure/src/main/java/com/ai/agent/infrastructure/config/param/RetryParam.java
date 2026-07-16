@@ -2,9 +2,12 @@ package com.ai.agent.infrastructure.config.param;
 
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
- * @Description: 重试参数配置实体，对应 Nacos ai-agent-http.json 中 "retry" / "llmRetry" 字段块。
- *               字段缺失时由 OkHttpConfig 兜底使用默认值。
+ * @Description: 重试参数配置实体，对应 Nacos ai-agent-retry.json 中各平台配置块。
+ *               字段缺失时由 RetryConfig 兜底使用默认值。
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.infrastructure.config.param
  * @ClassName: RetryParam
@@ -33,5 +36,21 @@ public class RetryParam {
      * 默认 30s，LLM 场景可适当调大。
      */
     private long maxWaitMs = 30_000;
+
+    /**
+     * 不触发重试的业务错误码列表（对应 ErrorCodeEnum.code 字段值，如 "2002009"）。
+     *
+     * <p>当 BizException 携带的错误码在此列表中时，RetryUtil 直接向上抛出，不做重试。
+     * 列表为空或未配置时，所有 BizException 均触发重试（原有行为不变）。
+     *
+     * <p>Nacos 配置示例：
+     * <pre>{@code
+     * "deepseek": {
+     *   "maxRetries": 1,
+     *   "nonRetryableCodes": ["2002009", "2001001", "2002010"]
+     * }
+     * }</pre>
+     */
+    private List<String> nonRetryableCodes = Collections.emptyList();
 }
 

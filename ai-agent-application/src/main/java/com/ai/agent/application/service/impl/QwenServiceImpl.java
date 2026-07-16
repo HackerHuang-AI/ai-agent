@@ -1,6 +1,7 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.QwenBO;
+import com.ai.agent.application.enums.http.QwenHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -341,13 +342,19 @@ public class QwenServiceImpl implements LlmService {
     // ==================== 工具方法 ====================
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
-        ErrorCodeEnum errorCode = switch (httpCode) {
-            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
-            case 402 -> ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
-            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
-            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
-            default -> ErrorCodeEnum.LLM_CALL_FAILED;
-        };
+        ErrorCodeEnum errorCode;
+        if (httpCode == QwenHttpCode.UNAUTHORIZED.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == QwenHttpCode.INSUFFICIENT_FUNDS.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
+        } else if (httpCode == QwenHttpCode.BAD_REQUEST.getCode()
+                || httpCode == QwenHttpCode.UNPROCESSABLE.getCode()) {
+            errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
+        } else if (httpCode == QwenHttpCode.RATE_LIMIT.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
+        } else {
+            errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
+        }
         throw new BizException(errorCode, platformMsg);
     }
 

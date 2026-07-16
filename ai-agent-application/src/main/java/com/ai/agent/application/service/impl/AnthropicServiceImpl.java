@@ -1,6 +1,7 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.AnthropicBO;
+import com.ai.agent.application.enums.http.AnthropicHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -344,12 +345,18 @@ public class AnthropicServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Anthropic: 401=认证失败, 400=参数非法, 429=限速, 529=过载(同限速)
-        ErrorCodeEnum errorCode = switch (httpCode) {
-            case 401 -> ErrorCodeEnum.LLM_AUTH_FAILED;
-            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
-            case 429, 529 -> ErrorCodeEnum.LLM_RATE_LIMIT;
-            default -> ErrorCodeEnum.LLM_CALL_FAILED;
-        };
+        ErrorCodeEnum errorCode;
+        if (httpCode == AnthropicHttpCode.UNAUTHORIZED.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == AnthropicHttpCode.BAD_REQUEST.getCode()
+                || httpCode == AnthropicHttpCode.UNPROCESSABLE.getCode()) {
+            errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
+        } else if (httpCode == AnthropicHttpCode.RATE_LIMIT.getCode()
+                || httpCode == AnthropicHttpCode.OVERLOADED.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
+        } else {
+            errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
+        }
         throw new BizException(errorCode, platformMsg);
     }
 

@@ -1,6 +1,7 @@
 package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.GeminiBO;
+import com.ai.agent.application.enums.http.GeminiHttpCode;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -337,12 +338,18 @@ public class GeminiServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         // Gemini: 通过 OpenAI 兼容层接入，错误码与 OpenAI 一致
-        ErrorCodeEnum errorCode = switch (httpCode) {
-            case 401, 403 -> ErrorCodeEnum.LLM_AUTH_FAILED;
-            case 400, 422 -> ErrorCodeEnum.PARAM_ILLEGAL;
-            case 429 -> ErrorCodeEnum.LLM_RATE_LIMIT;
-            default -> ErrorCodeEnum.LLM_CALL_FAILED;
-        };
+        ErrorCodeEnum errorCode;
+        if (httpCode == GeminiHttpCode.UNAUTHORIZED.getCode()
+                || httpCode == GeminiHttpCode.FORBIDDEN.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == GeminiHttpCode.BAD_REQUEST.getCode()
+                || httpCode == GeminiHttpCode.UNPROCESSABLE.getCode()) {
+            errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
+        } else if (httpCode == GeminiHttpCode.RATE_LIMIT.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
+        } else {
+            errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
+        }
         throw new BizException(errorCode, platformMsg);
     }
 
