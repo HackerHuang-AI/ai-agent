@@ -132,8 +132,8 @@ public class MinimaxServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Minimax-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Minimax-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Minimax-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

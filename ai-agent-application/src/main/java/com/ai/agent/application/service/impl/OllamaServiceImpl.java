@@ -21,9 +21,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.net.URI;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -130,8 +130,8 @@ public class OllamaServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Ollama-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Ollama-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Ollama-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

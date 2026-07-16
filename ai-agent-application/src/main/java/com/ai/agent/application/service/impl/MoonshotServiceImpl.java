@@ -129,8 +129,8 @@ public class MoonshotServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Moonshot-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Moonshot-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Moonshot-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

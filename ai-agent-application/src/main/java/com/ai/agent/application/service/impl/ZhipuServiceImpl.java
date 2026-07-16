@@ -134,8 +134,8 @@ public class ZhipuServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Zhipu-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Zhipu-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Zhipu-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

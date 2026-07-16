@@ -129,8 +129,8 @@ public class MimoServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[MiMo-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[MiMo-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[MiMo-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

@@ -129,8 +129,8 @@ public class GeminiServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Gemini-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Gemini-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Gemini-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();

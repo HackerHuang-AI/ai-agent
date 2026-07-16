@@ -134,8 +134,8 @@ public class DoubaoServiceImpl implements LlmService {
                 } catch (BizException e) {
                     log.error("[Doubao-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } catch (IOException e) {
-                    log.error("[Doubao-stream] IO 异常", e);
+                } catch (Exception e) {
+                    log.error("[Doubao-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();
