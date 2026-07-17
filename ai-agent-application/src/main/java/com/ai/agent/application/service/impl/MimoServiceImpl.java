@@ -346,6 +346,8 @@ public class MimoServiceImpl implements LlmService {
         ErrorCodeEnum errorCode;
         if (httpCode == MimoHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
+        } else if (httpCode == MimoHttpCodeEnum.INSUFFICIENT_FUNDS.getCode()) {
+            errorCode = ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
         } else if (httpCode == MimoHttpCodeEnum.BAD_REQUEST.getCode()
                 || httpCode == MimoHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;

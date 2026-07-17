@@ -10,10 +10,11 @@ import lombok.Getter;
 @Getter
 public enum MimoHttpCodeEnum {
 
-    UNAUTHORIZED  (401, "API Key 无效或已过期"),
-    BAD_REQUEST   (400, "请求参数错误"),
-    UNPROCESSABLE (422, "请求体格式无法处理"),
-    RATE_LIMIT    (429, "请求速率超限");
+    UNAUTHORIZED        (401, "API Key 无效或已过期"),
+    INSUFFICIENT_FUNDS  (402, "账号余额不足"),
+    BAD_REQUEST         (400, "请求参数错误"),
+    UNPROCESSABLE       (422, "请求体格式无法处理"),
+    RATE_LIMIT          (429, "请求速率超限");
 
     private final int code;
     private final String description;

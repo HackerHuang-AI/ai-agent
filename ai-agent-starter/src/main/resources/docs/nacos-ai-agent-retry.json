@@ -67,7 +67,7 @@
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
-    "nonRetryableCodes": ["2002009", "2001001", "2002011"]
+    "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
   "minimax": {
     "maxRetries": 3,
