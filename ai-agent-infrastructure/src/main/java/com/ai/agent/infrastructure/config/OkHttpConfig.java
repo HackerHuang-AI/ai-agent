@@ -155,6 +155,10 @@ public class OkHttpConfig {
      *
      * @param scope 业务场景标识（不区分大小写，如平台名 {@code "gemini"}；传 null 或空串走 default 兜底）
      */
+    public OkHttpClient getClientByPlatform(OkHttpConfigEnum scope) {
+        return getClientByPlatform(scope.nacosKey);
+    }
+
     public OkHttpClient getClientByPlatform(String scope) {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
         log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);

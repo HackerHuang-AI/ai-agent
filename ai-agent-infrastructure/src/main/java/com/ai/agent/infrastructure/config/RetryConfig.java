@@ -63,6 +63,10 @@ public class RetryConfig {
      *
      * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
      */
+    public RetryParam getRetryParam(RetryConfigEnum platform) {
+        return getRetryParam(platform.nacosKey);
+    }
+
     public RetryParam getRetryParam(String platform) {
         RetryConfigEnum def = RetryConfigEnum.of(platform);
         log.debug("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);

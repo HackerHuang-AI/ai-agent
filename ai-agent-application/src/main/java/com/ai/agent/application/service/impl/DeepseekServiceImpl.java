@@ -10,6 +10,8 @@ import com.ai.agent.application.utils.AppRetryUtil;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
+import com.ai.agent.infrastructure.enums.RetryConfigEnum;
 import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -85,7 +87,7 @@ public class DeepseekServiceImpl implements LlmService {
                     .post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(request.getApiKey())))
                     .build();
-            try (Response response = okHttpConfig.getClientByPlatform("deepseek").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     log.error("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
@@ -97,7 +99,7 @@ public class DeepseekServiceImpl implements LlmService {
                 }
                 return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam("deepseek"));
+        }, retryConfig.getRetryParam(RetryConfigEnum.DEEPSEEK));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Deepseek-chat] 调用成功, result={}, costMs={}",
                 result, System.currentTimeMillis() - start);
@@ -122,7 +124,7 @@ public class DeepseekServiceImpl implements LlmService {
                             .build();
 
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform("deepseek").newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             log.error("[Deepseek-stream] HTTP {} 失败, body={}", resp.code(), errBody);
@@ -130,7 +132,7 @@ public class DeepseekServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), errBody);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam("deepseek"));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.DEEPSEEK));
                     if (response == null || response.body() == null) {
                         log.error("[Deepseek] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
