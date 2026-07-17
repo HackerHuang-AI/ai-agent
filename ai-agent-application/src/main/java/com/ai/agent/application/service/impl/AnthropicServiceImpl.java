@@ -82,7 +82,7 @@ public class AnthropicServiceImpl implements LlmService {
         long start = System.currentTimeMillis();
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getLlmClient("anthropic").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform("anthropic").newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -117,7 +117,7 @@ public class AnthropicServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getLlmClient("anthropic").newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform("anthropic").newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);

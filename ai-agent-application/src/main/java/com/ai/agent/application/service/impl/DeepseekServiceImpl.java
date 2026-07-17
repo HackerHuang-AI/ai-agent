@@ -85,7 +85,7 @@ public class DeepseekServiceImpl implements LlmService {
                     .post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(request.getApiKey())))
                     .build();
-            try (Response response = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform("deepseek").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     log.error("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
@@ -122,7 +122,7 @@ public class DeepseekServiceImpl implements LlmService {
                             .build();
 
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getLlmClient("deepseek").newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform("deepseek").newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             log.error("[Deepseek-stream] HTTP {} 失败, body={}", resp.code(), errBody);

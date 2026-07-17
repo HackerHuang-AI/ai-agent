@@ -73,7 +73,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(request.getApiKey())))
                     .build();
-            try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform("doubao").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
@@ -111,7 +111,7 @@ public class DoubaoServiceImpl implements LlmService {
                             .build();
 
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform("doubao").newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -234,7 +234,7 @@ public class DoubaoServiceImpl implements LlmService {
                     .post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(finalApiKey)))
                     .build();
-            try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform("doubao").newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
@@ -615,7 +615,7 @@ public class DoubaoServiceImpl implements LlmService {
                 .header("Authorization", "Bearer " + apiKey)
                 .build();
 
-        try (Response response = okHttpConfig.getLlmClient("doubao").newCall(okRequest).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform("doubao").newCall(okRequest).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
                 log.error("[Doubao-models] HTTP {} 失败, body={}", response.code(), truncate(body));

@@ -73,7 +73,7 @@ public class OllamaServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getLlmClient("ollama").newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform("ollama").newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -107,7 +107,7 @@ public class OllamaServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getLlmClient("ollama").newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform("ollama").newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -363,7 +363,7 @@ public class OllamaServiceImpl implements LlmService {
                 .get()
                 .header("Authorization", "Bearer " + effectiveApiKey)
                 .build();
-        try (Response response = okHttpConfig.getLlmClient("ollama").newCall(okRequest).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform("ollama").newCall(okRequest).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
                 log.error("[Ollama-models] HTTP {} 失败, body={}", response.code(), truncate(body));

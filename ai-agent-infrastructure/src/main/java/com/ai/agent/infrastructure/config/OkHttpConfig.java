@@ -28,11 +28,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>设计要点：
  * <ul>
  *   <li>单连接池：只维护一个基础 Client，连接池参数（maxIdleConnections / keepAliveMinutes）变更时重建</li>
- *   <li>{@link #getLlmClient(String)} 每次调用时在基础 Client 上 newBuilder()
+ *   <li>{@link #getClientByPlatform(String)} 每次调用时在基础 Client 上 newBuilder()
  *       叠加最新超时参数返回，连接池始终只有一个，无切换抖动</li>
  *   <li>OkHttpClient.newBuilder() 复用父 Client 的连接池，不会创建新连接池</li>
  *   <li>OkHttp 连接参数来自 {@code ai-agent-http.json}；重试参数独立由 {@link RetryConfig} 管理</li>
- *   <li>平台专属超时参数缓存在 {@link #llmParamCache} 中，避免每次请求触发 JSON 反序列化；
+ *   <li>平台专属超时参数缓存在 {@link #platformParamCache} 中，避免每次请求触发 JSON 反序列化；
  *       Nacos 回调时 clear，下次请求懒加载最新值，保证热更新及时生效</li>
  * </ul>
  *
@@ -77,7 +77,7 @@ public class OkHttpConfig {
     /**
      * 哨兵对象：标记某个 nacosKey 在 Nacos 中确实不存在（getObject 返回 null）。
      * ConcurrentHashMap 不允许存 null 值，用哨兵替代，使 computeIfAbsent 能缓存
-     * "不存在"这一结果，避免每次请求重复触发反序列化。Nacos 变更时随 llmParamCache 一并 clear。
+     * "不存在"这一结果，避免每次请求重复触发反序列化。Nacos 变更时随 platformParamCache 一并 clear。
      */
     private static final OkHttpParam ABSENT_PARAM = new OkHttpParam();
 
@@ -87,13 +87,13 @@ public class OkHttpConfig {
     /**
      * 基础 Client（持有连接池）。
      * 连接池参数（maxIdleConnections / keepAliveMinutes）变更时重建此 Client。
-     * 超时参数变更时不重建，通过 getLlmClient() 的 newBuilder() 动态叠加。
+     * 超时参数变更时不重建，通过 getClientByPlatform() 的 newBuilder() 动态叠加。
      */
     private final AtomicReference<OkHttpClient> baseClientRef = new AtomicReference<>();
 
     /**
      * 当前生效的 OkHttp 参数缓存。
-     * getClient() / getLlmClient() 直接读此缓存，避免每次请求触发 JSON 反序列化。
+     * getClient() / getClientByPlatform() 直接读此缓存，避免每次请求触发 JSON 反序列化。
      * Nacos 回调时原子更新，读写均无锁。
      */
     private final AtomicReference<OkHttpParam> currentParamRef = new AtomicReference<>();
@@ -103,11 +103,11 @@ public class OkHttpConfig {
 
     /**
      * LLM 平台参数缓存（key=nacosKey，value=已解析的 OkHttpParam）。
-     * 避免每次 getLlmClient() 都触发 JSON 反序列化；Nacos 配置变更时 clear，
+     * 避免每次 getClientByPlatform() 都触发 JSON 反序列化；Nacos 配置变更时 clear，
      * 下次请求通过 computeIfAbsent 懒加载最新值。
      * 使用 ConcurrentHashMap 保证读写并发安全，值为不可变对象，无额外锁开销。
      */
-    private final ConcurrentHashMap<String, OkHttpParam> llmParamCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, OkHttpParam> platformParamCache = new ConcurrentHashMap<>();
 
     // ==================== 初始化 ====================
 
@@ -155,21 +155,21 @@ public class OkHttpConfig {
      *
      * @param scope 业务场景标识（不区分大小写，如平台名 {@code "gemini"}；传 null 或空串走 default 兜底）
      */
-    public OkHttpClient getLlmClient(String scope) {
+    public OkHttpClient getClientByPlatform(String scope) {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
         log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);
 
         // 优先读缓存；缓存 miss 时才反序列化 Nacos JSON，并写入缓存供后续请求复用。
         // ConcurrentHashMap 不允许存 null，用 ABSENT_PARAM 哨兵表示"Nacos 中无此 key"，
         // 使"不存在"结果也能被缓存，避免每次都重复触发反序列化。
-        // Nacos 变更时 llmParamCache 会被 clear，下次请求触发 computeIfAbsent 重建。
-        OkHttpParam p = llmParamCache.computeIfAbsent(def.nacosKey, key -> {
+        // Nacos 变更时 platformParamCache 会被 clear，下次请求触发 computeIfAbsent 重建。
+        OkHttpParam p = platformParamCache.computeIfAbsent(def.nacosKey, key -> {
             OkHttpParam result = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
             return result != null ? result : ABSENT_PARAM;  // null 用哨兵替代，使缓存生效
         });
         if (p == ABSENT_PARAM && def != OkHttpConfigEnum.DEFAULT) {
             // 平台专属未配置（哨兵），fallback 到 default 全局块（结果也缓存）
-            p = llmParamCache.computeIfAbsent(OkHttpConfigEnum.DEFAULT.nacosKey, key -> {
+            p = platformParamCache.computeIfAbsent(OkHttpConfigEnum.DEFAULT.nacosKey, key -> {
                 OkHttpParam result = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
                 return result != null ? result : ABSENT_PARAM;
             });
@@ -194,7 +194,7 @@ public class OkHttpConfig {
      * 按需注入代理配置。proxy 为 null 或 host 为空时不做任何设置（直连，不走代理）。
      * 支持 HTTP / SOCKS 两种类型，以及可选的用户名/密码认证。
      *
-     * <p>代理配置在每次 {@link #getLlmClient(String)} 调用时动态注入，无需重建 baseClient，
+     * <p>代理配置在每次 {@link #getClientByPlatform(String)} 调用时动态注入，无需重建 baseClient，
      * Nacos 热更新后下一次请求即自动生效。
      */
     private void applyProxy(OkHttpClient.Builder builder, OkHttpParam.ProxyParam proxy) {
@@ -231,10 +231,10 @@ public class OkHttpConfig {
             public void receiveConfigInfo(String configInfo) {
                 log.info("[OkHttpConfig] 收到 ai-agent-http.json 变更");
                 OkHttpParam newParam = readOkHttpParam();
-                // 先更新参数缓存，getClient()/getLlmClient() 下次调用即生效
+                // 先更新参数缓存，getClient()/getClientByPlatform() 下次调用即生效
                 currentParamRef.set(newParam);
-                // 清除 LLM 平台参数缓存，下次 getLlmClient() 调用时重新从 Nacos 读取最新值
-                llmParamCache.clear();
+                // 清除 LLM 平台参数缓存，下次 getClientByPlatform() 调用时重新从 Nacos 读取最新值
+                platformParamCache.clear();
                 // 用上次构建时的参数对比，判断连接池参数是否真正变更
                 if (poolParamChanged(lastPoolParam, newParam)) {
                     OkHttpClient newBase = buildBaseClient(newParam);
@@ -269,7 +269,7 @@ public class OkHttpConfig {
 
     /**
      * 构建基础 Client，只设置连接池参数和基础超时（作为默认值）。
-     * 超时参数会在 getClient() / getLlmClient() 里通过 newBuilder() 覆盖。
+     * 超时参数会在 getClient() / getClientByPlatform() 里通过 newBuilder() 覆盖。
      */
     private OkHttpClient buildBaseClient(OkHttpParam p) {
         ConnectionPool pool = new ConnectionPool(p.getMaxIdleConnections(), p.getKeepAliveMinutes(), TimeUnit.MINUTES);

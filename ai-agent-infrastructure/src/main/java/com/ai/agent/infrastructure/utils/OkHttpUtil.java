@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>Client 参数（超时、连接池）由 {@link OkHttpConfig} 统一管理，支持 Nacos 热更新。
  * 通用请求使用 {@code getClient()} 返回的 Client；LLM 平台请求直接调用
- * {@link OkHttpConfig#getLlmClient(String)} 并传入平台 scope。
+ * {@link OkHttpConfig#getClientByPlatform(String)} 并传入平台 scope。
  *
  * <p>静态方法通过 Spring 注入 {@link OkHttpConfig} 实例后委托调用，与 {@link NacosConfigUtil} 保持一致的设计风格。
  *
@@ -134,7 +134,7 @@ public class OkHttpUtil {
 
     /**
      * 使用指定 {@link OkHttpClient} 执行 POST 请求（JSON body）。
-     * 调用方自行通过 {@link OkHttpConfig#getLlmClient(String)} 获取 client，
+     * 调用方自行通过 {@link OkHttpConfig#getClientByPlatform(String)} 获取 client，
      * 日志、耗时、异常处理均由本方法统一处理。
      */
     public static String post(String url, String jsonBody, Map<String, String> headers, OkHttpClient client) throws IOException {
