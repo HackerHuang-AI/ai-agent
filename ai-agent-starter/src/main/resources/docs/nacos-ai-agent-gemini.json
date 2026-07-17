@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "AQ.HccAb8RN6LKBoAKg2TO0cbHeeDsXLeTC_aIv6STqb3P-B3HsEs96A",
+    "apiKey": "AQ.AbHcc8RN6IMplROSc0AEtEcPDMHDMD1svJu66eMWnH9wzWt0IGkKg",
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "modelCode": "gemini-2.0-flash"
   }

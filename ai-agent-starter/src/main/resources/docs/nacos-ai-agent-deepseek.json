@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-Hcc173d27166cab42c5b1b3beb5c7d36b89",
+    "apiKey": "sk-Hcc675d2d8582cb42a6962ba158ccdc1243",
     "endpoint": "https://api.deepseek.com/chat/completions",
     "modelCode": "deepseek-chat"
   }

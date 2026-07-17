@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-Hcc3Z6q7WkNTytY161wmJ4yvaTeGSujwH0lZ7H88wmZDXa7xe8Q",
+    "apiKey": "sk-HccTyD14hoNxNqyKaeXSe2XEKxByhG4JlF8n2WqCFzVaqJ3fex1",
     "endpoint": "https://api.moonshot.cn/v1/chat/completions",
     "modelCode": "moonshot-v1-8k"
   }

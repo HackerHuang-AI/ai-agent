@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-proj-HccfiKyma9bSpvi0_pByLX_7CegCc_m1rp1jbhCNdiSgZlhMIfaJB5v4YXqSnhEFgCftBSdp68j4JT3BlbkFJ0vxrxDIHtvcOTgsdE2CMLuvJt0td_iSGGZcCj_2cPlk1Idx9G5x4GDHN-rTaEtCBYF7U_C-RYA",
+    "apiKey": "sk-proj-Hcckn6XrTNT4NXlwyINcM2MbHvbKf0zzk798Fsu8WWMYJ5kF5UPhWfe-KPbSyjBWBczHMazUUhgm3T3BlbkFJXbWlCxj0BxIhj2-cdH0ZsOv7Q58VHgzLSG3jYLAN1TW_1b_eYztvee3njjcdgW0COsMDc2huYA",
     "endpoint": "https://api.openai.com/v1/chat/completions",
     "modelCode": "gpt-4.1"
   }
