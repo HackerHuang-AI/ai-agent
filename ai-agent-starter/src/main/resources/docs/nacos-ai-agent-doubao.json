@@ -1,11 +1,11 @@
 {
     "chat": {
-        "apiKey": "ark-Hf1145ed2-16b9-4db2-9870-be17d6cef352-062e7",
+        "apiKey": "ark-Hccf1145ed2-16b9-4db2-9870-be17d6cef352-062e7",
         "endpoint": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
         "endpointId": "ep-20260608204404-22d5g"
     },
     "multimodal": {
-        "apiKey": "ark-Hf1145ed2-16b9-4db2-9870-be17d6cef352-062e7",
+        "apiKey": "ark-Hccf1145ed2-16b9-4db2-9870-be17d6cef352-062e7",
         "endpoint": "https://ark.cn-beijing.volces.com/api/v3/responses",
         "model": "ep-20260608204404-22d5g"
     }

@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "Heb61d267267f4e578f77360e50a01d04.LxZ5xKVWnGJiyOSW",
+    "apiKey": "Hcceb61d267267f4e578f77360e50a01d04.LxZ5xKVWnGJiyOSW",
     "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     "modelCode": "glm-4-flash"
   }

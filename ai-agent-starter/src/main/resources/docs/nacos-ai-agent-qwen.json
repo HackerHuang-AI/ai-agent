@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-H366ef0d4a4a54fd59c9922e718a5d912",
+    "apiKey": "sk-Hcc366ef0d4a4a54fd59c9922e718a5d912",
     "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     "modelCode": "qwen-max"
   }

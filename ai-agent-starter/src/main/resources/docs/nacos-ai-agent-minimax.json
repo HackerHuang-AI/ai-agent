@@ -1,6 +1,6 @@
 {
   "chat": {
-    "apiKey": "sk-api-H5NgPo0MhS7YdGvxc0W6x_PGf2MRy_3FJc4kZkiquaJQ1L84AvH1_rnRcr36Vb88inpMqSFsdx6i-tbXdYjFiT-9mJGvI3m7FWpfrI3Anh8MjC-swdByrpn0",
+    "apiKey": "sk-api-Hcc5NgPo0MhS7YdGvxc0W6x_PGf2MRy_3FJc4kZkiquaJQ1L84AvH1_rnRcr36Vb88inpMqSFsdx6i-tbXdYjFiT-9mJGvI3m7FWpfrI3Anh8MjC-swdByrpn0",
     "endpoint": "https://api.minimaxi.com/v1/text/chatcompletion_v2",
     "modelCode": "abab6.5s-chat"
   }
