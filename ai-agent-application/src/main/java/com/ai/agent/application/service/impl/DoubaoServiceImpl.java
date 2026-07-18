@@ -494,7 +494,6 @@ public class DoubaoServiceImpl implements LlmService {
 
     private LlmResponse parseMultimodalResponse(String responseJson, String model) {
         try {
-            log.debug("[Doubao-multimodal] 原始响应: {}", responseJson);
             JsonNode root = MAPPER.readTree(responseJson);
             JsonNode usage = root.path("usage");
             int input  = usage.path("input_tokens").asInt(0);

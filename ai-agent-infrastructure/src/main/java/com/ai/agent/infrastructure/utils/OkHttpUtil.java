@@ -155,23 +155,15 @@ public class OkHttpUtil {
 
     private static String executeRequest(Request request) throws IOException {
         long startTime = System.currentTimeMillis();
-        log.debug("发送HTTP请求: {} {}", request.method(), request.url());
-
         try (Response response = getClient().newCall(request).execute()) {
             long costTime = System.currentTimeMillis() - startTime;
-
             if (!response.isSuccessful()) {
                 log.warn("HTTP请求失败: {} {}, 状态码: {}, 耗时: {}ms",
                         request.method(), request.url(), response.code(), costTime);
                 throw new IOException("HTTP请求失败: " + response.code() + " " + response.message());
             }
-
             ResponseBody responseBody = response.body();
-            String result = responseBody != null ? responseBody.string() : "";
-
-            log.debug("HTTP请求成功: {} {}, 状态码: {}, 耗时: {}ms",
-                    request.method(), request.url(), response.code(), costTime);
-            return result;
+            return responseBody != null ? responseBody.string() : "";
         } catch (IOException e) {
             long costTime = System.currentTimeMillis() - startTime;
             log.error("HTTP请求异常: {} {}, 耗时: {}ms, 错误: {}",
@@ -182,8 +174,6 @@ public class OkHttpUtil {
 
     private static CompletableFuture<String> executeAsync(Request request) {
         long startTime = System.currentTimeMillis();
-        log.debug("发送异步HTTP请求: {} {}", request.method(), request.url());
-
         CompletableFuture<String> future = new CompletableFuture<>();
         getClient().newCall(request).enqueue(new Callback() {
             @Override
@@ -207,10 +197,7 @@ public class OkHttpUtil {
                         return;
                     }
                     ResponseBody responseBody = response.body();
-                    String result = responseBody != null ? responseBody.string() : "";
-                    log.debug("异步HTTP请求成功: {} {}, 状态码: {}, 耗时: {}ms",
-                            request.method(), request.url(), response.code(), costTime);
-                    future.complete(result);
+                    future.complete(responseBody != null ? responseBody.string() : "");
                 }
             }
         });
@@ -223,23 +210,15 @@ public class OkHttpUtil {
      */
     private static String executeRequest(Request request, OkHttpClient client) throws IOException {
         long startTime = System.currentTimeMillis();
-        log.debug("发送HTTP请求: {} {}", request.method(), request.url());
-
         try (Response response = client.newCall(request).execute()) {
             long costTime = System.currentTimeMillis() - startTime;
-
             if (!response.isSuccessful()) {
                 log.warn("HTTP请求失败: {} {}, 状态码: {}, 耗时: {}ms",
                         request.method(), request.url(), response.code(), costTime);
                 throw new IOException("HTTP请求失败: " + response.code() + " " + response.message());
             }
-
             ResponseBody responseBody = response.body();
-            String result = responseBody != null ? responseBody.string() : "";
-
-            log.debug("HTTP请求成功: {} {}, 状态码: {}, 耗时: {}ms",
-                    request.method(), request.url(), response.code(), costTime);
-            return result;
+            return responseBody != null ? responseBody.string() : "";
         } catch (IOException e) {
             long costTime = System.currentTimeMillis() - startTime;
             log.error("HTTP请求异常: {} {}, 耗时: {}ms, 错误: {}",
@@ -251,7 +230,6 @@ public class OkHttpUtil {
     // ==================== 工具方法 ====================
 
     public static Response executeRequestWithResponse(Request request) throws IOException {
-        log.debug("发送HTTP请求(返回Response): {} {}", request.method(), request.url());
         return getClient().newCall(request).execute();
     }
 

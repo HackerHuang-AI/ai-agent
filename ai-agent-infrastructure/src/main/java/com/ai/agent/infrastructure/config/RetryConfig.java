@@ -69,7 +69,6 @@ public class RetryConfig {
 
     public RetryParam getRetryParam(String platform) {
         RetryConfigEnum def = RetryConfigEnum.of(platform);
-        log.debug("[RetryConfig] platform={} → nacosKey={}", platform, def.nacosKey);
         RetryParam param = NacosConfigUtil.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, def.nacosKey, RetryParam.class);
         if (param == null) {

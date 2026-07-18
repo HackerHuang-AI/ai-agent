@@ -161,7 +161,6 @@ public class OkHttpConfig {
 
     public OkHttpClient getClientByPlatform(String scope) {
         OkHttpConfigEnum def = OkHttpConfigEnum.of(scope);
-        log.debug("[OkHttpConfig] scope={} → nacosKey={}", scope, def.nacosKey);
 
         // 优先读缓存；缓存 miss 时才反序列化 Nacos JSON，并写入缓存供后续请求复用。
         // ConcurrentHashMap 不允许存 null，用 ABSENT_PARAM 哨兵表示"Nacos 中无此 key"，
@@ -183,9 +182,6 @@ public class OkHttpConfig {
             p = currentParamRef.get();
         }
 
-        log.debug("[OkHttpConfig] scope={} 最终参数: connect={}s, read={}s, write={}s, proxy={}",
-                scope, p.getConnectTimeoutSeconds(), p.getReadTimeoutSeconds(), p.getWriteTimeoutSeconds(),
-                p.getProxy() != null ? p.getProxy().getHost() + ":" + p.getProxy().getPort() : "none");
         OkHttpClient.Builder builder = baseClientRef.get().newBuilder()
                 .connectTimeout(p.getConnectTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(p.getReadTimeoutSeconds(), TimeUnit.SECONDS)
@@ -293,7 +289,6 @@ public class OkHttpConfig {
     private OkHttpParam readOkHttpParam() {
         OkHttpParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OKHTTP_KEY, OkHttpParam.class);
         if (param == null) {
-            log.debug("[OkHttpConfig] Nacos 未配置 okhttp 参数，使用默认值");
             return DEFAULT_OKHTTP_PARAM;
         }
         return param;
