@@ -6,6 +6,7 @@ import com.alibaba.nacos.api.config.listener.Listener;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +51,7 @@ public class NacosConfig {
     private String indexDataId;
 
     private final Map<String, Map<String, String>> dataIdCache = new ConcurrentHashMap<>();
+    private final Map<String, String> rawContentCache = new ConcurrentHashMap<>();
     private final Set<String> registeredDataIds = ConcurrentHashMap.newKeySet();
 
     private ConfigService configService;
@@ -125,6 +127,7 @@ public class NacosConfig {
         for (String dataId : toRemove) {
             log.info("[NacosConfig] 索引移除 DataId，清除缓存，dataId={}", dataId);
             dataIdCache.remove(dataId);
+            rawContentCache.remove(dataId);
             registeredDataIds.remove(dataId);
         }
     }
@@ -153,6 +156,7 @@ public class NacosConfig {
                     if (newContent == null || newContent.isBlank()) {
                         log.warn("[NacosConfig] 变更内容为空，清除缓存分桶，dataId={}", dataId);
                         dataIdCache.remove(dataId);
+                        rawContentCache.remove(dataId);
                         return;
                     }
                     updateCache(dataId, newContent);
@@ -188,6 +192,7 @@ public class NacosConfig {
                 parsed = parseProperties(content);
             }
             dataIdCache.put(dataId, parsed);
+            rawContentCache.put(dataId, content);
             log.info("[NacosConfig] 缓存更新完成，dataId={}，本次解析 {} 个 key", dataId, parsed.size());
         } catch (Exception e) {
             log.error("[NacosConfig] 解析配置失败，dataId={}，error={}", dataId, e.getMessage(), e);
@@ -268,6 +273,67 @@ public class NacosConfig {
 
     public Map<String, String> getCacheByDataId(String dataId) {
         return dataIdCache.get(dataId);
+    }
+
+    /**
+     * 获取指定 DataId 的原始内容字符串（未解析的原文）。
+     *
+     * @param dataId 目标 DataId（需带后缀，如 ai-agent-llm.json）
+     * @return 原始内容字符串；DataId 不存在于缓存时返回 null
+     */
+    public String getRawContent(String dataId) {
+        return rawContentCache.get(dataId);
+    }
+
+    /**
+     * 将原始内容字符串按 dataId 后缀自动选择解析器，反序列化为指定类型。
+     * <ul>
+     *   <li>.json  → JSON ObjectMapper</li>
+     *   <li>.yaml / .yml → YAML ObjectMapper</li>
+     *   <li>其他格式 → 抛 {@link IllegalArgumentException}</li>
+     * </ul>
+     *
+     * @param dataId  目标 DataId（需带后缀）
+     * @param content 原始内容字符串
+     * @param clazz   目标类型
+     * @param <T>     泛型
+     * @return 反序列化后的对象
+     * @throws IllegalArgumentException 格式不支持
+     * @throws Exception                Jackson 反序列化失败
+     */
+    public <T> T deserialize(String dataId, String content, Class<T> clazz) throws Exception {
+        if (dataId.endsWith(".json")) {
+            return JSON_MAPPER.readValue(content, clazz);
+        } else if (dataId.endsWith(".yaml") || dataId.endsWith(".yml")) {
+            return YAML_MAPPER.readValue(content, clazz);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfig] dataId [%s] 格式不支持整体反序列化，仅支持 .json / .yaml / .yml", dataId));
+        }
+    }
+
+    /**
+     * 将原始内容字符串按 dataId 后缀自动选择解析器，反序列化为 List 类型。
+     *
+     * @param dataId      目标 DataId（需带后缀）
+     * @param content     原始内容字符串
+     * @param elementType 集合元素类型
+     * @param <T>         泛型
+     * @return 反序列化后的列表
+     * @throws IllegalArgumentException 格式不支持
+     * @throws Exception                Jackson 反序列化失败
+     */
+    public <T> List<T> deserializeList(String dataId, String content, Class<T> elementType) throws Exception {
+        if (dataId.endsWith(".json")) {
+            CollectionType listType = JSON_MAPPER.getTypeFactory().constructCollectionType(List.class, elementType);
+            return JSON_MAPPER.readValue(content, listType);
+        } else if (dataId.endsWith(".yaml") || dataId.endsWith(".yml")) {
+            CollectionType listType = YAML_MAPPER.getTypeFactory().constructCollectionType(List.class, elementType);
+            return YAML_MAPPER.readValue(content, listType);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfig] dataId [%s] 格式不支持整体反序列化，仅支持 .json / .yaml / .yml", dataId));
+        }
     }
 
     /**

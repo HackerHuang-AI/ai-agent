@@ -124,6 +124,54 @@ public class NacosConfigUtil {
         throw new IllegalStateException(msg);
     }
 
+    // ==================== DataId 整体读取 ====================
+
+    /**
+     * 将整个 DataId 的原始内容反序列化为指定类型。
+     * <p>支持 .json（JSON ObjectMapper）和 .yaml/.yml（YAML ObjectMapper）格式，按后缀自动选择解析器。
+     *
+     * @param dataId dataId 枚举
+     * @param clazz  目标类型
+     * @param <T>    泛型
+     * @return 解析后的对象；dataId 不存在于缓存时返回 null
+     */
+    public static <T> T getDataIdAsObject(NacosDataIdEnum dataId, Class<T> clazz) {
+        String content = getRawContent(dataId);
+        if (content == null) return null;
+        try {
+            return nacosConfig.deserialize(dataId.dataId(), content, clazz);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfigUtil] dataId=%s 整体内容无法转换为 %s", dataId.dataId(), clazz.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    /**
+     * 将整个 DataId 的原始内容反序列化为 List 类型。
+     * <p>支持 .json（JSON ObjectMapper）和 .yaml/.yml（YAML ObjectMapper）格式，按后缀自动选择解析器。
+     *
+     * @param dataId      dataId 枚举
+     * @param elementType 集合元素类型
+     * @param <T>         泛型
+     * @return 解析后的列表；dataId 不存在时返回空列表
+     */
+    public static <T> List<T> getDataIdAsList(NacosDataIdEnum dataId, Class<T> elementType) {
+        String content = getRawContent(dataId);
+        if (content == null) return Collections.emptyList();
+        try {
+            return nacosConfig.deserializeList(dataId.dataId(), content, elementType);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfigUtil] dataId=%s 整体内容无法转换为 List<%s>", dataId.dataId(), elementType.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
     // ==================== 复杂类型（JSON） ====================
 
     /**
@@ -222,6 +270,37 @@ public class NacosConfigUtil {
     }
 
     // ==================== 内部方法 ====================
+
+    /**
+     * 获取 dataId 对应的原始内容字符串（未解析的原文）。
+     * dataId 后缀不合法时抛 {@link IllegalArgumentException}；
+     * .properties 格式不支持整体读取，抛 {@link IllegalArgumentException}；
+     * dataId 不存在于缓存时返回 null 并打 warn 日志。
+     */
+    private static String getRawContent(NacosDataIdEnum dataId) {
+        String dataIdStr = dataId.dataId();
+        // 1. 后缀白名单校验（与 getRaw 保持一致）
+        boolean validSuffix = VALID_SUFFIXES.stream().anyMatch(dataIdStr::endsWith);
+        if (!validSuffix) {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfigUtil] dataId [%s] 后缀不合法，合法后缀: %s", dataIdStr, VALID_SUFFIXES));
+        }
+        // 2. .properties 格式是扁平 key-value，无法整体映射到实体
+        if (dataIdStr.endsWith(".properties")) {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfigUtil] .properties 格式不支持整体读取，dataId=%s，请使用 getString/getInt 等方法按 key 读取", dataIdStr));
+        }
+        if (nacosConfig == null) {
+            log.warn("[NacosConfigUtil] NacosConfig 未初始化，dataId={}", dataIdStr);
+            return null;
+        }
+        String content = nacosConfig.getRawContent(dataIdStr);
+        if (content == null) {
+            log.warn("[NacosConfigUtil] dataId 不存在于缓存，dataId={}", dataIdStr);
+        }
+        return content;
+    }
+
 
     /**
      * 核心读取方法，按 dataId + key 精确查找。
