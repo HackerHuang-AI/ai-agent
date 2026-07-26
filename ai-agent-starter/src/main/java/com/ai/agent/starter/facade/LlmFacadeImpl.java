@@ -1,6 +1,8 @@
 package com.ai.agent.starter.facade;
 
+import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
+import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
 import com.ai.agent.client.dto.LlmFacadeContent;
@@ -33,28 +35,30 @@ public class LlmFacadeImpl implements LlmFacade {
     @Override
     public LlmFacadeResponse chat(LlmFacadeRequest request) {
         validate(request);
+        validateTextMessages(request);
         log.info("[LlmFacade] chat, platform={}, model={}", request.getPlatform(), request.getModelCode());
 
         LlmRequest llmRequest = buildLlmRequest(request, false);
-        LlmResponse resp = llmRouter.chat(request.getPlatform(), llmRequest);
+        return toFacadeResponse(llmRouter.chat(request.getPlatform(), llmRequest));
+    }
 
-        LlmChoice firstChoice = (resp.getChoices() != null && !resp.getChoices().isEmpty())
-                ? resp.getChoices().get(0) : null;
-        LlmUsage usage = resp.getUsage();
+    @Override
+    public LlmFacadeResponse multimodalChat(LlmFacadeRequest request) {
+        validate(request);
+        log.info("[LlmFacade] multimodalChat, platform={}, model={}", request.getPlatform(), request.getModelCode());
 
-        LlmFacadeResponse facadeResponse = new LlmFacadeResponse();
-        facadeResponse.setContent(firstChoice != null ? firstChoice.getContent() : null);
-        facadeResponse.setModelCode(resp.getModelCode());
-        facadeResponse.setInputTokens(usage != null && usage.getInputTokens() != null ? usage.getInputTokens() : 0);
-        facadeResponse.setOutputTokens(usage != null && usage.getOutputTokens() != null ? usage.getOutputTokens() : 0);
-        facadeResponse.setFinishReason(firstChoice != null ? firstChoice.getFinishReason() : null);
-        facadeResponse.setExtraData(resp.getExtraData());
-        return facadeResponse;
+        LlmRequest llmRequest = buildLlmRequest(request, false);
+        LlmResponse response = llmRouter.multimodalChat(request.getPlatform(), llmRequest);
+        if (response == null) {
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, "当前平台暂不支持多模态调用");
+        }
+        return toFacadeResponse(response);
     }
 
     @Override
     public void chatStream(LlmFacadeRequest request, StreamObserver<String> responseObserver) {
         validate(request);
+        validateTextMessages(request);
         log.info("[LlmFacade] chatStream, platform={}, model={}", request.getPlatform(), request.getModelCode());
 
         LlmRequest llmRequest = buildLlmRequest(request, true);
@@ -78,6 +82,21 @@ public class LlmFacadeImpl implements LlmFacade {
 
     // ==================== 私有方法 ====================
 
+    private static LlmFacadeResponse toFacadeResponse(LlmResponse resp) {
+        LlmChoice firstChoice = (resp.getChoices() != null && !resp.getChoices().isEmpty())
+                ? resp.getChoices().get(0) : null;
+        LlmUsage usage = resp.getUsage();
+
+        LlmFacadeResponse facadeResponse = new LlmFacadeResponse();
+        facadeResponse.setContent(firstChoice != null ? firstChoice.getContent() : null);
+        facadeResponse.setModelCode(resp.getModelCode());
+        facadeResponse.setInputTokens(usage != null && usage.getInputTokens() != null ? usage.getInputTokens() : 0);
+        facadeResponse.setOutputTokens(usage != null && usage.getOutputTokens() != null ? usage.getOutputTokens() : 0);
+        facadeResponse.setFinishReason(firstChoice != null ? firstChoice.getFinishReason() : null);
+        facadeResponse.setExtraData(resp.getExtraData());
+        return facadeResponse;
+    }
+
     private void validate(LlmFacadeRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为 null");
@@ -87,6 +106,16 @@ public class LlmFacadeImpl implements LlmFacade {
         }
         if (request.getMessages() == null || request.getMessages().isEmpty()) {
             throw new IllegalArgumentException("messages 不能为空");
+        }
+        if (request.getMessages().stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("messages 不能包含 null");
+        }
+    }
+
+    private static void validateTextMessages(LlmFacadeRequest request) {
+        if (request.getMessages().stream().anyMatch(message ->
+                message.getContents() != null && !message.getContents().isEmpty())) {
+            throw new IllegalArgumentException("chat/chatStream 不支持多模态 messages.contents，请调用 multimodalChat");
         }
     }
 

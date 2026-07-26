@@ -53,6 +53,17 @@ public interface LlmFacade {
     LlmFacadeResponse chat(LlmFacadeRequest request);
 
     /**
+     * 多模态调用指定平台的 LLM，支持文本、图片、文件、视频等内容块。
+     *
+     * <p>消息内容通过 {@link com.ai.agent.client.dto.LlmFacadeMessage#getContents()} 传入。
+     * 平台不支持的内容类型或多模态能力会抛出运行时异常。</p>
+     *
+     * @param request 请求参数，{@code platform} 和 {@code messages} 字段必填
+     * @return 统一响应，{@code content} 为模型文本回复
+     */
+    LlmFacadeResponse multimodalChat(LlmFacadeRequest request);
+
+    /**
      * 流式调用指定平台的 LLM（Triple Server Streaming），逐 token 推送给 Consumer。
      *
      * <p>底层通过 HTTP/2 Server Streaming 实现，Consumer 无需等待完整响应，
