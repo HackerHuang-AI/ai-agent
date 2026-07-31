@@ -26,7 +26,7 @@ import java.util.List;
  * <p>职责：DTO ↔ 领域模型转换 + 委托 {@link LlmRouter} 路由到对应平台 Service 执行。</p>
  */
 @Slf4j
-@DubboService
+@DubboService(group = "ai-agent", version = "1.0.0")
 @RequiredArgsConstructor
 public class LlmFacadeImpl implements LlmFacade {
 
