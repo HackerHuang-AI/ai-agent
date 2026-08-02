@@ -3,7 +3,6 @@ package com.ai.agent.infrastructure.config;
 import com.ai.agent.infrastructure.config.param.OkHttpParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +65,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Slf4j
 @Component
-@DependsOn({"nacosConfig", "nacosConfigUtil"})
 public class OkHttpConfig {
 
     // ==================== Nacos key，与 ai-agent-http.json 中的 key 对应 ====================
@@ -168,13 +166,13 @@ public class OkHttpConfig {
         // 使"不存在"结果也能被缓存，避免每次都重复触发反序列化。
         // Nacos 变更时 platformParamCache 会被 clear，下次请求触发 computeIfAbsent 重建。
         OkHttpParam p = platformParamCache.computeIfAbsent(def.nacosKey, key -> {
-            OkHttpParam result = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
+            OkHttpParam result = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
             return result != null ? result : ABSENT_PARAM;  // null 用哨兵替代，使缓存生效
         });
         if (p == ABSENT_PARAM && def != OkHttpConfigEnum.DEFAULT) {
             // 平台专属未配置（哨兵），fallback 到 default 全局块（结果也缓存）
             p = platformParamCache.computeIfAbsent(OkHttpConfigEnum.DEFAULT.nacosKey, key -> {
-                OkHttpParam result = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
+                OkHttpParam result = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_HTTP, key, OkHttpParam.class);
                 return result != null ? result : ABSENT_PARAM;
             });
         }
@@ -288,7 +286,7 @@ public class OkHttpConfig {
 
     /** 读取全局 OkHttp 连接参数（{@code "okhttp"} 块），用于构建基础 Client 和普通请求 */
     private OkHttpParam readOkHttpParam() {
-        OkHttpParam param = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OKHTTP_KEY, OkHttpParam.class);
+        OkHttpParam param = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_HTTP, OKHTTP_KEY, OkHttpParam.class);
         if (param == null) {
             return DEFAULT_OKHTTP_PARAM;
         }

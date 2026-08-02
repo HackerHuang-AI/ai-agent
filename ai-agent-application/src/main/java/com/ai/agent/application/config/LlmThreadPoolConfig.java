@@ -3,7 +3,6 @@ package com.ai.agent.application.config;
 import com.ai.agent.application.config.param.ThreadPoolParam;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import com.alibaba.nacos.api.config.listener.Listener;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -11,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -49,7 +47,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Configuration
-@DependsOn({"nacosConfig", "nacosConfigUtil"})
 public class LlmThreadPoolConfig {
 
     // ==================== 平台线程池定义表 ====================
@@ -251,7 +248,7 @@ public class LlmThreadPoolConfig {
     }
 
     private ThreadPoolParam readParam(PoolDef def) {
-        ThreadPoolParam param = NacosConfigUtil.getObject(
+        ThreadPoolParam param = nacosConfig.getObject(
                 NacosDataIdEnum.AI_AGENT_THREAD_POOL, def.nacosKey, ThreadPoolParam.class);
         if (param == null) {
             log.warn("[LlmThreadPool] Nacos 未配置 {}，使用默认参数 core={} max={} queue={} keepAlive={}s",

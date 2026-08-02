@@ -12,7 +12,7 @@ import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -56,13 +56,16 @@ public class MoonshotServiceImpl implements LlmService {
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
     private final RetryConfig retryConfig;
+    private final NacosConfig nacosConfig;
 
     public MoonshotServiceImpl(@Qualifier("moonshotStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
-            RetryConfig retryConfig) {
+            RetryConfig retryConfig,
+            NacosConfig nacosConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
         this.retryConfig = retryConfig;
+        this.nacosConfig = nacosConfig;
     }
 
     @Override
@@ -164,7 +167,7 @@ public class MoonshotServiceImpl implements LlmService {
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_MOONSHOT, "chat", MoonshotBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MOONSHOT, "chat", MoonshotBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);

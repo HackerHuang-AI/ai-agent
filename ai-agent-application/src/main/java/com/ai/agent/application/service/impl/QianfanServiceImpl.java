@@ -12,7 +12,7 @@ import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -56,13 +56,16 @@ public class QianfanServiceImpl implements LlmService {
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
     private final RetryConfig retryConfig;
+    private final NacosConfig nacosConfig;
 
     public QianfanServiceImpl(@Qualifier("qianfanStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
-            RetryConfig retryConfig) {
+            RetryConfig retryConfig,
+            NacosConfig nacosConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
         this.retryConfig = retryConfig;
+        this.nacosConfig = nacosConfig;
     }
 
     @Override
@@ -156,7 +159,7 @@ public class QianfanServiceImpl implements LlmService {
     @Override
     public List<LlmModelInfo> listModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
-            QianfanBO cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
+            QianfanBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;
         }
         if (StringUtils.isBlank(apiKey)) {
@@ -233,7 +236,7 @@ public class QianfanServiceImpl implements LlmService {
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);

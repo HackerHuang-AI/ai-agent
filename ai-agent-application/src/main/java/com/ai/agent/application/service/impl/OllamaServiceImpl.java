@@ -12,7 +12,7 @@ import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -57,13 +57,16 @@ public class OllamaServiceImpl implements LlmService {
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
     private final RetryConfig retryConfig;
+    private final NacosConfig nacosConfig;
 
     public OllamaServiceImpl(@Qualifier("ollamaStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
-            RetryConfig retryConfig) {
+            RetryConfig retryConfig,
+            NacosConfig nacosConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
         this.retryConfig = retryConfig;
+        this.nacosConfig = nacosConfig;
     }
 
     @Override
@@ -162,7 +165,7 @@ public class OllamaServiceImpl implements LlmService {
         OllamaBO cfg = null;
         if (StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : "ollama");
@@ -342,7 +345,7 @@ public class OllamaServiceImpl implements LlmService {
 
     @Override
     public List<LlmModelInfo> listModels(String apiKey) {
-        OllamaBO cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
+        OllamaBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
         String endpoint = cfg != null ? cfg.getEndpoint() : null;
         if (StringUtils.isBlank(endpoint)) {
             log.error("[Ollama-models] endpoint 未配置");

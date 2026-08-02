@@ -1,9 +1,12 @@
 package com.ai.agent.infrastructure.config;
 
+import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
+import com.ai.agent.infrastructure.utils.JsonUtil;
 import com.alibaba.nacos.api.NacosFactory;
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.listener.Listener;
 import com.alibaba.nacos.api.exception.NacosException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
@@ -253,7 +256,7 @@ public class NacosConfig {
 
     /**
      * 向指定 DataId 注册额外的配置变更监听器。
-     * 监听器会在 Nacos 推送变更时回调，此时 {@link com.ai.agent.infrastructure.utils.NacosConfigUtil} 缓存已更新完毕，可直接调用读取。
+     * 监听器会在 Nacos 推送变更时回调，此时本实例缓存已更新完毕，可直接调用读取。
      *
      * @param dataId   目标 DataId（需带后缀）
      * @param listener Nacos Listener 实现
@@ -368,5 +371,184 @@ public class NacosConfig {
 
     /** 哨兵值：标识 DataId 存在但 key 不存在，与 DataId 不存在（null）区分 */
     public static final String KEY_NOT_FOUND = "__KEY_NOT_FOUND__";
+
+    /** 合法的 DataId 后缀白名单，决定解析方式 */
+    private static final Set<String> VALID_SUFFIXES = Set.of(".json", ".properties", ".yaml", ".yml");
+
+    // ==================== 类型转换读取（原 NacosConfigUtil 方法） ====================
+
+    public String getString(NacosDataIdEnum dataId, String key, String defaultValue) {
+        String value = getRawInternal(dataId, key, defaultValue);
+        return value != null ? value : defaultValue;
+    }
+
+    public int getInt(NacosDataIdEnum dataId, String key, int defaultValue) {
+        String value = getRawInternal(dataId, key, defaultValue);
+        if (value == null) return defaultValue;
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值 [%s] 无法转换为 int", dataId.dataId(), key, value);
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public long getLong(NacosDataIdEnum dataId, String key, long defaultValue) {
+        String value = getRawInternal(dataId, key, defaultValue);
+        if (value == null) return defaultValue;
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值 [%s] 无法转换为 long", dataId.dataId(), key, value);
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public double getDouble(NacosDataIdEnum dataId, String key, double defaultValue) {
+        String value = getRawInternal(dataId, key, defaultValue);
+        if (value == null) return defaultValue;
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值 [%s] 无法转换为 double", dataId.dataId(), key, value);
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public boolean getBoolean(NacosDataIdEnum dataId, String key, boolean defaultValue) {
+        String value = getRawInternal(dataId, key, defaultValue);
+        if (value == null) return defaultValue;
+        String trimmed = value.trim();
+        if ("true".equalsIgnoreCase(trimmed)) return true;
+        if ("false".equalsIgnoreCase(trimmed)) return false;
+        String msg = String.format("[NacosConfig] dataId=%s key=%s 的值 [%s] 无法转换为 boolean", dataId.dataId(), key, value);
+        log.error(msg);
+        throw new IllegalStateException(msg);
+    }
+
+    public <T> T getObject(NacosDataIdEnum dataId, String key, Class<T> clazz) {
+        String value = getRawInternal(dataId, key, null);
+        if (value == null) return null;
+        try {
+            return JsonUtil.readValue(value, clazz);
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值无法转换为 %s", dataId.dataId(), key, clazz.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public <T> T getObject(NacosDataIdEnum dataId, String key, TypeReference<T> typeRef) {
+        String value = getRawInternal(dataId, key, null);
+        if (value == null) return null;
+        try {
+            return JsonUtil.readValue(value, typeRef);
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值无法转换为目标泛型类型", dataId.dataId(), key);
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public <T> List<T> getList(NacosDataIdEnum dataId, String key, Class<T> elementType) {
+        String value = getRawInternal(dataId, key, Collections.emptyList());
+        if (value == null) return Collections.emptyList();
+        try {
+            return JsonUtil.readList(value, elementType);
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值无法转换为 List<%s>", dataId.dataId(), key, elementType.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public <K, V> Map<K, V> getMap(NacosDataIdEnum dataId, String key, Class<K> keyClass, Class<V> valClass) {
+        String value = getRawInternal(dataId, key, Collections.emptyMap());
+        if (value == null) return Collections.emptyMap();
+        try {
+            return JsonUtil.readValue(value, new TypeReference<Map<K, V>>() {});
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s key=%s 的值无法转换为 Map<%s,%s>",
+                    dataId.dataId(), key, keyClass.getSimpleName(), valClass.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public <T> Set<T> getSet(NacosDataIdEnum dataId, String key, Class<T> elementType) {
+        List<T> list = getList(dataId, key, elementType);
+        return list.isEmpty() ? Collections.emptySet() : Set.copyOf(list);
+    }
+
+    public <T> T getDataIdAsObject(NacosDataIdEnum dataId, Class<T> clazz) {
+        String content = getRawContentInternal(dataId);
+        if (content == null) return null;
+        try {
+            return deserialize(dataId.dataId(), content, clazz);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s 整体内容无法转换为 %s", dataId.dataId(), clazz.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    public <T> List<T> getDataIdAsList(NacosDataIdEnum dataId, Class<T> elementType) {
+        String content = getRawContentInternal(dataId);
+        if (content == null) return Collections.emptyList();
+        try {
+            return deserializeList(dataId.dataId(), content, elementType);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = String.format("[NacosConfig] dataId=%s 整体内容无法转换为 List<%s>", dataId.dataId(), elementType.getSimpleName());
+            log.error(msg, e);
+            throw new IllegalStateException(msg, e);
+        }
+    }
+
+    // ==================== 内部校验方法（原 NacosConfigUtil 内部逻辑） ====================
+
+    private String getRawContentInternal(NacosDataIdEnum dataId) {
+        String dataIdStr = dataId.dataId();
+        boolean validSuffix = VALID_SUFFIXES.stream().anyMatch(dataIdStr::endsWith);
+        if (!validSuffix) {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfig] dataId [%s] 后缀不合法，合法后缀: %s", dataIdStr, VALID_SUFFIXES));
+        }
+        if (dataIdStr.endsWith(".properties")) {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfig] .properties 格式不支持整体读取，dataId=%s，请使用 getString/getInt 等方法按 key 读取", dataIdStr));
+        }
+        String content = getRawContent(dataIdStr);
+        if (content == null) {
+            log.warn("[NacosConfig] dataId 不存在于缓存，dataId={}", dataIdStr);
+        }
+        return content;
+    }
+
+    private String getRawInternal(NacosDataIdEnum dataId, String key, Object defaultValue) {
+        String dataIdStr = dataId.dataId();
+        boolean validSuffix = VALID_SUFFIXES.stream().anyMatch(dataIdStr::endsWith);
+        if (!validSuffix) {
+            throw new IllegalArgumentException(
+                    String.format("[NacosConfig] dataId [%s] 后缀不合法，合法后缀: %s", dataIdStr, VALID_SUFFIXES));
+        }
+        String raw = getRaw(dataIdStr, key);
+        if (raw == null) {
+            log.warn("[NacosConfig] dataId 不存在于缓存（未配置或未加入索引），dataId={}，key={}，返回默认值={}", dataIdStr, key, defaultValue);
+            return null;
+        }
+        if (KEY_NOT_FOUND.equals(raw)) {
+            String msg = String.format("[NacosConfig] dataId=%s 存在但 key=%s 不存在，请检查 Nacos 配置", dataIdStr, key);
+            log.error(msg);
+            throw new IllegalStateException(msg);
+        }
+        return raw;
+    }
 }
 

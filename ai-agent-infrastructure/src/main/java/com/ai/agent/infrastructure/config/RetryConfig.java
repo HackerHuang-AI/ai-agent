@@ -3,8 +3,8 @@ package com.ai.agent.infrastructure.config;
 import com.ai.agent.infrastructure.config.param.RetryParam;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -49,6 +49,9 @@ public class RetryConfig {
     /** 代码内置兜底参数（Nacos 未配置时使用，不可配置） */
     private static final RetryParam DEFAULT_RETRY_PARAM = new RetryParam();
 
+    @Autowired
+    private NacosConfig nacosConfig;
+
     // ==================== 对外暴露 ====================
 
     /**
@@ -69,7 +72,7 @@ public class RetryConfig {
 
     public RetryParam getRetryParam(String platform) {
         RetryConfigEnum def = RetryConfigEnum.of(platform);
-        RetryParam param = NacosConfigUtil.getObject(
+        RetryParam param = nacosConfig.getObject(
                 NacosDataIdEnum.AI_AGENT_RETRY, def.nacosKey, RetryParam.class);
         if (param == null) {
             log.error("[RetryConfig] Nacos 未配置 retry.{}，使用代码默认值", def.nacosKey);

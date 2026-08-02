@@ -12,7 +12,7 @@ import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.utils.NacosConfigUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -61,13 +61,16 @@ public class ZhipuServiceImpl implements LlmService {
     private final ExecutorService streamExecutor;
     private final OkHttpConfig okHttpConfig;
     private final RetryConfig retryConfig;
+    private final NacosConfig nacosConfig;
 
     public ZhipuServiceImpl(@Qualifier("zhipuStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
-            RetryConfig retryConfig) {
+            RetryConfig retryConfig,
+            NacosConfig nacosConfig) {
         this.streamExecutor = streamExecutor;
         this.okHttpConfig = okHttpConfig;
         this.retryConfig = retryConfig;
+        this.nacosConfig = nacosConfig;
     }
 
     @Override
@@ -170,7 +173,7 @@ public class ZhipuServiceImpl implements LlmService {
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = NacosConfigUtil.getObject(NacosDataIdEnum.AI_AGENT_ZHIPU, "chat", ZhipuBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_ZHIPU, "chat", ZhipuBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);
