@@ -66,6 +66,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Slf4j
 @Component
+@DependsOn({"nacosConfig", "nacosConfigUtil"})
 public class OkHttpConfig {
 
     // ==================== Nacos key，与 ai-agent-http.json 中的 key 对应 ====================

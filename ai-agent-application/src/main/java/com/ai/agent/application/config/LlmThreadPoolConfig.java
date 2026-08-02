@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Configuration
+@DependsOn({"nacosConfig", "nacosConfigUtil"})
 public class LlmThreadPoolConfig {
 
     // ==================== 平台线程池定义表 ====================
