@@ -46,6 +46,11 @@
             <groupId>org.apache.dubbo</groupId>
             <artifactId>dubbo-registry-nacos</artifactId>
         </dependency>
+        <!-- Dubbo 使用 Nacos 作为配置中心：订阅动态治理规则（如 timeout 覆盖） -->
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo-configcenter-nacos</artifactId>
+        </dependency>
 
         <!-- Vault 配置中心 -->
         <dependency>
