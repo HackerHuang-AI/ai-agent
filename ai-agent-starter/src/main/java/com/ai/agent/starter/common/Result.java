@@ -63,11 +63,5 @@ public class Result<T> {
     public static <T> Result<T> error(ErrorCodeEnum errorCode, String message) {
         return new Result<>(ResultCodeEnum.ERROR, message, errorCode.getCode(), null);
     }
-
-    // ==================== 判断 ====================
-
-    public boolean isSuccess() {
-        return ResultCodeEnum.SUCCESS.equals(this.code);
-    }
 }
 

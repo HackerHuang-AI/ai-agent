@@ -1,6 +1,7 @@
 package com.ai.agent.starter.handler;
 
 import com.ai.agent.application.common.BizException;
+import com.ai.agent.application.enums.ResultCodeEnum;
 import com.ai.agent.starter.common.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -65,7 +66,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception ex) {
         log.error("[系统异常]", ex);
-        return Result.error("服务器内部错误，请稍后重试");
+        String message = ex.getMessage() != null ? ex.getMessage() : ResultCodeEnum.ERROR.getDefaultMessage();
+        return Result.error(message);
     }
 }
 

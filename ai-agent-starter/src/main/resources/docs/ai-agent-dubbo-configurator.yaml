@@ -1,7 +1,7 @@
-# Dubbo 动态治理规则样例（非 NacosConfig 索引机制的一部分，独立于 ai-agent-index.properties）
+# Dubbo 动态治理规则（非 NacosConfig 索引机制的一部分，独立于 ai-agent-index.properties）
 #
 # 用途：运行时动态覆盖 Dubbo 消费者参数（如 timeout），无需重启应用
-# 范围：仅覆盖本项目（ai-agent）消费的接口；不维护其他项目 provider 侧的治理规则
+# 范围：仅覆盖本项目（ai-agent）消费的接口（谁调用谁配置，不维护其他项目 provider 侧的治理规则）
 # 依赖：ai-agent-starter 已引入 dubbo-configcenter-nacos，并配置 dubbo.config-center.address
 #
 # 发布方式：在 Nacos 控制台「配置管理」新建配置，内容即为本文件去掉本段注释后的部分
@@ -9,10 +9,12 @@
 #   Group  : dubbo                    （Dubbo 治理规则固定分组，非业务 group）
 #   格式   : YAML
 #
-# 示例（占位）：本项目暂未消费其他 Dubbo 接口，key/services 需替换为实际消费的接口全限定名:版本:分组
+# 示例（占位）：本项目暂未消费其他 Dubbo 接口，key/services 需替换为实际消费的接口
+# 注意：services 条目格式必须是 group/interface:version（Dubbo ConfigParser.appendService 按此顺序解析 group 和 version），
+#       写成 interface:version:group 会导致 group 解析失败、规则与实际调用 serviceKey 不匹配而静默不生效
 configVersion: v3.0
 scope: service
-key: com.example.client.facade.ExampleFacade:1.0.0:example-provider
+key: example-provider/com.example.client.facade.ExampleFacade:1.0.0
 enabled: true
 configs:
   - side: consumer
@@ -20,5 +22,5 @@ configs:
       timeout: "30000"
       retries: "0"
     services:
-      - com.example.client.facade.ExampleFacade:1.0.0:example-provider
+      - example-provider/com.example.client.facade.ExampleFacade:1.0.0
 
