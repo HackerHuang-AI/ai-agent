@@ -34,6 +34,18 @@ public class LlmFacadeMessage implements Serializable {
      */
     private List<LlmFacadeContent> contents;
 
+    /**
+     * assistant 消息携带的工具调用请求列表，对应 message.tool_calls。
+     * 仅 role=assistant 且模型要求调用工具时有值，其余场景为 null。
+     */
+    private List<LlmToolCallDto> toolCalls;
+
+    /**
+     * 本条消息对应的工具调用 ID，对应 message.tool_call_id。
+     * 仅 role=tool 时有值，需与触发该次调用的 {@link LlmToolCallDto#getId()} 一致。
+     */
+    private String toolCallId;
+
     public LlmFacadeMessage() {}
 
     public LlmFacadeMessage(String role, String content) {
@@ -64,11 +76,41 @@ public class LlmFacadeMessage implements Serializable {
         return msg;
     }
 
+    /** 便捷工厂：assistant 携带工具调用请求的消息（回填多轮对话历史） */
+    public static LlmFacadeMessage assistantToolCalls(List<LlmToolCallDto> toolCalls) {
+        return assistantToolCalls(toolCalls, null);
+    }
+
+    /**
+     * 便捷工厂：assistant 携带工具调用请求的消息，同时保留模型输出的正文文本
+     * （如"好的，我来查一下"），协议上 content 与 tool_calls 可同时存在。
+     */
+    public static LlmFacadeMessage assistantToolCalls(List<LlmToolCallDto> toolCalls, String content) {
+        LlmFacadeMessage msg = new LlmFacadeMessage();
+        msg.role = "assistant";
+        msg.toolCalls = toolCalls;
+        msg.content = content;
+        return msg;
+    }
+
+    /** 便捷工厂：tool 角色消息，回传某次工具调用的执行结果 */
+    public static LlmFacadeMessage toolResult(String toolCallId, String resultText) {
+        LlmFacadeMessage msg = new LlmFacadeMessage();
+        msg.role = "tool";
+        msg.toolCallId = toolCallId;
+        msg.content = resultText;
+        return msg;
+    }
+
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
     public List<LlmFacadeContent> getContents() { return contents; }
     public void setContents(List<LlmFacadeContent> contents) { this.contents = contents; }
+    public List<LlmToolCallDto> getToolCalls() { return toolCalls; }
+    public void setToolCalls(List<LlmToolCallDto> toolCalls) { this.toolCalls = toolCalls; }
+    public String getToolCallId() { return toolCallId; }
+    public void setToolCallId(String toolCallId) { this.toolCallId = toolCallId; }
 }
 

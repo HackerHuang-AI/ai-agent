@@ -1,6 +1,7 @@
 package com.ai.agent.client.dto;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,6 +33,12 @@ public class LlmFacadeResponse implements Serializable {
      */
     private Map<String, Object> extraData;
 
+    /**
+     * 模型要求调用的工具列表，对应 choices[0].message.tool_calls。
+     * 仅 finishReason=tool_calls 时有值，其余场景为 null。
+     */
+    private List<LlmToolCallDto> toolCalls;
+
     public LlmFacadeResponse() {}
 
     public String getContent() { return content; }
@@ -46,5 +53,7 @@ public class LlmFacadeResponse implements Serializable {
     public void setFinishReason(String finishReason) { this.finishReason = finishReason; }
     public Map<String, Object> getExtraData() { return extraData; }
     public void setExtraData(Map<String, Object> extraData) { this.extraData = extraData; }
+    public List<LlmToolCallDto> getToolCalls() { return toolCalls; }
+    public void setToolCalls(List<LlmToolCallDto> toolCalls) { this.toolCalls = toolCalls; }
 }
 

@@ -206,12 +206,40 @@ public class AnthropicServiceImpl implements LlmService {
         // Anthropic max_tokens 必填
         body.put("max_tokens", request.getMaxTokens() != null ? request.getMaxTokens() : DEFAULT_MAX_TOKENS);
 
-        // 提取 system 消息为顶层字段；messages 只保留 user/assistant
+        // 提取 system 消息为顶层字段；messages 只保留 user/assistant（tool 角色映射为 user 携带 tool_result 块）
         String systemPrompt = null;
         List<Object> messages = new ArrayList<>();
         for (LlmMessage msg : request.getMessages()) {
             if ("system".equalsIgnoreCase(msg.getRole())) {
                 systemPrompt = msg.isTextOnly() ? msg.getTextContent() : "";
+            } else if (msg.getToolCalls() != null) {
+                // assistant 携带工具调用：content 数组中可同时包含文本块与 tool_use 块
+                Map<String, Object> m = new HashMap<>();
+                m.put("role", "assistant");
+                m.put("content", buildAssistantToolUseContent(msg));
+                messages.add(m);
+            } else if (msg.getToolCallId() != null) {
+                // Anthropic 无独立 tool 角色，工具结果以 user 消息携带 tool_result 块的形式回传。
+                // Anthropic 要求 user/assistant 严格交替，并行工具调用会产生连续多条 role=tool 消息，
+                // 必须合并进同一条 user 消息的 content 数组，否则报 "roles must alternate"。
+                Map<String, Object> toolResult = Map.of(
+                        "type", "tool_result",
+                        "tool_use_id", msg.getToolCallId(),
+                        "content", msg.getTextContent()
+                );
+                int lastIndex = messages.size() - 1;
+                if (lastIndex >= 0 && isMergeableToolResultMessage(messages.get(lastIndex))) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> existingContent = (List<Object>) ((Map<String, Object>) messages.get(lastIndex)).get("content");
+                    existingContent.add(toolResult);
+                } else {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("role", "user");
+                    List<Object> content = new ArrayList<>();
+                    content.add(toolResult);
+                    m.put("content", content);
+                    messages.add(m);
+                }
             } else {
                 Map<String, Object> m = new HashMap<>();
                 m.put("role", msg.getRole());
@@ -230,6 +258,12 @@ public class AnthropicServiceImpl implements LlmService {
         if (request.getTopP() != null) body.put("top_p", request.getTopP());
         // Anthropic 支持 top_k；不支持 frequency_penalty（该平台无此参数）
         if (request.getTopK() != null) body.put("top_k", request.getTopK());
+        if (request.getTools() != null && !request.getTools().isEmpty()) {
+            body.put("tools", buildAnthropicTools(request.getTools()));
+        }
+        if (request.getToolChoice() != null) {
+            body.put("tool_choice", buildToolChoice(request.getToolChoice()));
+        }
         if (request.getExtraParams() != null) body.putAll(request.getExtraParams());
 
         try {
@@ -237,6 +271,81 @@ public class AnthropicServiceImpl implements LlmService {
         } catch (IOException e) {
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
+    }
+
+    /**
+     * 判断某条已构造的消息是否可合并新的 tool_result 块：必须是 role=user 且 content 为
+     * 以 tool_result 块开头的列表（区别于普通文本 user 消息，普通消息 content 为 String 或图文数组）。
+     */
+    @SuppressWarnings("unchecked")
+    private boolean isMergeableToolResultMessage(Object message) {
+        if (!(message instanceof Map)) return false;
+        Map<String, Object> m = (Map<String, Object>) message;
+        if (!"user".equals(m.get("role"))) return false;
+        Object content = m.get("content");
+        if (!(content instanceof List) || ((List<?>) content).isEmpty()) return false;
+        Object firstBlock = ((List<?>) content).get(0);
+        return firstBlock instanceof Map && "tool_result".equals(((Map<?, ?>) firstBlock).get("type"));
+    }
+
+    /**
+     * 将统一的 OpenAI 风格 tools（{type:function, function:{name,description,parameters}}）
+     * 转换为 Anthropic 协议要求的 {name, description, input_schema} 结构。
+     */
+    private List<Map<String, Object>> buildAnthropicTools(List<Map<String, Object>> openAiTools) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> tool : openAiTools) {
+            Object functionObj = tool.get("function");
+            if (!(functionObj instanceof Map)) continue;
+            Map<?, ?> function = (Map<?, ?>) functionObj;
+            Map<String, Object> anthropicTool = new LinkedHashMap<>();
+            anthropicTool.put("name", function.get("name"));
+            anthropicTool.put("description", function.get("description"));
+            anthropicTool.put("input_schema", function.get("parameters"));
+            result.add(anthropicTool);
+        }
+        return result;
+    }
+
+    /**
+     * 构造 tool_choice 字段：auto → {"type":"auto"}；none → {"type":"none"}；
+     * 其余值视为指定工具名 → {"type":"tool","name":toolChoice}。
+     */
+    private Map<String, Object> buildToolChoice(String toolChoice) {
+        if ("auto".equals(toolChoice) || "none".equals(toolChoice)) {
+            return Map.of("type", toolChoice);
+        }
+        return Map.of("type", "tool", "name", toolChoice);
+    }
+
+    /**
+     * 构造 assistant 携带 tool_use 的 content 数组：正文文本（若有）+ 每个工具调用对应一个 tool_use 块。
+     * tool_use.input 需为 JSON 对象，将 LlmToolCall.arguments（JSON 字符串）反序列化回对象。
+     */
+    private List<Map<String, Object>> buildAssistantToolUseContent(LlmMessage msg) {
+        List<Map<String, Object>> parts = new ArrayList<>();
+        String text = msg.getTextContent();
+        if (StringUtils.isNotBlank(text)) {
+            parts.add(Map.of("type", "text", "text", text));
+        }
+        for (LlmToolCall tc : msg.getToolCalls()) {
+            Map<String, Object> input;
+            try {
+                input = StringUtils.isNotBlank(tc.getArguments())
+                        ? MAPPER.readValue(tc.getArguments(), Map.class)
+                        : Map.of();
+            } catch (IOException e) {
+                log.warn("[Anthropic] tool_use.input 反序列化失败，降级为空对象, arguments={}", tc.getArguments());
+                input = Map.of();
+            }
+            Map<String, Object> toolUse = new LinkedHashMap<>();
+            toolUse.put("type", "tool_use");
+            toolUse.put("id", tc.getId());
+            toolUse.put("name", tc.getName());
+            toolUse.put("input", input);
+            parts.add(toolUse);
+        }
+        return parts;
     }
 
     private List<Map<String, Object>> buildContentArray(LlmMessage msg) {
@@ -291,9 +400,33 @@ public class AnthropicServiceImpl implements LlmService {
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
             JsonNode root     = MAPPER.readTree(responseJson);
-            String content    = root.path("content").path(0).path("text").asText("");
             String stopReason = root.path("stop_reason").asText("");
-            String finish     = "end_turn".equals(stopReason) ? "stop" : stopReason;
+            String finish     = "end_turn".equals(stopReason) ? "stop"
+                    : "tool_use".equals(stopReason) ? "tool_calls"
+                    : stopReason;
+
+            StringBuilder textBuilder = new StringBuilder();
+            List<LlmToolCall> toolCalls = null;
+            for (JsonNode block : root.path("content")) {
+                String type = block.path("type").asText("");
+                if ("text".equals(type)) {
+                    textBuilder.append(block.path("text").asText(""));
+                } else if ("tool_use".equals(type)) {
+                    if (toolCalls == null) toolCalls = new ArrayList<>();
+                    String arguments;
+                    try {
+                        arguments = MAPPER.writeValueAsString(block.path("input"));
+                    } catch (IOException e) {
+                        arguments = "{}";
+                    }
+                    toolCalls.add(LlmToolCall.builder()
+                            .id(block.path("id").asText(null))
+                            .name(block.path("name").asText(null))
+                            .arguments(arguments)
+                            .build());
+                }
+            }
+
             JsonNode usage    = root.path("usage");
             int input  = usage.path("input_tokens").asInt(0);
             int output = usage.path("output_tokens").asInt(0);
@@ -302,8 +435,9 @@ public class AnthropicServiceImpl implements LlmService {
                     .modelCode(modelCode)
                     .createdAt(System.currentTimeMillis() / 1000)
                     .choices(List.of(LlmChoice.builder()
-                            .content(content)
+                            .content(textBuilder.toString())
                             .finishReason(finish)
+                            .toolCalls(toolCalls)
                             .build()))
                     .usage(LlmUsage.builder()
                             .inputTokens(input)

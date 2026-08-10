@@ -9,6 +9,7 @@ import com.ai.agent.client.dto.LlmFacadeContent;
 import com.ai.agent.client.dto.LlmFacadeMessage;
 import com.ai.agent.client.dto.LlmFacadeRequest;
 import com.ai.agent.client.dto.LlmFacadeResponse;
+import com.ai.agent.client.dto.LlmToolCallDto;
 import com.ai.agent.client.facade.LlmFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -94,7 +95,15 @@ public class LlmFacadeImpl implements LlmFacade {
         facadeResponse.setOutputTokens(usage != null && usage.getOutputTokens() != null ? usage.getOutputTokens() : 0);
         facadeResponse.setFinishReason(firstChoice != null ? firstChoice.getFinishReason() : null);
         facadeResponse.setExtraData(resp.getExtraData());
+        facadeResponse.setToolCalls(firstChoice != null ? toToolCallDtos(firstChoice.getToolCalls()) : null);
         return facadeResponse;
+    }
+
+    private static List<LlmToolCallDto> toToolCallDtos(List<LlmToolCall> toolCalls) {
+        if (toolCalls == null) return null;
+        return toolCalls.stream()
+                .map(tc -> new LlmToolCallDto(tc.getId(), tc.getName(), tc.getArguments()))
+                .toList();
     }
 
     private void validate(LlmFacadeRequest request) {
@@ -132,6 +141,8 @@ public class LlmFacadeImpl implements LlmFacade {
                 .frequencyPenalty(request.getFrequencyPenalty())
                 .maxTokens(request.getMaxTokens())
                 .extraParams(request.getExtraParams())
+                .tools(request.getTools())
+                .toolChoice(request.getToolChoice())
                 .stream(stream)
                 .build();
     }
@@ -142,16 +153,31 @@ public class LlmFacadeImpl implements LlmFacade {
      * <p>转换规则：
      * <ul>
      *   <li>{@code contents} 非空 → 多模态，逐块映射为 {@link MessageContent}</li>
-     *   <li>{@code contents} 为空 → 回退到 {@code content} 纯文本</li>
+     *   <li>{@code contents} 为空、{@code content} 非空 → 回退到 {@code content} 纯文本</li>
+     *   <li>{@code toolCalls} 非空且 {@code contents}/{@code content} 均为空 → 无正文，仅工具调用</li>
      * </ul>
+     * 协议上 assistant 消息的 content 与 tool_calls 可同时存在，故不会互相覆盖。
      */
     private static List<LlmMessage> toMessages(List<LlmFacadeMessage> facadeMessages) {
         if (facadeMessages == null) return List.of();
         return facadeMessages.stream()
-                .map(m -> LlmMessage.builder()
-                        .role(m.getRole())
-                        .contents(toContents(m))
-                        .build())
+                .map(m -> {
+                    boolean hasText = (m.getContents() != null && !m.getContents().isEmpty())
+                            || m.getContent() != null;
+                    return LlmMessage.builder()
+                            .role(m.getRole())
+                            .contents(hasText ? toContents(m) : null)
+                            .toolCalls(toDomainToolCalls(m.getToolCalls()))
+                            .toolCallId(m.getToolCallId())
+                            .build();
+                })
+                .toList();
+    }
+
+    private static List<LlmToolCall> toDomainToolCalls(List<LlmToolCallDto> toolCallDtos) {
+        if (toolCallDtos == null) return null;
+        return toolCallDtos.stream()
+                .map(dto -> LlmToolCall.builder().id(dto.getId()).name(dto.getName()).arguments(dto.getArguments()).build())
                 .toList();
     }
 

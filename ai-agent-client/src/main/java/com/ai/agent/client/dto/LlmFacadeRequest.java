@@ -74,6 +74,20 @@ public class LlmFacadeRequest implements Serializable {
      */
     private Map<String, Object> extraParams;
 
+    /**
+     * 可用工具定义列表，格式与 OpenAI function calling 一致：
+     * {@code [{"type":"function","function":{"name":..,"description":..,"parameters":{JSON Schema}}}]}
+     * 为空/null 时不注入 tools 参数，即普通对话模式。
+     */
+    private List<Map<String, Object>> tools;
+
+    /**
+     * 工具选择策略，对应 tool_choice：
+     * "auto"（默认，模型自主判断）/ "none"（禁止调用）/ 指定工具名（强制调用该工具）
+     * null 时不传该字段，由平台使用默认行为。
+     */
+    private String toolChoice;
+
     public LlmFacadeRequest() {}
 
     public String getPlatform() { return platform; }
@@ -98,5 +112,9 @@ public class LlmFacadeRequest implements Serializable {
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
     public Map<String, Object> getExtraParams() { return extraParams; }
     public void setExtraParams(Map<String, Object> extraParams) { this.extraParams = extraParams; }
+    public List<Map<String, Object>> getTools() { return tools; }
+    public void setTools(List<Map<String, Object>> tools) { this.tools = tools; }
+    public String getToolChoice() { return toolChoice; }
+    public void setToolChoice(String toolChoice) { this.toolChoice = toolChoice; }
 }
 

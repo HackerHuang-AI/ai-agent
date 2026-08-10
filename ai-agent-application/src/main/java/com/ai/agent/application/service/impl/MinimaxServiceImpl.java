@@ -214,6 +214,12 @@ public class MinimaxServiceImpl implements LlmService {
         if (request.getFrequencyPenalty() != null) {
             body.put("frequency_penalty", request.getFrequencyPenalty());
         }
+        if (request.getTools() != null && !request.getTools().isEmpty()) {
+            body.put("tools", request.getTools());
+        }
+        if (request.getToolChoice() != null) {
+            body.put("tool_choice", buildToolChoice(request.getToolChoice()));
+        }
         if (request.getExtraParams() != null) {
             body.putAll(request.getExtraParams());
         }
@@ -225,10 +231,21 @@ public class MinimaxServiceImpl implements LlmService {
     }
 
     /**
+     * 构造 tool_choice 字段：auto/none 原样透传字符串；其余值视为指定工具名，转为 OpenAI 兼容协议要求的对象结构。
+     */
+    private Object buildToolChoice(String toolChoice) {
+        if ("auto".equals(toolChoice) || "none".equals(toolChoice)) {
+            return toolChoice;
+        }
+        return Map.of("type", "function", "function", Map.of("name", toolChoice));
+    }
+
+    /**
      * Minimax 特有：每条消息需带 name 字段。
      * role=system → name="assistant"
      * role=user   → name="user"
      * role=assistant → name="MM智能助手"
+     * role=tool   → name="tool"
      */
     private List<Object> buildMessages(LlmRequest request) {
         List<Object> messages = new ArrayList<>();
@@ -236,7 +253,14 @@ public class MinimaxServiceImpl implements LlmService {
             Map<String, Object> m = new HashMap<>();
             m.put("role", msg.getRole());
             m.put("name", resolveMinimaxName(msg.getRole()));
-            if (msg.isTextOnly()) {
+            if (msg.getToolCalls() != null) {
+                String text = msg.getTextContent();
+                m.put("content", text.isEmpty() ? null : text);
+                m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
+            } else if (msg.getToolCallId() != null) {
+                m.put("tool_call_id", msg.getToolCallId());
+                m.put("content", msg.getTextContent());
+            } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
@@ -250,8 +274,24 @@ public class MinimaxServiceImpl implements LlmService {
         return switch (role) {
             case "user"      -> "user";
             case "assistant" -> "MM智能助手";
+            case "tool"      -> "tool";
             default          -> "assistant";
         };
+    }
+
+    private List<Map<String, Object>> buildToolCallsArray(List<LlmToolCall> toolCalls) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (LlmToolCall tc : toolCalls) {
+            Map<String, Object> function = new HashMap<>();
+            function.put("name", tc.getName());
+            function.put("arguments", tc.getArguments());
+            Map<String, Object> toolCall = new HashMap<>();
+            toolCall.put("id", tc.getId());
+            toolCall.put("type", "function");
+            toolCall.put("function", function);
+            result.add(toolCall);
+        }
+        return result;
     }
 
     private List<Map<String, Object>> buildContentArray(LlmMessage msg) {
@@ -330,6 +370,7 @@ public class MinimaxServiceImpl implements LlmService {
                         .content(msg.path("content").asText(""))
                         .reasoningContent(reasoningContent)
                         .finishReason(c.path("finish_reason").asText(""))
+                        .toolCalls(parseToolCalls(msg.path("tool_calls")))
                         .build());
             }
             return LlmResponse.builder()
@@ -357,6 +398,25 @@ public class MinimaxServiceImpl implements LlmService {
             log.error("[Minimax-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
+    }
+
+    /**
+     * 解析 message.tool_calls 数组；节点不存在或为空数组时返回 null（对应普通对话，无工具调用）。
+     */
+    private List<LlmToolCall> parseToolCalls(JsonNode toolCallsNode) {
+        if (toolCallsNode == null || toolCallsNode.isMissingNode() || !toolCallsNode.isArray() || toolCallsNode.isEmpty()) {
+            return null;
+        }
+        List<LlmToolCall> result = new ArrayList<>();
+        for (JsonNode tc : toolCallsNode) {
+            JsonNode function = tc.path("function");
+            result.add(LlmToolCall.builder()
+                    .id(tc.path("id").asText(null))
+                    .name(function.path("name").asText(null))
+                    .arguments(function.path("arguments").asText(null))
+                    .build());
+        }
+        return result;
     }
 
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {

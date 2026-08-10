@@ -304,6 +304,12 @@ public class DoubaoServiceImpl implements LlmService {
         if (request.getFrequencyPenalty() != null) {
             body.put("frequency_penalty", request.getFrequencyPenalty());
         }
+        if (request.getTools() != null && !request.getTools().isEmpty()) {
+            body.put("tools", request.getTools());
+        }
+        if (request.getToolChoice() != null) {
+            body.put("tool_choice", buildToolChoice(request.getToolChoice()));
+        }
         // 豆包平台私有参数（通过 extraParams 透传），合并到请求体最外层。
         // 支持的私有参数包括：
         //   top_k            - Top-K 采样，限制每步候选词数量，0 表示不限制；范围 [0, ∞)
@@ -319,12 +325,32 @@ public class DoubaoServiceImpl implements LlmService {
         }
     }
 
+    /**
+     * 构造 tool_choice 字段：auto/none 原样透传字符串；其余值视为指定工具名，转为 OpenAI 协议要求的对象结构。
+     */
+    private Object buildToolChoice(String toolChoice) {
+        if ("auto".equals(toolChoice) || "none".equals(toolChoice)) {
+            return toolChoice;
+        }
+        return Map.of("type", "function", "function", Map.of("name", toolChoice));
+    }
+
     private List<Object> buildMessages(LlmRequest request) {
         List<Object> messages = new ArrayList<>();
         for (LlmMessage msg : request.getMessages()) {
             Map<String, Object> m = new HashMap<>();
             m.put("role", msg.getRole());
-            if (msg.isTextOnly()) {
+            if (msg.getToolCalls() != null) {
+                // assistant 携带工具调用请求：content 与 tool_calls 协议上可同时存在，
+                // 有正文文本（如"好的，我来查一下"）就带上，无正文则传 null
+                String text = msg.getTextContent();
+                m.put("content", text.isEmpty() ? null : text);
+                m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
+            } else if (msg.getToolCallId() != null) {
+                // tool 角色消息：回传工具执行结果
+                m.put("tool_call_id", msg.getToolCallId());
+                m.put("content", msg.getTextContent());
+            } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
@@ -332,6 +358,23 @@ public class DoubaoServiceImpl implements LlmService {
             messages.add(m);
         }
         return messages;
+    }
+
+    private List<Map<String, Object>> buildToolCallsArray(List<LlmToolCall> toolCalls) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (LlmToolCall tc : toolCalls) {
+            // function.name/arguments 理论上不应为空，但回填历史时可能来自上游透传，
+            // 用 HashMap 而非 Map.of() 以容忍 null，避免 NPE 中断整个多轮工具调用请求
+            Map<String, Object> function = new HashMap<>();
+            function.put("name", tc.getName());
+            function.put("arguments", tc.getArguments());
+            Map<String, Object> toolCall = new HashMap<>();
+            toolCall.put("id", tc.getId());
+            toolCall.put("type", "function");
+            toolCall.put("function", function);
+            result.add(toolCall);
+        }
+        return result;
     }
 
     private List<Map<String, Object>> buildContentArray(LlmMessage msg) {
@@ -366,6 +409,25 @@ public class DoubaoServiceImpl implements LlmService {
         return headers;
     }
 
+    /**
+     * 解析 message.tool_calls 数组；节点不存在或为空数组时返回 null（对应普通对话，无工具调用）。
+     */
+    private List<LlmToolCall> parseToolCalls(JsonNode toolCallsNode) {
+        if (toolCallsNode == null || toolCallsNode.isMissingNode() || !toolCallsNode.isArray() || toolCallsNode.isEmpty()) {
+            return null;
+        }
+        List<LlmToolCall> result = new ArrayList<>();
+        for (JsonNode tc : toolCallsNode) {
+            JsonNode function = tc.path("function");
+            result.add(LlmToolCall.builder()
+                    .id(tc.path("id").asText(null))
+                    .name(function.path("name").asText(null))
+                    .arguments(function.path("arguments").asText(null))
+                    .build());
+        }
+        return result;
+    }
+
     private LlmResponse parseResponse(String responseJson, String modelCode) {
         try {
             JsonNode root  = MAPPER.readTree(responseJson);
@@ -385,6 +447,7 @@ public class DoubaoServiceImpl implements LlmService {
                         .content(msg.path("content").asText(""))
                         .reasoningContent(reasoningContent)
                         .finishReason(c.path("finish_reason").asText(""))
+                        .toolCalls(parseToolCalls(msg.path("tool_calls")))
                         .build());
             }
             return LlmResponse.builder()

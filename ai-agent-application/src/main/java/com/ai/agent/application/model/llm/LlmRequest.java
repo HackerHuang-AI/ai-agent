@@ -98,5 +98,19 @@ public class LlmRequest {
      *   未来某平台的 thinking_budget   → {"thinking_budget": 1024}
      */
     private Map<String, Object> extraParams;
+
+    /**
+     * 可用工具定义列表，对应各平台 tools 字段，格式与 OpenAI function calling 一致：
+     * {@code [{"type":"function","function":{"name":..,"description":..,"parameters":{JSON Schema}}}]}
+     * 为空/null 时不注入 tools 参数，即普通对话模式。
+     */
+    private List<Map<String, Object>> tools;
+
+    /**
+     * 工具选择策略，对应 tool_choice：
+     * "auto"（默认，模型自主判断）/ "none"（禁止调用）/ 指定工具名（强制调用该工具）
+     * null 时不传该字段，由平台使用默认行为。
+     */
+    private String toolChoice;
 }
 
