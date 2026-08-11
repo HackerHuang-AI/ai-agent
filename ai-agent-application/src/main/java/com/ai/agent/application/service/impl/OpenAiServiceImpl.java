@@ -7,12 +7,12 @@ import com.ai.agent.application.enums.http.OpenAiHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -219,7 +219,9 @@ public class OpenAiServiceImpl implements LlmService {
             body.put("tool_choice", buildToolChoice(request.getToolChoice()));
         }
         if (request.getExtraParams() != null) {
-            body.putAll(request.getExtraParams());
+            request.getExtraParams().forEach((k, v) -> {
+                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+            });
         }
         try {
             return MAPPER.writeValueAsString(body);

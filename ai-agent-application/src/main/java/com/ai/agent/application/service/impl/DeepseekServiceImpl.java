@@ -7,12 +7,12 @@ import com.ai.agent.application.enums.http.DeepseekHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -56,9 +56,9 @@ public class DeepseekServiceImpl implements LlmService {
     private static final String THINKING_TYPE_KEY = "thinking_type";
     /** extraParams 专属 key：推理强度，值为 "high" 或 "max"，组装为 thinking.reasoning_effort */
     private static final String REASONING_EFFORT_KEY = "reasoning_effort";
-    /** extraParams 透传时需要过滤的框架内部 key */
+    /** extraParams 透传时需要过滤的框架内部 key，以及已由专属字段处理、避免被覆盖的 key */
     private static final Set<String> INTERNAL_KEYS = Set.of(
-            SKIP_TEMPERATURE_KEY, THINKING_TYPE_KEY, REASONING_EFFORT_KEY);
+            SKIP_TEMPERATURE_KEY, THINKING_TYPE_KEY, REASONING_EFFORT_KEY, "tools", "tool_choice");
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     
     private static final ObjectMapper MAPPER = new ObjectMapper();

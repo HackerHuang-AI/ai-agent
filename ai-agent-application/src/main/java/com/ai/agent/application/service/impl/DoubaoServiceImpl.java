@@ -7,12 +7,12 @@ import com.ai.agent.application.enums.http.DoubaoHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.config.NacosConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -316,7 +316,9 @@ public class DoubaoServiceImpl implements LlmService {
         //   frequency_penalty - 频率惩罚，按词出现次数累加惩罚，降低重复率；范围 [-2, 2]
         //   presence_penalty  - 存在惩罚，只要出现过就施加固定惩罚，鼓励话题多样性；范围 [-2, 2]
         if (request.getExtraParams() != null) {
-            body.putAll(request.getExtraParams());
+            request.getExtraParams().forEach((k, v) -> {
+                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+            });
         }
         try {
             return MAPPER.writeValueAsString(body);

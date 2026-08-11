@@ -7,12 +7,12 @@ import com.ai.agent.application.enums.http.ZhipuHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
-import com.ai.agent.infrastructure.config.NacosConfig;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -224,7 +224,9 @@ public class ZhipuServiceImpl implements LlmService {
             body.put("tool_choice", buildToolChoice(request.getToolChoice()));
         }
         if (request.getExtraParams() != null) {
-            body.putAll(request.getExtraParams());
+            request.getExtraParams().forEach((k, v) -> {
+                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+            });
         }
         try {
             return MAPPER.writeValueAsString(body);
