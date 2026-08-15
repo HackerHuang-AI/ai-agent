@@ -416,6 +416,7 @@ public class ZhipuServiceImpl implements LlmService {
     }
 
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {
+        Map<Integer, String[]> toolCallsMap = new LinkedHashMap<>();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -423,19 +424,50 @@ public class ZhipuServiceImpl implements LlmService {
                 if (!line.startsWith(SSE_DATA_PREFIX)) continue;
                 String data = line.substring(SSE_DATA_PREFIX.length()).trim();
                 if (SSE_DONE_FLAG.equals(data)) {
+                    flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
                     chunkConsumer.accept(null);
                     return;
                 }
-                String chunk = MAPPER.readTree(data).path("choices").path(0).path("delta").path("content").asText("");
+                JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
+                String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
                     chunkConsumer.accept(chunk);
                 }
+                JsonNode toolCallsNode = delta.path("tool_calls");
+                if (toolCallsNode.isArray()) {
+                    for (JsonNode tc : toolCallsNode) {
+                        int index = tc.path("index").asInt(0);
+                        String[] entry = toolCallsMap.computeIfAbsent(index, k -> new String[]{"", "", ""});
+                        if (!tc.path("id").asText("").isEmpty()) entry[0] = tc.path("id").asText("");
+                        JsonNode fn = tc.path("function");
+                        if (!fn.path("name").asText("").isEmpty()) entry[1] = fn.path("name").asText("");
+                        entry[2] += fn.path("arguments").asText("");
+                    }
+                }
             }
             // 流正常读完但未收到 [DONE] 帧（服务端偶发），兜底关闭 SSE 连接
+            flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
             chunkConsumer.accept(null);
         } catch (IOException e) {
             log.error("[Zhipu-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+        }
+    }
+
+    private void flushToolCalls(Map<Integer, String[]> toolCallsMap, String modelCode, Consumer<String> chunkConsumer) {
+        if (toolCallsMap.isEmpty()) return;
+        try {
+            List<Map<String, String>> list = new ArrayList<>();
+            for (String[] entry : toolCallsMap.values()) {
+                Map<String, String> item = new LinkedHashMap<>();
+                item.put("id", entry[0]);
+                item.put("name", entry[1]);
+                item.put("arguments", entry[2]);
+                list.add(item);
+            }
+            chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(list));
+        } catch (IOException e) {
+            log.warn("[Zhipu-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
         }
     }
 

@@ -85,7 +85,7 @@ public class OpenAiChatController {
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
                 emitter.completeWithError(new RuntimeException("LLM stream error"));
-            } else {
+            } else if (!chunk.startsWith("[TOOL_CALLS]")) {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));
                 } catch (IOException e) {

@@ -53,8 +53,9 @@ import java.util.function.Consumer;
 public class AnthropicServiceImpl implements LlmService {
 
     private static final String ANTHROPIC_VERSION   = "2023-06-01";
-    private static final String EVENT_MESSAGE_STOP  = "message_stop";
-    private static final String EVENT_CONTENT_DELTA = "content_block_delta";
+    private static final String EVENT_MESSAGE_STOP    = "message_stop";
+    private static final String EVENT_CONTENT_DELTA   = "content_block_delta";
+    private static final String EVENT_CONTENT_START    = "content_block_start";
     private static final int    DEFAULT_MAX_TOKENS  = 4096;
 
     private static final MediaType    JSON        = MediaType.parse("application/json; charset=utf-8");
@@ -457,10 +458,16 @@ public class AnthropicServiceImpl implements LlmService {
 
     /**
      * Anthropic 流式格式：每行可能是 event: xxx 或 data: {...}。
-     * 文本 chunk 在 event: content_block_delta 的 data.delta.text。
-     * 流结束标志：event: message_stop（无 [DONE]）。
+     * 文本 chunk：event: content_block_delta + data.delta.type=text_delta
+     * 工具调用：
+     *   event: content_block_start + data.content_block.type=tool_use → 获取 id/name
+     *   event: content_block_delta + data.delta.type=input_json_delta → arguments 碎片
+     * 流结束：event: message_stop（无 [DONE]）
      */
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {
+        // key=block_index, value=[id, name, arguments累积]
+        Map<Integer, String[]> toolCallsMap = new LinkedHashMap<>();
+        int currentBlockIndex = -1;
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -469,24 +476,69 @@ public class AnthropicServiceImpl implements LlmService {
                 if (line.startsWith("event: ")) {
                     currentEvent = line.substring(7).trim();
                     if (EVENT_MESSAGE_STOP.equals(currentEvent)) {
+                        flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
                         chunkConsumer.accept(null);
                         return;
                     }
-                } else if (line.startsWith("data: ") && EVENT_CONTENT_DELTA.equals(currentEvent)) {
+                } else if (line.startsWith("data: ")) {
                     try {
-                        String chunk = MAPPER.readTree(line.substring(6))
-                                .path("delta").path("text").asText("");
-                        if (!chunk.isEmpty()) chunkConsumer.accept(chunk);
+                        JsonNode dataNode = MAPPER.readTree(line.substring(6));
+                        if (EVENT_CONTENT_START.equals(currentEvent)) {
+                            // 检查是否是 tool_use block
+                            JsonNode block = dataNode.path("content_block");
+                            if ("tool_use".equals(block.path("type").asText(""))) {
+                                currentBlockIndex = dataNode.path("index").asInt(-1);
+                                if (currentBlockIndex >= 0) {
+                                    String[] entry = toolCallsMap.computeIfAbsent(currentBlockIndex, k -> new String[]{"", "", ""});
+                                    entry[0] = block.path("id").asText("");
+                                    entry[1] = block.path("name").asText("");
+                                }
+                            } else {
+                                currentBlockIndex = -1;
+                            }
+                        } else if (EVENT_CONTENT_DELTA.equals(currentEvent)) {
+                            JsonNode delta = dataNode.path("delta");
+                            String deltaType = delta.path("type").asText("");
+                            if ("text_delta".equals(deltaType)) {
+                                // 文本 chunk 实时推
+                                String chunk = delta.path("text").asText("");
+                                if (!chunk.isEmpty()) chunkConsumer.accept(chunk);
+                            } else if ("input_json_delta".equals(deltaType)) {
+                                // tool_use arguments 碎片聚合
+                                int blockIndex = dataNode.path("index").asInt(currentBlockIndex);
+                                if (blockIndex >= 0 && toolCallsMap.containsKey(blockIndex)) {
+                                    toolCallsMap.get(blockIndex)[2] += delta.path("partial_json").asText("");
+                                }
+                            }
+                        }
                     } catch (IOException e) {
                         log.warn("[Anthropic-stream] chunk 解析失败，跳过");
                     }
                 }
             }
             // 读完未收到 message_stop，主动结束
+            flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
             chunkConsumer.accept(null);
         } catch (IOException e) {
             log.error("[Anthropic-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+        }
+    }
+
+    private void flushToolCalls(Map<Integer, String[]> toolCallsMap, String modelCode, Consumer<String> chunkConsumer) {
+        if (toolCallsMap.isEmpty()) return;
+        try {
+            List<Map<String, String>> list = new ArrayList<>();
+            for (String[] entry : toolCallsMap.values()) {
+                Map<String, String> item = new LinkedHashMap<>();
+                item.put("id", entry[0]);
+                item.put("name", entry[1]);
+                item.put("arguments", entry[2]);
+                list.add(item);
+            }
+            chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(list));
+        } catch (IOException e) {
+            log.warn("[Anthropic-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
         }
     }
 

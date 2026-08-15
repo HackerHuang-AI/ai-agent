@@ -5,11 +5,7 @@ import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
-import com.ai.agent.client.dto.LlmFacadeContent;
-import com.ai.agent.client.dto.LlmFacadeMessage;
-import com.ai.agent.client.dto.LlmFacadeRequest;
-import com.ai.agent.client.dto.LlmFacadeResponse;
-import com.ai.agent.client.dto.LlmToolCallDto;
+import com.ai.agent.client.dto.*;
 import com.ai.agent.client.facade.LlmFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,9 +65,11 @@ public class LlmFacadeImpl implements LlmFacade {
                 if (chunk == null) {
                     // null 是流结束信号
                     responseObserver.onCompleted();
-                } else if ("[ERROR]".equals(chunk)) {
+                } else if (chunk.startsWith("[ERROR]")) {
                     responseObserver.onError(new RuntimeException("LLM platform stream error"));
                 } else {
+                    // [TOOL_CALLS]{...} 是服务端聚合后的工具调用结果，直接透传给 Consumer
+                    // Consumer 侧通过 chunk.startsWith("[TOOL_CALLS]") 识别，截取后解析 JSON
                     responseObserver.onNext(chunk);
                 }
             });
