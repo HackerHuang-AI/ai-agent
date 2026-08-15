@@ -98,10 +98,21 @@ public class AnthropicChatController {
 
     private LlmRequest toServiceRequest(LlmRequestVO vo) {
         List<LlmMessage> messages = vo.getMessages().stream()
-                .map(m -> LlmMessage.builder()
-                        .role(m.getRole())
-                        .contents(List.of(new MessageContent(m.getType() != null ? m.getType() : ContentTypeEnum.TEXT, m.getValue(), m.getDetail())))
-                        .build())
+                .map(m -> {
+                    if (m.getToolCalls() != null && !m.getToolCalls().isEmpty()) {
+                        return LlmMessage.ofToolCalls(m.getToolCalls(), m.getValue());
+                    }
+                    if (m.getToolCallId() != null) {
+                        return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
+                    }
+                    return LlmMessage.builder()
+                            .role(m.getRole())
+                            .contents(List.of(new MessageContent(
+                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
+                                    m.getValue(),
+                                    m.getDetail())))
+                            .build();
+                })
                 .collect(Collectors.toList());
         return LlmRequest.builder()
                 .apiKey(vo.getApiKey())
@@ -113,6 +124,8 @@ public class AnthropicChatController {
                 .topK(vo.getTopK())
                 .frequencyPenalty(vo.getFrequencyPenalty())
                 .maxTokens(vo.getMaxTokens())
+                .tools(vo.getTools())
+                .toolChoice(vo.getToolChoice())
                 .extraParams(vo.getExtraParams())
                 .build();
     }

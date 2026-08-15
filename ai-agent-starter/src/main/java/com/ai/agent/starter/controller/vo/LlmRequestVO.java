@@ -65,6 +65,20 @@ public class LlmRequestVO {
     private Integer maxTokens;
 
     /**
+     * 可用工具定义列表，格式与 OpenAI function calling 一致：
+     * {@code [{"type":"function","function":{"name":..,"description":..,"parameters":{JSON Schema}}}]}
+     * 为空/null 时不注入 tools 参数，即普通对话模式。
+     */
+    private List<Map<String, Object>> tools;
+
+    /**
+     * 工具选择策略，对应 tool_choice：
+     * "auto"（默认）/ "none"（禁止调用）/ 指定工具名（强制调用该工具）
+     * null 时不传，由平台使用默认行为。
+     */
+    private String toolChoice;
+
+    /**
      * 平台私有扩展参数，合并到请求体最外层。
      * 示例：Deepseek：{"presence_penalty": 0.3}
      */
