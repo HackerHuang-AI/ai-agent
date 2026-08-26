@@ -164,8 +164,38 @@ public class ZhipuServiceImpl implements LlmService {
 
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
-        log.info("[Zhipu-models] 模型列表需单独适配智谱 JWT 鉴权与响应协议，当前返回空列表");
-        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            ZhipuBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_ZHIPU, "chat", ZhipuBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        Request request = new Request.Builder()
+                .url("https://open.bigmodel.cn/api/paas/v4/models")
+                .get()
+                .header("Authorization", "Bearer " + generateJwtToken(apiKey))
+                .build();
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.ZHIPU).newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+            List<LlmModelInfo> models = new ArrayList<>();
+            for (JsonNode item : MAPPER.readTree(body).path("data")) {
+                models.add(LlmModelInfo.builder()
+                        .id(item.path("id").asText(null))
+                        .name(item.path("id").asText(null))
+                        .ownedBy(item.path("owned_by").asText(null))
+                        .created(item.path("created").asLong(0))
+                        .build());
+            }
+            log.info("[Zhipu-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[Zhipu-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================

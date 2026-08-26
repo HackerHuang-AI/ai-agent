@@ -159,8 +159,56 @@ public class GeminiServiceImpl implements LlmService {
 
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
-        log.info("[Gemini-models] 模型列表需单独适配 Gemini 原生认证与响应协议，当前返回空列表");
-        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            GeminiBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_GEMINI, "chat", GeminiBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        List<LlmModelInfo> models = new ArrayList<>();
+        String pageToken = null;
+        try {
+            do {
+                HttpUrl.Builder urlBuilder = HttpUrl.get("https://generativelanguage.googleapis.com/v1beta/models")
+                        .newBuilder()
+                        .addQueryParameter("key", apiKey);
+                if (pageToken != null) urlBuilder.addQueryParameter("pageToken", pageToken);
+                Request request = new Request.Builder().url(urlBuilder.build()).get().build();
+                try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.GEMINI).newCall(request).execute()) {
+                    String body = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+                    JsonNode root = MAPPER.readTree(body);
+                    for (JsonNode item : root.path("models")) {
+                        String name = item.path("name").asText(null);
+                        models.add(LlmModelInfo.builder()
+                                .id(name != null ? name.replaceFirst("^models/", "") : null)
+                                .name(item.path("displayName").asText(null))
+                                .version(item.path("version").asText(null))
+                                .taskTypes(jsonArrayToList(item.path("supportedGenerationMethods")))
+                                .contextWindow(item.path("inputTokenLimit").asInt(0))
+                                .maxInputTokens(item.path("inputTokenLimit").asInt(0))
+                                .maxOutputTokens(item.path("outputTokenLimit").asInt(0))
+                                .extra(Map.of("description", item.path("description").asText("")))
+                                .build());
+                    }
+                    pageToken = root.path("nextPageToken").asText(null);
+                }
+            } while (StringUtils.isNotBlank(pageToken));
+            log.info("[Gemini-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[Gemini-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
+    }
+
+    private List<String> jsonArrayToList(JsonNode node) {
+        List<String> result = new ArrayList<>();
+        if (node.isArray()) node.forEach(item -> result.add(item.asText()));
+        return result;
     }
 
     // ==================== 凭证兜底 ====================

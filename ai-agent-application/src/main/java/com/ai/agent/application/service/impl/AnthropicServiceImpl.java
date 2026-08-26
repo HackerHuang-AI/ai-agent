@@ -171,8 +171,53 @@ public class AnthropicServiceImpl implements LlmService {
 
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
-        log.info("[Anthropic-models] 模型列表需单独适配 Anthropic 分页协议，当前返回空列表");
-        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            AnthropicBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_ANTHROPIC, "chat", AnthropicBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        List<LlmModelInfo> models = new ArrayList<>();
+        String afterId = null;
+        try {
+            boolean hasMore;
+            do {
+                HttpUrl.Builder urlBuilder = HttpUrl.get("https://api.anthropic.com/v1/models")
+                        .newBuilder()
+                        .addQueryParameter("limit", "100");
+                if (afterId != null) urlBuilder.addQueryParameter("after_id", afterId);
+                Request request = new Request.Builder()
+                        .url(urlBuilder.build())
+                        .get()
+                        .header("x-api-key", apiKey)
+                        .header("anthropic-version", ANTHROPIC_VERSION)
+                        .build();
+                try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.ANTHROPIC).newCall(request).execute()) {
+                    String body = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+                    JsonNode root = MAPPER.readTree(body);
+                    for (JsonNode item : root.path("data")) {
+                        models.add(LlmModelInfo.builder()
+                                .id(item.path("id").asText(null))
+                                .name(item.path("display_name").asText(null))
+                                .build());
+                    }
+                    hasMore = root.path("has_more").asBoolean(false);
+                    afterId = root.path("last_id").asText(null);
+                    if (hasMore && StringUtils.isBlank(afterId)) {
+                        throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+                    }
+                }
+            } while (hasMore);
+            log.info("[Anthropic-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[Anthropic-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================
