@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: 百度千帆平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -148,16 +148,20 @@ public class QianfanServiceImpl implements LlmService {
     }
 
     /**
-     * 百度千帆当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     * 百度千帆官方平台已提供多模态模型；当前独立多模态入口尚未适配，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Qianfan] 暂不支持多模态：当前接入的百度千帆版本为纯文本模型，不具备图片理解能力");
+        log.warn("[Qianfan] 多模态接口暂未适配：百度千帆已提供多模态模型，当前独立多模态入口尚未完成适配");
         return null;
     }
 
     @Override
-    public List<LlmModelInfo> listModels(String apiKey) {
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
             QianfanBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_QIANFAN, "chat", QianfanBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;

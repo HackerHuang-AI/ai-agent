@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Moonshot（Kimi）平台对话接口
+ * @Description: 百度千帆平台对话接口
  *
  *               POST /api/qianfan/models       查询平台支持的模型列表
  *               POST /api/qianfan/chat        同步对话
@@ -51,12 +51,14 @@ public class QianfanChatController {
     }
 
     @PostMapping("/models")
-    public Result<List<LlmModelInfo>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+    public Result<LlmModelPage> listModels(@RequestBody(required = false) LlmCredentialVO req) {
         String apiKey = req != null ? req.getApiKey() : null;
-        log.info("[Qianfan-models] 开始查询模型列表, apiKey={}", apiKey != null ? "已传" : "Nacos兑底");
+        int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
+        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 20;
+        log.info("[Qianfan-models] 开始查询模型列表, pageNo={}, pageSize={}, apiKey={}", pageNo, pageSize, apiKey != null ? "已传" : "Nacos兜底");
         try {
-            List<LlmModelInfo> models = qianfanService.listModels(apiKey);
-            log.info("[Qianfan-models] 查询成功, count={}", models != null ? models.size() : 0);
+            LlmModelPage models = qianfanService.listModels(apiKey, pageNo, pageSize);
+            log.info("[Qianfan-models] 查询成功, total={}", models.getTotal());
             return Result.success(models);
         } catch (BizException e) {
             throw e;

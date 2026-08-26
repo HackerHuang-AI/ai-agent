@@ -6,21 +6,25 @@
 
 ## 支持平台
 
-| 平台 | 厂商 | 同步对话 | 流式对话 | 多模态 | 模型列表 |
-|------|------|:------:|:------:|:----:|:------:|
-| **豆包** | 字节跳动 | ✅ | ✅ | ✅ | ✅ |
-| **DeepSeek** | 深度求索 | ✅ | ✅ | — | — |
-| **OpenAI** | OpenAI | ✅ | ✅ | — | — |
-| **Anthropic** | Anthropic | ✅ | ✅ | — | — |
-| **Gemini** | Google | ✅ | ✅ | — | — |
-| **通义千问** | 阿里巴巴 | ✅ | ✅ | — | — |
-| **智谱** | 智谱 AI | ✅ | ✅ | — | — |
-| **Moonshot** | 月之暗面 | ✅ | ✅ | — | — |
-| **Minimax** | Minimax | ✅ | ✅ | — | — |
-| **千帆** | 百度 | ✅ | ✅ | — | ✅ |
-| **Tokenhub** | 内部平台 | ✅ | ✅ | — | — |
-| **Mimo** | 小米 | ✅ | ✅ | — | — |
-| **Ollama** | 本地部署 | ✅ | ✅ | ✅ | ✅ |
+| 平台 | 厂商 | 同步对话 | 流式对话 | 图文专用入口 | 工具调用 | 模型列表 |
+|------|------|:------:|:------:|:----:|:------:|:------:|
+| **豆包** | 字节跳动 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **DeepSeek** | 深度求索 | ✅ | ✅ | — | ✅ | — |
+| **OpenAI** | OpenAI | ✅ | ✅ | — | ✅ | — |
+| **Anthropic** | Anthropic | ✅ | ✅ | — | ✅ | — |
+| **Gemini** | Google | ✅ | ✅ | — | ✅ | — |
+| **通义千问** | 阿里巴巴 | ✅ | ✅ | — | ✅ | — |
+| **智谱** | 智谱 AI | ✅ | ✅ | — | ✅ | — |
+| **Moonshot** | 月之暗面 | ✅ | ✅ | — | ✅ | — |
+| **Minimax** | Minimax | ✅ | ✅ | — | ✅ | — |
+| **千帆** | 百度 | ✅ | ✅ | — | ✅ | ✅ |
+| **Tokenhub** | 内部平台 | ✅ | ✅ | — | ✅ | — |
+| **Mimo** | 小米 | ✅ | ✅ | — | ✅ | — |
+| **Ollama** | 本地部署 | ✅ | ✅ | ✅ | ✅ | 仅内部¹ |
+
+> 能力表中的“图文专用入口”指 `POST /api/llm/chat/multimodal`：豆包和 Ollama 已实现；其他平台调用该入口会返回空结果。常规 `chat`/`chat/stream` 请求中的 `IMAGE` 内容会由各平台适配器转换为对应的图像块格式；是否可用取决于所选模型和厂商端点是否支持视觉输入。
+>
+> ¹ `OllamaServiceImpl` 已通过 `/api/tags` 实现模型列表查询，但当前未暴露 HTTP `POST /api/ollama/models` 接口。可用的 HTTP 模型列表接口为 `POST /api/doubao/models` 和 `POST /api/qianfan/models`。
 
 ---
 
@@ -93,7 +97,9 @@
 
 ### 统一接口（通过 `platform` 字段路由）
 
-**POST** `/api/llm/chat`
+以下 HTTP 接口均使用 `/ai-agent` 作为 context-path 前缀。
+
+**POST** `/ai-agent/api/llm/chat`
 ```json
 {
   "platform": "doubao",
@@ -104,16 +110,28 @@
     {"role": "user", "type": "TEXT", "value": "你好"}
   ],
   "temperature": 0.7,
-  "maxTokens": 2048
+  "maxTokens": 2048,
+  "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
+  "toolChoice": "auto",
+  "extraParams": {"presence_penalty": 0.3}
 }
 ```
 
-**POST** `/api/llm/chat/stream` — SSE 流式，`Content-Type: text/event-stream`
+**POST** `/ai-agent/api/llm/chat/stream` — SSE 流式，`Content-Type: text/event-stream`
 
-**POST** `/api/llm/chat/multimodal` — 图文混合输入
+**POST** `/ai-agent/api/llm/chat/multimodal` — 图文专用入口；当前由豆包和 Ollama 实现。其他平台请通过常规 `chat`/`chat/stream` 传入 `IMAGE` 内容，并选择支持视觉的模型。
+
+`tools` 和 `toolChoice` 使用 OpenAI 兼容的函数调用格式。`extraParams` 会合并到对应平台的请求体，用于传递平台私有参数。`topK` 不适用于 OpenAI、Moonshot 和 DeepSeek；`frequencyPenalty` 不适用于 Anthropic，在 DeepSeek 中已废弃，Moonshot 文档未定义该参数。
 
 ### 平台专属接口
-每个平台同时保留独立的 Controller，路由为 `/api/{platform}/chat` 和 `/api/{platform}/chat/stream`，保留平台特色能力（如豆包的 Responses API 多模态）。
+每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。豆包额外提供 `POST /ai-agent/api/doubao/models`、`POST /ai-agent/api/doubao/multimodal/chat`、`POST /ai-agent/api/doubao/multimodal/chat/file`；千帆提供 `POST /ai-agent/api/qianfan/models`。当前没有统一的模型列表路由。
+
+### Dubbo RPC 接口
+服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，并调用 `chat`、`multimodalChat` 或服务端流式 `chatStream`。
+
+### 运维接口
+- `POST /ai-agent/api/nacos/config`：按传入的 `dataId` 查询 Nacos 缓存配置。
+- `GET /ai-agent/api/nacos/thread-pool`：查询豆包和 DeepSeek 流式线程池的当前指标。
 
 ---
 
@@ -131,6 +149,8 @@
   }
 }
 ```
+
+部分平台存在额外配置块。例如豆包的 Responses API 多模态调用使用独立的 `multimodal` 凭证和模型配置。
 
 ### OkHttp 连接池（`ai-agent-http.json`）
 ```json

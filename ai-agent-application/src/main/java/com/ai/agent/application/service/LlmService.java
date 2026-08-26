@@ -1,10 +1,9 @@
 package com.ai.agent.application.service;
 
-import com.ai.agent.application.model.llm.LlmModelInfo;
+import com.ai.agent.application.model.llm.LlmModelPage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -60,16 +59,17 @@ public interface LlmService {
     LlmResponse multimodalChat(LlmRequest request);
 
     /**
-     * 查询平台支持的模型列表。
+     * 查询平台支持的模型列表并返回统一分页结果。
      *
-     * <p>平台有公开 REST 接口时：发起 HTTP 调用返回真实列表。
-     * <p>平台无公开接口时：默认返回 {@code null}，各平台 ServiceImpl 可按需覆盖。
+     * <p>各平台必须显式实现本方法：有官方模型列表接口时仅调用本平台接口；
+     * 未确认或暂不支持时返回空分页结果并记录原因日志，禁止通过聚合平台查询其他厂商模型。
+     * pageSize 最大为 20；天然全量返回的平台由各实现内部切片组装分页结果。
      *
      * @param apiKey API Key；为空时从 Nacos 兜底
-     * @return 模型信息列表；平台不支持时返回 {@code null}
+     * @param pageNo 页码，从 1 开始
+     * @param pageSize 每页数量，最大 20
+     * @return 统一模型分页结果
      */
-    default List<LlmModelInfo> listModels(String apiKey) {
-        return null;
-    }
+    LlmModelPage listModels(String apiKey, int pageNo, int pageSize);
 }
 

@@ -27,7 +27,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Moonshot（Kimi）平台对话接口
+ * @Description: Google Gemini 平台对话接口
  *
  *               POST /api/gemini/chat        同步对话
  *               POST /api/gemini/chat/stream  流式对话，SSE 实时推送 chunk

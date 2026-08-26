@@ -16,6 +16,15 @@ import lombok.Data;
 @Data
 public class LlmCredentialVO {
 
+    /** 平台标识；统一模型列表接口必传 */
+    private String platform;
+
+    /** 页码，从 1 开始，默认 1 */
+    private Integer pageNo;
+
+    /** 每页数量，默认 20，最大 20 */
+    private Integer pageSize;
+
     /** API Key，可选；为空时从 Nacos 平台配置兜底 */
     private String apiKey;
 }

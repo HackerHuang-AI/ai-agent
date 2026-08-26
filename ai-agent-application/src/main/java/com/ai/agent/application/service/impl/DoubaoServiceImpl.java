@@ -698,7 +698,11 @@ public class DoubaoServiceImpl implements LlmService {
      * apiKey / endpoint 为空时从 Nacos ai-agent-doubao.json chat 块兜底。
      */
     @Override
-    public List<LlmModelInfo> listModels(String apiKey) {
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
             DoubaoBO cfg = getChatConfig();
             apiKey = cfg != null ? cfg.getApiKey() : null;

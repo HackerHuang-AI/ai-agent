@@ -163,13 +163,41 @@ public class DeepseekServiceImpl implements LlmService {
     }
 
     /**
-     * Deepseek 当前主力模型（deepseek-chat / deepseek-reasoner）为纯文本推理模型，
-     * 不具备图片理解能力，暂不支持多模态，返回 null。
+     * DeepSeek 已提供支持图像输入的 vision 模型；当前适配器尚未完成 OpenAI 兼容多模态消息格式适配，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Deepseek] 暂不支持多模态：当前接入的 deepseek-chat / deepseek-reasoner 为纯文本模型，不具备图片理解能力");
+        log.warn("[Deepseek] 多模态接口暂未适配：DeepSeek vision 模型已支持图像输入，当前适配器尚未完成消息格式转换");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            DeepseekBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DEEPSEEK, "chat", DeepseekBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        Request request = new Request.Builder().url("https://api.deepseek.com/models").get()
+                .header("Authorization", "Bearer " + apiKey).build();
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) throwByHttpCode(response.code(), body);
+            List<LlmModelInfo> models = new ArrayList<>();
+            for (JsonNode item : MAPPER.readTree(body).path("data")) {
+                models.add(LlmModelInfo.builder().id(item.path("id").asText(null)).name(item.path("id").asText(null))
+                        .ownedBy(item.path("owned_by").asText(null)).build());
+            }
+            log.info("[Deepseek-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[Deepseek-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================

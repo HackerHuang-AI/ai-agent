@@ -3,12 +3,10 @@ package com.ai.agent.starter.controller;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.impl.OllamaServiceImpl;
 import com.ai.agent.starter.common.Result;
+import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
@@ -27,8 +25,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Moonshot（Kimi）平台对话接口
+ * @Description: Ollama 本地模型平台对话接口
  *
+ *               POST /api/ollama/models      查询本地模型列表
  *               POST /api/ollama/chat        同步对话
  *               POST /api/ollama/chat/stream  流式对话，SSE 实时推送 chunk
  *
@@ -49,6 +48,14 @@ public class OllamaChatController {
 
     public OllamaChatController(OllamaServiceImpl ollamaService) {
         this.ollamaService = ollamaService;
+    }
+
+    @PostMapping("/models")
+    public Result<LlmModelPage> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+        String apiKey = req != null ? req.getApiKey() : null;
+        int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
+        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 20;
+        return Result.success(ollamaService.listModels(apiKey, pageNo, pageSize));
     }
 
     @PostMapping("/chat")

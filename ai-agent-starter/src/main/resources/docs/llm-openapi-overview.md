@@ -25,6 +25,14 @@
 | Google（Gemini） | 自有 + OpenAI 兼容 | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | Bearer / URL 参数 | SSE / JSON 数组流 | ⭐⭐⭐ 高（原生协议结构差异大） |
 ---
 
+## 网关接入状态说明
+
+下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。`POST /api/llm/chat/multimodal` 是图文专用入口，当前仅豆包和 Ollama 已实现，其他平台调用会返回空结果。
+
+所有平台的常规对话均通过 `POST /api/llm/chat` 和 `POST /api/llm/chat/stream` 接入。各适配器会将统一消息中的 `IMAGE` 内容转换为厂商图像块格式；请求应选择对应厂商端点实际支持的视觉模型。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
+
+---
+
 ## 二、认证方式对比
 
 | 平台 | Header 字段 | 值格式 | Token 获取方式 |

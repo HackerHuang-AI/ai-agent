@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: 腾讯 TokenHub 平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -148,12 +148,41 @@ public class TokenhubServiceImpl implements LlmService {
     }
 
     /**
-     * 腾讯 TokenHub 当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     * TokenHub 聚合平台的多模态能力取决于所选模型；当前独立多模态入口尚未适配，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[TokenHub] 暂不支持多模态：当前接入的腾讯 TokenHub 版本为纯文本模型，不具备图片理解能力");
+        log.warn("[TokenHub] 多模态接口暂未适配：实际能力取决于所选模型，当前独立多模态入口尚未完成适配");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            TokenhubBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_TOKENHUB, "chat", TokenhubBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        Request request = new Request.Builder().url("https://tokenhub.tencentmaas.com/v1/models").get()
+                .header("Authorization", "Bearer " + apiKey).build();
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TOKENHUB).newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+            List<LlmModelInfo> models = new ArrayList<>();
+            for (JsonNode item : MAPPER.readTree(body).path("data")) {
+                models.add(LlmModelInfo.builder().id(item.path("id").asText(null)).name(item.path("id").asText(null))
+                        .ownedBy(item.path("owned_by").asText(null)).build());
+            }
+            log.info("[TokenHub-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[TokenHub-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================

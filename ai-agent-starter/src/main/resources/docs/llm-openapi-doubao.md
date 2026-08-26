@@ -32,6 +32,13 @@ Content-Type: application/json
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
+- 已接入图文专用入口：`POST /api/llm/chat/multimodal` 会将统一的文本、图片内容转换为火山方舟 Responses API 的 `input_text`、`input_image` 格式；当前仅支持文本和图片，不支持文件或视频。
+
+---
+
 ## 三、核心入参
 
 ```json

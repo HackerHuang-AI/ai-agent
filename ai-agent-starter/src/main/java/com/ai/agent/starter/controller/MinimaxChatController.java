@@ -27,7 +27,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Moonshot（Kimi）平台对话接口
+ * @Description: MiniMax 平台对话接口
  *
  *               POST /api/minimax/chat        同步对话
  *               POST /api/minimax/chat/stream  流式对话，SSE 实时推送 chunk

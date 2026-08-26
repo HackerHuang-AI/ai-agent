@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: 小米 MiMo 平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -148,12 +148,18 @@ public class MimoServiceImpl implements LlmService {
     }
 
     /**
-     * MiMo 为专注推理的纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     * MiMo V2.5 官方模型已提供图片、音频和视频理解；当前适配器尚未完成多模态消息格式适配，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[MiMo] 暂不支持多模态：MiMo 为纯文本推理模型，不具备图片理解能力");
+        log.warn("[MiMo] 多模态接口暂未适配：MiMo V2.5 已提供多模态理解，当前适配器尚未完成消息格式转换");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        log.info("[MiMo-models] 未确认可用的官方模型列表接口，当前返回空列表");
+        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
     }
 
     // ==================== 凭证兜底 ====================

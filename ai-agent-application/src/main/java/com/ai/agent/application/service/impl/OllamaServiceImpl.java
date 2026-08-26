@@ -33,7 +33,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: Ollama 本地模型平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -436,7 +436,11 @@ public class OllamaServiceImpl implements LlmService {
     }
 
     @Override
-    public List<LlmModelInfo> listModels(String apiKey) {
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
         OllamaBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OLLAMA, "chat", OllamaBO.class);
         String endpoint = cfg != null ? cfg.getEndpoint() : null;
         if (StringUtils.isBlank(endpoint)) {

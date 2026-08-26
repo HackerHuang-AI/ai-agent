@@ -148,12 +148,41 @@ public class MoonshotServiceImpl implements LlmService {
     }
 
     /**
-     * Moonshot（Kimi）当前不支持图片输入，仅支持超长文本理解，暂不支持多模态，返回 null。
+     * Kimi 官方 API 已支持图片和视频输入；当前适配器尚未完成多模态消息格式与文件引用协议的转换，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Moonshot] 暂不支持多模态：Kimi 当前版本仅支持超长文本理解，不具备图片输入能力");
+        log.warn("[Moonshot] 多模态接口暂未适配：Kimi 已支持图片和视频输入，当前适配器尚未完成消息格式与文件引用协议转换");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            MoonshotBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MOONSHOT, "chat", MoonshotBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        Request request = new Request.Builder().url("https://api.moonshot.cn/v1/models").get()
+                .header("Authorization", "Bearer " + apiKey).build();
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MOONSHOT).newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+            List<LlmModelInfo> models = new ArrayList<>();
+            for (JsonNode item : MAPPER.readTree(body).path("data")) {
+                models.add(LlmModelInfo.builder().id(item.path("id").asText(null)).name(item.path("id").asText(null))
+                        .ownedBy(item.path("owned_by").asText(null)).build());
+            }
+            log.info("[Moonshot-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[Moonshot-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================

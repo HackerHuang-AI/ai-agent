@@ -3,12 +3,10 @@ package com.ai.agent.starter.controller;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
+import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
 import com.ai.agent.starter.common.Result;
+import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
 import jakarta.validation.Valid;
@@ -33,6 +31,7 @@ import java.util.stream.Collectors;
  *               POST /api/llm/chat              同步对话
  *               POST /api/llm/chat/stream        流式对话，SSE 实时推送 chunk
  *               POST /api/llm/chat/multimodal    多模态对话
+ *               POST /api/llm/models             模型列表
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
@@ -51,6 +50,14 @@ public class LlmChatController {
 
     public LlmChatController(LlmRouter llmRouter) {
         this.llmRouter = llmRouter;
+    }
+
+    @PostMapping("/models")
+    public Result<LlmModelPage> listModels(@RequestBody LlmCredentialVO req) {
+        checkPlatform(req.getPlatform());
+        return Result.success(llmRouter.listModels(req.getPlatform(), req.getApiKey(),
+                req.getPageNo() != null ? req.getPageNo() : 1,
+                req.getPageSize() != null ? req.getPageSize() : 20));
     }
 
     @PostMapping("/chat")

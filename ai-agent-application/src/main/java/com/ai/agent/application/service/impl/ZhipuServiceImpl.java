@@ -162,6 +162,12 @@ public class ZhipuServiceImpl implements LlmService {
         return null;
     }
 
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        log.info("[Zhipu-models] 模型列表需单独适配智谱 JWT 鉴权与响应协议，当前返回空列表");
+        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
+    }
+
     // ==================== 凭证兜底 ====================
 
     /**

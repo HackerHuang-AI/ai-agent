@@ -151,12 +151,18 @@ public class MinimaxServiceImpl implements LlmService {
     }
 
     /**
-     * Minimax 当前接入版本为纯文本模型，不具备图片理解能力，暂不支持多模态，返回 null。
+     * MiniMax 官方平台已提供视觉模型；当前独立多模态入口尚未适配，返回 null。
      */
     @Override
     public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Minimax] 暂不支持多模态：当前接入版本为纯文本模型，不具备图片理解能力");
+        log.warn("[Minimax] 多模态接口暂未适配：MiniMax 已提供视觉模型，当前独立多模态入口尚未完成适配");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        log.info("[Minimax-models] 未确认可用的官方模型列表接口，当前返回空列表");
+        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
     }
 
     // ==================== 凭证兜底 ====================

@@ -32,6 +32,13 @@ Content-Type: application/json
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、Function Calling 与工具结果回传，以及 MiniMax `name`、`base_resp` 等协议差异处理。
+- `POST /api/llm/chat/multimodal` 的 MiniMax 图文专用入口尚未实现，调用会返回空结果；常规对话会按 OpenAI 兼容 `image_url` 格式下发 `IMAGE` 内容，需选择视觉模型。
+
+---
+
 ## 三、核心入参（v2 接口）
 
 ```json

@@ -62,12 +62,14 @@ public class DoubaoChatController {
      * 若传入则使用调用方自定义凭证，适用于多租户场景。
      */
     @PostMapping("/models")
-    public Result<List<LlmModelInfo>> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+    public Result<LlmModelPage> listModels(@RequestBody(required = false) LlmCredentialVO req) {
         String apiKey = req != null ? req.getApiKey() : null;
-        log.info("[Doubao-models] 开始查询模型列表, apiKey={}", apiKey != null ? "已传" : "Nacos兜底");
+        int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
+        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 20;
+        log.info("[Doubao-models] 开始查询模型列表, pageNo={}, pageSize={}, apiKey={}", pageNo, pageSize, apiKey != null ? "已传" : "Nacos兜底");
         try {
-            List<LlmModelInfo> models = doubaoService.listModels(apiKey);
-            log.info("[Doubao-models] 查询成功, count={}", models != null ? models.size() : 0);
+            LlmModelPage models = doubaoService.listModels(apiKey, pageNo, pageSize);
+            log.info("[Doubao-models] 查询成功, total={}", models.getTotal());
             return Result.success(models);
         } catch (BizException e) {
             throw e;

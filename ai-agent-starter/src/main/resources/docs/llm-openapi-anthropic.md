@@ -35,6 +35,13 @@ Content-Type: application/json
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、Anthropic 工具协议转换及工具结果回传。
+- `POST /api/llm/chat/multimodal` 的 Claude 图文专用入口尚未实现，调用会返回空结果；常规对话会将 `IMAGE` 内容转换为 Anthropic `image` 块，需选择支持视觉的模型。
+
+---
+
 ## 三、核心入参
 
 ```json

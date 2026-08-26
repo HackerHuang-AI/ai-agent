@@ -169,6 +169,12 @@ public class AnthropicServiceImpl implements LlmService {
         return null;
     }
 
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        log.info("[Anthropic-models] 模型列表需单独适配 Anthropic 分页协议，当前返回空列表");
+        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
+    }
+
     // ==================== 凭证兜底 ====================
 
     private void fillDefaults(LlmRequest request) {

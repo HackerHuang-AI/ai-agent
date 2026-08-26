@@ -57,6 +57,13 @@ https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generat
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、OpenAI 兼容 Function Calling 与工具结果回传。
+- `POST /api/llm/chat/multimodal` 的 Gemini 图文专用入口尚未实现，调用会返回空结果；常规对话会按 OpenAI 兼容 `image_url` 格式下发 `IMAGE` 内容。Gemini 原生 API 的音频、视频及 `parts`/`inlineData` 协议仍需单独适配。
+
+---
+
 ## 三、核心入参
 
 ### 3.1 OpenAI 兼容接口（与 OpenAI 格式一致）

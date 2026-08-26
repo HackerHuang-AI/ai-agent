@@ -28,6 +28,13 @@ Content-Type: application/json
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、`reasoning_content` 解析、Function Calling 与工具结果回传。
+- `POST /api/llm/chat/multimodal` 的 DeepSeek 图文专用入口尚未实现，调用会返回空结果；常规对话会按 OpenAI 兼容 `image_url` 格式下发 `IMAGE` 内容，需选择支持视觉的模型。
+
+---
+
 ## 三、核心入参
 
 ```json

@@ -28,6 +28,13 @@ Content-Type: application/json
 
 ---
 
+## 本网关接入状态
+
+- 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
+- `POST /api/llm/chat/multimodal` 的 Kimi 图文专用入口尚未实现，调用会返回空结果；常规对话会按 OpenAI 兼容 `image_url` 格式下发 `IMAGE` 内容。视频和文件引用仍需按厂商协议单独适配。
+
+---
+
 ## 三、核心入参
 
 ```json

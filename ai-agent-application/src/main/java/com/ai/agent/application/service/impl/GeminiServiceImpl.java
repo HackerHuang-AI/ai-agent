@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: Google Gemini 平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -155,6 +155,12 @@ public class GeminiServiceImpl implements LlmService {
     public LlmResponse multimodalChat(LlmRequest request) {
         log.warn("[Gemini] 多模态接口暂未适配：Gemini 原生支持视觉，但其 parts/inline_data 协议与当前通用接口层尚未完成对接");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        log.info("[Gemini-models] 模型列表需单独适配 Gemini 原生认证与响应协议，当前返回空列表");
+        return LlmModelPage.of(Collections.emptyList(), pageNo, pageSize);
     }
 
     // ==================== 凭证兜底 ====================

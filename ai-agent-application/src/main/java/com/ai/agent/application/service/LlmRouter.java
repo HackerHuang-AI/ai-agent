@@ -2,6 +2,7 @@ package com.ai.agent.application.service;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
+import com.ai.agent.application.model.llm.LlmModelPage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +77,16 @@ public class LlmRouter {
         LlmService service = resolve(platform);
         log.info("[LlmRouter] multimodal platform={}, modelCode={}", platform, request.getModelCode());
         return service.multimodalChat(request);
+    }
+
+    /**
+     * 根据 platform 路由到对应 Service 查询模型列表。
+     */
+    public LlmModelPage listModels(String platform, String apiKey, int pageNo, int pageSize) {
+        LlmService service = resolve(platform);
+        log.info("[LlmRouter] listModels platform={}, pageNo={}, pageSize={}, apiKey={}",
+                platform, pageNo, pageSize, apiKey == null ? "Nacos兜底" : "已传");
+        return service.listModels(apiKey, pageNo, pageSize);
     }
 
     /**

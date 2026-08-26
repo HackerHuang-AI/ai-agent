@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Moonshot（Kimi）平台 LLM 服务实现
+ * @Description: OpenAI 平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
  * @ProjectName: ai-agent
@@ -155,6 +155,38 @@ public class OpenAiServiceImpl implements LlmService {
     public LlmResponse multimodalChat(LlmRequest request) {
         log.warn("[OpenAI] 多模态接口暂未适配：GPT-4o Vision 需通过 Chat Completions image_url 协议传入图片，当前通用接口层尚未完成对接");
         return null;
+    }
+
+    @Override
+    public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
+        return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
+    }
+
+    private List<LlmModelInfo> fetchModels(String apiKey) {
+        if (StringUtils.isBlank(apiKey)) {
+            OpenAiBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAiBO.class);
+            apiKey = cfg != null ? cfg.getApiKey() : null;
+        }
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        return requestModels("https://api.openai.com/v1/models", apiKey);
+    }
+
+    private List<LlmModelInfo> requestModels(String url, String apiKey) {
+        Request request = new Request.Builder().url(url).get().header("Authorization", "Bearer " + apiKey).build();
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
+            List<LlmModelInfo> models = new ArrayList<>();
+            for (JsonNode item : MAPPER.readTree(body).path("data")) {
+                models.add(LlmModelInfo.builder().id(item.path("id").asText(null)).name(item.path("id").asText(null))
+                        .ownedBy(item.path("owned_by").asText(null)).created(item.path("created").asLong(0)).build());
+            }
+            log.info("[OpenAI-models] 获取模型列表成功, count={}", models.size());
+            return models;
+        } catch (IOException e) {
+            log.error("[OpenAI-models] 获取模型列表失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        }
     }
 
     // ==================== 凭证兜底 ====================

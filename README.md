@@ -6,21 +6,25 @@
 
 ## Supported Platforms
 
-| Platform | Provider | Chat | Stream | Multimodal | List Models |
-|----------|----------|:----:|:------:|:----------:|:-----------:|
-| **Doubao** | ByteDance | ✅ | ✅ | ✅ | ✅ |
-| **DeepSeek** | DeepSeek AI | ✅ | ✅ | — | — |
-| **OpenAI** | OpenAI | ✅ | ✅ | — | — |
-| **Anthropic** | Anthropic | ✅ | ✅ | — | — |
-| **Gemini** | Google | ✅ | ✅ | — | — |
-| **Qwen** | Alibaba | ✅ | ✅ | — | — |
-| **Zhipu** | Zhipu AI | ✅ | ✅ | — | — |
-| **Moonshot** | Moonshot AI | ✅ | ✅ | — | — |
-| **Minimax** | Minimax | ✅ | ✅ | — | — |
-| **Qianfan** | Baidu | ✅ | ✅ | — | ✅ |
-| **Tokenhub** | Internal | ✅ | ✅ | — | — |
-| **Mimo** | Xiaomi | ✅ | ✅ | — | — |
-| **Ollama** | Local | ✅ | ✅ | ✅ | ✅ |
+| Platform | Provider | Chat | Stream | Dedicated vision endpoint | Tool Calling | List Models |
+|----------|----------|:----:|:------:|:----------:|:------------:|:-----------:|
+| **Doubao** | ByteDance | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **DeepSeek** | DeepSeek AI | ✅ | ✅ | — | ✅ | — |
+| **OpenAI** | OpenAI | ✅ | ✅ | — | ✅ | — |
+| **Anthropic** | Anthropic | ✅ | ✅ | — | ✅ | — |
+| **Gemini** | Google | ✅ | ✅ | — | ✅ | — |
+| **Qwen** | Alibaba | ✅ | ✅ | — | ✅ | — |
+| **Zhipu** | Zhipu AI | ✅ | ✅ | — | ✅ | — |
+| **Moonshot** | Moonshot AI | ✅ | ✅ | — | ✅ | — |
+| **Minimax** | Minimax | ✅ | ✅ | — | ✅ | — |
+| **Qianfan** | Baidu | ✅ | ✅ | — | ✅ | ✅ |
+| **Tokenhub** | Internal | ✅ | ✅ | — | ✅ | — |
+| **Mimo** | Xiaomi | ✅ | ✅ | — | ✅ | — |
+| **Ollama** | Local | ✅ | ✅ | ✅ | ✅ | Internal only¹ |
+
+> “Dedicated vision endpoint” refers to `POST /api/llm/chat/multimodal`: only Doubao and Ollama implement it; other platforms return an empty result. In regular `chat`/`chat/stream` requests, each adapter serializes `IMAGE` content into its image-block format. Availability still depends on the selected model and provider endpoint supporting vision input.
+>
+> ¹ `OllamaServiceImpl` implements model listing through `/api/tags`, but no HTTP `/api/ollama/models` endpoint is currently exposed. The HTTP model-list endpoints are `POST /api/doubao/models` and `POST /api/qianfan/models`.
 
 ---
 
@@ -92,7 +96,9 @@ Each platform has its own `XxxHttpCodeEnum` (e.g. `DoubaoHttpCodeEnum`, `Deepsee
 
 ### Unified Endpoint (route by `platform` field)
 
-**POST** `/api/llm/chat`
+All HTTP endpoints below use the context path `/ai-agent`.
+
+**POST** `/ai-agent/api/llm/chat`
 ```json
 {
   "platform": "doubao",
@@ -107,12 +113,14 @@ Each platform has its own `XxxHttpCodeEnum` (e.g. `DoubaoHttpCodeEnum`, `Deepsee
 }
 ```
 
-**POST** `/api/llm/chat/stream` — SSE, `Content-Type: text/event-stream`
+**POST** `/ai-agent/api/llm/chat/stream` — SSE, `Content-Type: text/event-stream`
 
-**POST** `/api/llm/chat/multimodal` — image + text mixed input
+**POST** `/ai-agent/api/llm/chat/multimodal` — dedicated image + text endpoint; currently implemented for Doubao and Ollama. For other platforms, send `IMAGE` content through regular `chat`/`chat/stream` and select a vision-capable model.
+
+`tools` and `toolChoice` use the OpenAI-compatible function-calling format. `extraParams` is merged into the provider request body for provider-specific parameters.
 
 ### Per-Platform Dedicated Endpoints
-Each platform also exposes its own controller at `/api/{platform}/chat` and `/api/{platform}/chat/stream`, preserving platform-specific capabilities.
+Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. Doubao additionally provides `POST /ai-agent/api/doubao/models`, `POST /ai-agent/api/doubao/multimodal/chat`, and `POST /ai-agent/api/doubao/multimodal/chat/file`; Qianfan provides `POST /ai-agent/api/qianfan/models`. There is no unified model-list endpoint.
 
 ---
 
