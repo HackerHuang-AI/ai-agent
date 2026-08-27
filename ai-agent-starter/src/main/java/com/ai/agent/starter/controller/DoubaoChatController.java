@@ -9,6 +9,7 @@ import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
+import com.ai.agent.starter.controller.vo.LlmResponsesRequestVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -104,6 +105,16 @@ public class DoubaoChatController {
         SseEmitter emitter = new SseEmitter(0L);
         doubaoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
+    }
+
+    @PostMapping("/responses")
+    public Result<LlmResponseVO> responses(@Valid @RequestBody LlmResponsesRequestVO req) {
+        LlmResponse response = doubaoService.responses(LlmResponsesRequest.builder()
+                .apiKey(req.getApiKey()).endpoint(req.getEndpoint()).model(req.getModel()).input(req.getInput())
+                .instructions(req.getInstructions()).temperature(req.getTemperature()).topP(req.getTopP())
+                .maxOutputTokens(req.getMaxOutputTokens()).tools(req.getTools()).toolChoice(req.getToolChoice())
+                .extraParams(req.getExtraParams()).build());
+        return Result.success(toVO(response));
     }
 
     private Consumer<String> buildSseConsumer(SseEmitter emitter, String tag) {

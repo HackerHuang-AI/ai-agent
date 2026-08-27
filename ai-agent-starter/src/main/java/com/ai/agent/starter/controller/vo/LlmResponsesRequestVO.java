@@ -1,5 +1,6 @@
 package com.ai.agent.starter.controller.vo;
 
+import com.ai.agent.application.model.llm.LlmResponsesInput;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -25,9 +26,9 @@ public class LlmResponsesRequestVO {
     /** Responses API 的模型标识 */
     private String model;
 
-    /** Responses API 的 input 字段 */
+    /** OpenAI Responses API 兼容的固定 input 项列表 */
     @NotNull(message = "input 不能为空")
-    private Object input;
+    private List<LlmResponsesInput> input;
 
     /** Responses API 的系统指令 */
     private String instructions;

@@ -2,6 +2,8 @@ package com.ai.agent.client.facade;
 
 import com.ai.agent.client.dto.LlmFacadeRequest;
 import com.ai.agent.client.dto.LlmFacadeResponse;
+import com.ai.agent.client.dto.LlmFacadeResponsesRequest;
+import com.ai.agent.client.dto.LlmFacadeResponsesResponse;
 import org.apache.dubbo.common.stream.StreamObserver;
 
 /**
@@ -51,6 +53,9 @@ public interface LlmFacade {
      * @throws RuntimeException 平台不支持、调用失败时抛出
      */
     LlmFacadeResponse chat(LlmFacadeRequest request);
+
+    /** 调用平台的 Responses API；未支持的平台返回 output 为空的响应。 */
+    LlmFacadeResponsesResponse responses(LlmFacadeResponsesRequest request);
 
     /**
      * 流式调用指定平台的 LLM（Triple Server Streaming），逐 token 推送给 Consumer。

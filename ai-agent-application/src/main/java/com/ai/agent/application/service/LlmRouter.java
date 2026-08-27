@@ -77,7 +77,8 @@ public class LlmRouter {
         try {
             return service.responses(request);
         } catch (UnsupportedOperationException e) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, e.getMessage());
+            log.warn("[LlmRouter] platform={} 未接入 Responses API", platform);
+            return LlmResponse.builder().modelCode(request.getModel()).output(java.util.List.of()).build();
         }
     }
 

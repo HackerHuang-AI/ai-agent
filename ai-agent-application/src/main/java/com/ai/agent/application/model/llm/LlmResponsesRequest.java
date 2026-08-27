@@ -27,8 +27,8 @@ public class LlmResponsesRequest {
     /** Responses API 的模型标识 */
     private String model;
 
-    /** Responses API 的 input 字段 */
-    private Object input;
+    /** OpenAI Responses API 兼容的固定 input 项列表 */
+    private List<LlmResponsesInput> input;
 
     /** Responses API 的系统指令 */
     private String instructions;

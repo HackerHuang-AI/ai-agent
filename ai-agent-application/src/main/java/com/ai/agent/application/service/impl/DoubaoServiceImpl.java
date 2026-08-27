@@ -160,7 +160,7 @@ public class DoubaoServiceImpl implements LlmService {
     /**
      * Responses API 调用。
      */
-    public LlmResponse responses(String model, Object input, String apiKey, String endpoint) {
+    public LlmResponse responses(String model, List<LlmResponsesInput> input, String apiKey, String endpoint) {
         // 第一步：只在有字段为空时才读 Nacos
         DoubaoBO cfg = null;
         if (StringUtils.isBlank(apiKey) || StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) {

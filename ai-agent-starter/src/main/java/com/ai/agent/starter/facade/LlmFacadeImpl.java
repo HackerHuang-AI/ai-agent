@@ -10,7 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.stream.StreamObserver;
 import org.apache.dubbo.config.annotation.DubboService;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * LlmFacade Dubbo Provider 实现（Triple 协议）。
@@ -34,6 +37,18 @@ public class LlmFacadeImpl implements LlmFacade {
 
         LlmRequest llmRequest = buildLlmRequest(request, false);
         return toFacadeResponse(llmRouter.chat(request.getPlatform(), llmRequest));
+    }
+
+    @Override
+    public LlmFacadeResponsesResponse responses(LlmFacadeResponsesRequest request) {
+        validateResponses(request);
+        log.info("[LlmFacade] responses, platform={}, model={}", request.getPlatform(), request.getModel());
+        LlmResponse response = llmRouter.responses(request.getPlatform(), LlmResponsesRequest.builder()
+                .apiKey(request.getApiKey()).endpoint(request.getEndpoint()).model(request.getModel())
+                .input(toResponsesInput(request.getInput())).instructions(request.getInstructions())
+                .temperature(request.getTemperature()).topP(request.getTopP()).maxOutputTokens(request.getMaxOutputTokens())
+                .tools(request.getTools()).toolChoice(request.getToolChoice()).extraParams(request.getExtraParams()).build());
+        return toFacadeResponsesResponse(response);
     }
 
     @Override
@@ -85,6 +100,52 @@ public class LlmFacadeImpl implements LlmFacade {
         return toolCalls.stream()
                 .map(tc -> new LlmToolCallDto(tc.getId(), tc.getName(), tc.getArguments()))
                 .toList();
+    }
+
+    private static LlmFacadeResponsesResponse toFacadeResponsesResponse(LlmResponse response) {
+        LlmUsage usage = response.getUsage();
+        LlmFacadeResponsesResponse result = new LlmFacadeResponsesResponse();
+        result.setRequestId(response.getRequestId());
+        result.setModelCode(response.getModelCode());
+        result.setStatus(response.getStatus());
+        result.setMaxOutputTokens(response.getMaxOutputTokens());
+        result.setInputTokens(usage != null && usage.getInputTokens() != null ? usage.getInputTokens() : 0);
+        result.setOutputTokens(usage != null && usage.getOutputTokens() != null ? usage.getOutputTokens() : 0);
+        List<Map<String, Object>> output = new ArrayList<>();
+        if (response.getOutput() != null) {
+            for (LlmOutputItem item : response.getOutput()) {
+                Map<String, Object> value = new LinkedHashMap<>();
+                value.put("id", item.getId());
+                value.put("type", item.getType());
+                value.put("status", item.getStatus());
+                value.put("role", item.getRole());
+                value.put("call_id", item.getCallId());
+                value.put("name", item.getName());
+                value.put("arguments", item.getArguments());
+                value.put("summary", item.getSummary());
+                value.put("content", item.getContent());
+                output.add(value);
+            }
+        }
+        result.setOutput(output);
+        return result;
+    }
+
+    private static List<LlmResponsesInput> toResponsesInput(List<LlmFacadeResponsesInput> input) {
+        return input.stream().map(item -> LlmResponsesInput.builder().type(item.getType()).role(item.getRole())
+                .content(item.getContent() == null ? null : item.getContent().stream()
+                        .map(content -> LlmResponsesContent.builder().type(content.getType()).text(content.getText())
+                                .imageUrl(content.getImageUrl()).fileId(content.getFileId()).detail(content.getDetail()).build()).toList())
+                .callId(item.getCallId()).name(item.getName()).arguments(item.getArguments()).output(item.getOutput()).build()).toList();
+    }
+
+    private void validateResponses(LlmFacadeResponsesRequest request) {
+        if (request == null || request.getPlatform() == null || request.getPlatform().isBlank()) {
+            throw new IllegalArgumentException("platform 不能为空");
+        }
+        if (request.getInput() == null || request.getInput().isEmpty()) {
+            throw new IllegalArgumentException("input 不能为空");
+        }
     }
 
     private void validate(LlmFacadeRequest request) {
