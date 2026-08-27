@@ -3,6 +3,7 @@ package com.ai.agent.application.service;
 import com.ai.agent.application.model.llm.LlmModelPage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
+import com.ai.agent.application.model.llm.LlmResponsesRequest;
 
 import java.util.function.Consumer;
 
@@ -42,21 +43,17 @@ public interface LlmService {
     void chatStream(LlmRequest request, Consumer<String> chunkConsumer);
 
     /**
-     * 多模态对话，支持图片+文本混合输入。
+     * 调用厂商的 Responses API。
      *
-     * <p>各平台必须显式实现本方法：
-     * <ul>
-     *   <li>支持多模态的平台：完成协议适配后调用对应 API</li>
-     *   <li>暂不支持的平台：打印平台专属日志说明原因，并返回 {@code null}</li>
-     * </ul>
+     * <p>Responses API 与 Chat / Messages 是独立协议，使用 {@code input} 而非
+     * {@code messages} 组织输入。未接入该协议的平台直接拒绝调用。
      *
-     * <p>入参复用 {@link LlmRequest}，messages 中每条消息的 {@code contents} 字段
-     * 描述多内容块（TEXT / IMAGE / …）。
-     *
-     * @param request 统一入参，messages.contents 中含图片等非文本内容
-     * @return 统一响应；若平台不支持则返回 {@code null}
+     * @param request 统一 Responses API 入参
+     * @return 统一响应
      */
-    LlmResponse multimodalChat(LlmRequest request);
+    default LlmResponse responses(LlmResponsesRequest request) {
+        throw new UnsupportedOperationException("当前平台未接入 Responses API");
+    }
 
     /**
      * 查询平台支持的模型列表并返回统一分页结果。

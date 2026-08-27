@@ -68,8 +68,8 @@ public class LlmFacadeMessage implements Serializable {
         return new LlmFacadeMessage("assistant", content);
     }
 
-    /** 便捷工厂：user 多模态消息 */
-    public static LlmFacadeMessage userMultimodal(List<LlmFacadeContent> contents) {
+    /** 便捷工厂：user 图文内容块消息 */
+    public static LlmFacadeMessage userContents(List<LlmFacadeContent> contents) {
         LlmFacadeMessage msg = new LlmFacadeMessage();
         msg.role = "user";
         msg.contents = contents;

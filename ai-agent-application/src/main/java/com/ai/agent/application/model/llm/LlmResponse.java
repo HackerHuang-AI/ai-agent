@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * @Description: LLM 统一调用返回，调用方收到此对象，无需感知底层平台差异。
- *               Chat 场景填 choices + usage，多模态场景填 output + status + maxOutputTokens + usage。
+ *               Chat 场景填 choices + usage，Responses API 场景填 output + status + maxOutputTokens + usage。
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.model.llm
  * @ClassName: LlmResponse

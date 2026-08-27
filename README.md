@@ -6,23 +6,23 @@
 
 ## Supported Platforms
 
-| Platform | Provider | Chat | Stream | Dedicated vision endpoint | Tool Calling | List Models |
-|----------|----------|:----:|:------:|:----------:|:------------:|:-----------:|
-| **Doubao** | ByteDance | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **DeepSeek** | DeepSeek AI | ✅ | ✅ | — | ✅ | — |
-| **OpenAI** | OpenAI | ✅ | ✅ | — | ✅ | — |
-| **Anthropic** | Anthropic | ✅ | ✅ | — | ✅ | — |
-| **Gemini** | Google | ✅ | ✅ | — | ✅ | — |
-| **Qwen** | Alibaba | ✅ | ✅ | — | ✅ | — |
-| **Zhipu** | Zhipu AI | ✅ | ✅ | — | ✅ | — |
-| **Moonshot** | Moonshot AI | ✅ | ✅ | — | ✅ | — |
-| **Minimax** | Minimax | ✅ | ✅ | — | ✅ | — |
-| **Qianfan** | Baidu | ✅ | ✅ | — | ✅ | ✅ |
-| **Tokenhub** | Internal | ✅ | ✅ | — | ✅ | — |
-| **Mimo** | Xiaomi | ✅ | ✅ | — | ✅ | — |
-| **Ollama** | Local | ✅ | ✅ | ✅ | ✅ | Internal only¹ |
+| Platform | Provider | Chat | Stream | Vision input | Responses API | Tool Calling | List Models |
+|----------|----------|:----:|:------:|:------------:|:-------------:|:------------:|:-----------:|
+| **Doubao** | ByteDance | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **DeepSeek** | DeepSeek AI | ✅ | ✅ | ✅ | Provider supported; gateway pending | ✅ | — |
+| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | Provider supported; gateway pending | ✅ | — |
+| **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Qwen** | Alibaba | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Zhipu** | Zhipu AI | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Moonshot** | Moonshot AI | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Qianfan** | Baidu | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Tokenhub** | Internal | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Mimo** | Xiaomi | ✅ | ✅ | ✅ | — | ✅ | — |
+| **Ollama** | Local | ✅ | ✅ | ✅ | — | ✅ | Internal only¹ |
 
-> “Dedicated vision endpoint” refers to `POST /api/llm/chat/multimodal`: only Doubao and Ollama implement it; other platforms return an empty result. In regular `chat`/`chat/stream` requests, each adapter serializes `IMAGE` content into its image-block format. Availability still depends on the selected model and provider endpoint supporting vision input.
+> Submit `IMAGE` content through `POST /api/llm/chat` or `/chat/stream`; each adapter serializes it into the provider image-block format. The gateway supports the Responses APIs of OpenAI, DeepSeek, and Doubao through `POST /api/llm/responses`.
 >
 > ¹ `OllamaServiceImpl` implements model listing through `/api/tags`, but no HTTP `/api/ollama/models` endpoint is currently exposed. The HTTP model-list endpoints are `POST /api/doubao/models` and `POST /api/qianfan/models`.
 
@@ -79,7 +79,7 @@ Each platform gets its own `OkHttpClient` instance with independently configured
 ### 3. Two-Layer Retry
 | Layer | Class | Scope |
 |-------|-------|-------|
-| Sync (chat / multimodal) | `AppRetryUtil.retry()` | Full HTTP call inside lambda; exponential backoff + 10% jitter |
+| Sync (chat / responses) | `AppRetryUtil.retry()` | Full HTTP call inside lambda; exponential backoff + 10% jitter |
 | Stream (chatStream) | `AppRetryUtil.retryForStream()` | Connection-establishment phase only; once streaming begins, no retry |
 
 Non-retryable error codes (e.g. auth failure, insufficient balance) are configured per-platform in Nacos and respected by both layers.
@@ -115,12 +115,14 @@ All HTTP endpoints below use the context path `/ai-agent`.
 
 **POST** `/ai-agent/api/llm/chat/stream` — SSE, `Content-Type: text/event-stream`
 
-**POST** `/ai-agent/api/llm/chat/multimodal` — dedicated image + text endpoint; currently implemented for Doubao and Ollama. For other platforms, send `IMAGE` content through regular `chat`/`chat/stream` and select a vision-capable model.
+`/chat` and `/chat/stream` both accept text and image content blocks; adapters serialize `IMAGE` into the provider-specific image input format.
+
+**POST** `/ai-agent/api/llm/responses` — separate Responses API endpoint. Its `input` is passed through according to the provider protocol; Doubao is currently supported.
 
 `tools` and `toolChoice` use the OpenAI-compatible function-calling format. `extraParams` is merged into the provider request body for provider-specific parameters.
 
 ### Per-Platform Dedicated Endpoints
-Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. Doubao additionally provides `POST /ai-agent/api/doubao/models`, `POST /ai-agent/api/doubao/multimodal/chat`, and `POST /ai-agent/api/doubao/multimodal/chat/file`; Qianfan provides `POST /ai-agent/api/qianfan/models`. There is no unified model-list endpoint.
+Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. Doubao additionally provides `POST /ai-agent/api/doubao/models`; Qianfan provides `POST /ai-agent/api/qianfan/models`. There is no unified model-list endpoint.
 
 ---
 

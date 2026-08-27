@@ -1,8 +1,6 @@
 package com.ai.agent.starter.facade;
 
-import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ContentTypeEnum;
-import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
 import com.ai.agent.client.dto.*;
@@ -32,7 +30,6 @@ public class LlmFacadeImpl implements LlmFacade {
     @Override
     public LlmFacadeResponse chat(LlmFacadeRequest request) {
         validate(request);
-        validateTextMessages(request);
         log.info("[LlmFacade] chat, platform={}, model={}", request.getPlatform(), request.getModelCode());
 
         LlmRequest llmRequest = buildLlmRequest(request, false);
@@ -40,22 +37,8 @@ public class LlmFacadeImpl implements LlmFacade {
     }
 
     @Override
-    public LlmFacadeResponse multimodalChat(LlmFacadeRequest request) {
-        validate(request);
-        log.info("[LlmFacade] multimodalChat, platform={}, model={}", request.getPlatform(), request.getModelCode());
-
-        LlmRequest llmRequest = buildLlmRequest(request, false);
-        LlmResponse response = llmRouter.multimodalChat(request.getPlatform(), llmRequest);
-        if (response == null) {
-            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, "当前平台暂不支持多模态调用");
-        }
-        return toFacadeResponse(response);
-    }
-
-    @Override
     public void chatStream(LlmFacadeRequest request, StreamObserver<String> responseObserver) {
         validate(request);
-        validateTextMessages(request);
         log.info("[LlmFacade] chatStream, platform={}, model={}", request.getPlatform(), request.getModelCode());
 
         LlmRequest llmRequest = buildLlmRequest(request, true);
@@ -116,13 +99,6 @@ public class LlmFacadeImpl implements LlmFacade {
         }
         if (request.getMessages().stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("messages 不能包含 null");
-        }
-    }
-
-    private static void validateTextMessages(LlmFacadeRequest request) {
-        if (request.getMessages().stream().anyMatch(message ->
-                message.getContents() != null && !message.getContents().isEmpty())) {
-            throw new IllegalArgumentException("chat/chatStream 不支持多模态 messages.contents，请调用 multimodalChat");
         }
     }
 

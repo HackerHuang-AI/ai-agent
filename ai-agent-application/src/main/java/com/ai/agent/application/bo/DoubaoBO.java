@@ -14,7 +14,7 @@ import lombok.Data;
  *     "endpoint":   "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
  *     "endpointId": "ep-xxx"
  *   },
- *   "multimodal": {
+ *   "responses": {
  *     "apiKey":    "ark-xxx",
  *     "endpoint":  "https://ark.cn-beijing.volces.com/api/v3/responses",
  *     "model":     "ep-xxx"

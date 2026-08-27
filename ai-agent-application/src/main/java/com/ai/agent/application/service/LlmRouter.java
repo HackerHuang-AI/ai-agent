@@ -5,6 +5,7 @@ import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.LlmModelPage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
+import com.ai.agent.application.model.llm.LlmResponsesRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -64,19 +65,20 @@ public class LlmRouter {
     }
 
     /**
-     * 根据 platform 路由到对应 Service 执行多模态调用。
-     *
-     * <p>若平台不支持多模态，对应 Service 的 default 实现会打印日志并返回 {@code null}，
-     * 本方法将 {@code null} 原样返回，由 Controller 层决定如何处理。
+     * 根据 platform 路由到对应 Service 执行 Responses API 调用。
      *
      * @param platform platform 标识（不区分大小写）
-     * @param request  统一入参，messages.contents 中含图片等多模态内容
-     * @return 统一响应；平台不支持时返回 {@code null}
+     * @param request  统一 Responses API 入参
+     * @return 统一响应
      */
-    public LlmResponse multimodalChat(String platform, LlmRequest request) {
+    public LlmResponse responses(String platform, LlmResponsesRequest request) {
         LlmService service = resolve(platform);
-        log.info("[LlmRouter] multimodal platform={}, modelCode={}", platform, request.getModelCode());
-        return service.multimodalChat(request);
+        log.info("[LlmRouter] responses platform={}, model={}", platform, request.getModel());
+        try {
+            return service.responses(request);
+        } catch (UnsupportedOperationException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, e.getMessage());
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
+import com.ai.agent.starter.controller.vo.LlmResponsesRequestVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -28,9 +29,9 @@ import java.util.stream.Collectors;
 /**
  * @Description: LLM 统一对话接口，通过 platform 参数路由到对应平台实现。
  *
- *               POST /api/llm/chat              同步对话
- *               POST /api/llm/chat/stream        流式对话，SSE 实时推送 chunk
- *               POST /api/llm/chat/multimodal    多模态对话
+ *               POST /api/llm/chat              同步对话（文本和图文输入）
+ *               POST /api/llm/chat/stream        流式对话（文本和图文输入）
+ *               POST /api/llm/responses          Responses API 调用
  *               POST /api/llm/models             模型列表
  *
  * @ProjectName: ai-agent
@@ -78,15 +79,24 @@ public class LlmChatController {
         return emitter;
     }
 
-    @PostMapping("/chat/multimodal")
-    public Result<LlmResponseVO> multimodalChat(@Valid @RequestBody LlmRequestVO req) {
+    @PostMapping("/responses")
+    public Result<LlmResponseVO> responses(@Valid @RequestBody LlmResponsesRequestVO req) {
         checkPlatform(req.getPlatform());
-        log.info("[LlmChat-multimodal] 开始处理, platform={}, req={}", req.getPlatform(), req);
-        LlmResponse response = llmRouter.multimodalChat(req.getPlatform(), toServiceRequest(req));
-        log.info("[LlmChat-multimodal] 处理完成, platform={}", req.getPlatform());
-        if (response == null) {
-            return Result.success(null);
-        }
+        log.info("[LlmResponses] 开始处理, platform={}, model={}", req.getPlatform(), req.getModel());
+        LlmResponse response = llmRouter.responses(req.getPlatform(), LlmResponsesRequest.builder()
+                .apiKey(req.getApiKey())
+                .endpoint(req.getEndpoint())
+                .model(req.getModel())
+                .input(req.getInput())
+                .instructions(req.getInstructions())
+                .temperature(req.getTemperature())
+                .topP(req.getTopP())
+                .maxOutputTokens(req.getMaxOutputTokens())
+                .tools(req.getTools())
+                .toolChoice(req.getToolChoice())
+                .extraParams(req.getExtraParams())
+                .build());
+        log.info("[LlmResponses] 处理完成, platform={}", req.getPlatform());
         return Result.success(toVO(response));
     }
 
@@ -127,12 +137,16 @@ public class LlmChatController {
                     if (m.getToolCallId() != null) {
                         return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
                     }
+                    List<MessageContent> contents = m.getContents() != null && !m.getContents().isEmpty()
+                            ? m.getContents().stream()
+                                    .map(content -> new MessageContent(content.getType(), content.getValue(), content.getDetail()))
+                                    .collect(Collectors.toList())
+                            : List.of(new MessageContent(
+                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
+                                    m.getValue(), m.getDetail()));
                     return LlmMessage.builder()
                             .role(m.getRole())
-                            .contents(List.of(new MessageContent(
-                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
-                                    m.getValue(),
-                                    m.getDetail())))
+                            .contents(contents)
                             .build();
                 })
                 .collect(Collectors.toList());

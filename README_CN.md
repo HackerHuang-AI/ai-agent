@@ -6,25 +6,25 @@
 
 ## 支持平台
 
-| 平台 | 厂商 | 同步对话 | 流式对话 | 图文专用入口 | 工具调用 | 模型列表 |
-|------|------|:------:|:------:|:----:|:------:|:------:|
-| **豆包** | 字节跳动 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **DeepSeek** | 深度求索 | ✅ | ✅ | — | ✅ | — |
-| **OpenAI** | OpenAI | ✅ | ✅ | — | ✅ | — |
-| **Anthropic** | Anthropic | ✅ | ✅ | — | ✅ | — |
-| **Gemini** | Google | ✅ | ✅ | — | ✅ | — |
-| **通义千问** | 阿里巴巴 | ✅ | ✅ | — | ✅ | — |
-| **智谱** | 智谱 AI | ✅ | ✅ | — | ✅ | — |
-| **Moonshot** | 月之暗面 | ✅ | ✅ | — | ✅ | — |
-| **Minimax** | Minimax | ✅ | ✅ | — | ✅ | — |
-| **千帆** | 百度 | ✅ | ✅ | — | ✅ | ✅ |
-| **Tokenhub** | 内部平台 | ✅ | ✅ | — | ✅ | — |
-| **Mimo** | 小米 | ✅ | ✅ | — | ✅ | — |
-| **Ollama** | 本地部署 | ✅ | ✅ | ✅ | ✅ | 仅内部¹ |
+| 平台 | 厂商 | 同步对话 | 流式对话 | 图文对话 | Responses API | 工具调用 | 模型列表 |
+|------|------|:------:|:------:|:--------:|:-------------:|:--------:|:--------:|
+| **豆包** | 字节跳动 | ✅ | ✅ | ✅¹ | ✅² | ✅ | ✅ |
+| **DeepSeek** | 深度求索 | ✅ | ✅ | ✅ | 厂商支持，网关未接入 | ✅ | ✅ |
+| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | 厂商支持，网关未接入 | ✅ | ✅ |
+| **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **通义千问** | 阿里巴巴 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **智谱** | 智谱 AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Moonshot** | 月之暗面 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **千帆** | 百度 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Tokenhub** | 内部平台 | ✅ | ✅ | ✅³ | — | ✅ | ✅ |
+| **Mimo** | 小米 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Ollama** | 本地部署 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 
-> 能力表中的“图文专用入口”指 `POST /api/llm/chat/multimodal`：豆包和 Ollama 已实现；其他平台调用该入口会返回空结果。常规 `chat`/`chat/stream` 请求中的 `IMAGE` 内容会由各平台适配器转换为对应的图像块格式；是否可用取决于所选模型和厂商端点是否支持视觉输入。
+> 图文通过 `POST /api/llm/chat` 传入 `IMAGE` 内容，流式图文使用 `chat/stream`。适配器负责转换厂商图片块；是否可用取决于所选模型和厂商端点是否支持视觉输入。
 >
-> ¹ `OllamaServiceImpl` 已通过 `/api/tags` 实现模型列表查询，但当前未暴露 HTTP `POST /api/ollama/models` 接口。可用的 HTTP 模型列表接口为 `POST /api/doubao/models` 和 `POST /api/qianfan/models`。
+> ¹ 图文能力取决于所选模型和厂商端点。² 豆包、DeepSeek 与 OpenAI 均已通过独立的 `POST /api/llm/responses` 接入其 Responses API。³ TokenHub 的视觉能力取决于所选上游模型。统一模型列表接口为 `POST /api/llm/models`。
 
 ---
 
@@ -80,7 +80,7 @@
 
 | 层次 | 类 | 适用场景 |
 |------|----|---------|
-| 同步（chat / multimodal）| `AppRetryUtil.retry()` | 完整 HTTP 调用在 lambda 内重试；指数退避 + 10% 随机抖动 |
+| 同步（chat / responses）| `AppRetryUtil.retry()` | 完整 HTTP 调用在 lambda 内重试；指数退避 + 10% 随机抖动 |
 | 流式（chatStream）| `AppRetryUtil.retryForStream()` | 仅连接建立阶段重试；一旦开始推 chunk 不重试 |
 
 不可重试错误码（如认证失败、余额不足）通过 Nacos 按平台配置，两层均遵循该配置。
@@ -119,15 +119,17 @@
 
 **POST** `/ai-agent/api/llm/chat/stream` — SSE 流式，`Content-Type: text/event-stream`
 
-**POST** `/ai-agent/api/llm/chat/multimodal` — 图文专用入口；当前由豆包和 Ollama 实现。其他平台请通过常规 `chat`/`chat/stream` 传入 `IMAGE` 内容，并选择支持视觉的模型。
+`/chat` 和 `/chat/stream` 均支持文本、图片等内容块；`IMAGE` 由各平台适配器转换为对应的图像输入结构。
+
+**POST** `/ai-agent/api/llm/responses` — 独立的 Responses API 入口，`input` 按厂商协议透传；当前已接入豆包。
 
 `tools` 和 `toolChoice` 使用 OpenAI 兼容的函数调用格式。`extraParams` 会合并到对应平台的请求体，用于传递平台私有参数。`topK` 不适用于 OpenAI、Moonshot 和 DeepSeek；`frequencyPenalty` 不适用于 Anthropic，在 DeepSeek 中已废弃，Moonshot 文档未定义该参数。
-
+每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
 ### 平台专属接口
-每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。豆包额外提供 `POST /ai-agent/api/doubao/models`、`POST /ai-agent/api/doubao/multimodal/chat`、`POST /ai-agent/api/doubao/multimodal/chat/file`；千帆提供 `POST /ai-agent/api/qianfan/models`。当前没有统一的模型列表路由。
+每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
 
 ### Dubbo RPC 接口
-服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，并调用 `chat`、`multimodalChat` 或服务端流式 `chatStream`。
+服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，并调用支持图文内容块的 `chat` 或服务端流式 `chatStream`。
 
 ### 运维接口
 - `POST /ai-agent/api/nacos/config`：按传入的 `dataId` 查询 Nacos 缓存配置。
@@ -148,9 +150,7 @@
     "modelCode": "model-name"
   }
 }
-```
-
-部分平台存在额外配置块。例如豆包的 Responses API 多模态调用使用独立的 `multimodal` 凭证和模型配置。
+部分平台存在额外配置块。例如豆包的 Responses API 使用独立的 `responses` 凭证和模型配置。
 
 ### OkHttp 连接池（`ai-agent-http.json`）
 ```json
@@ -196,7 +196,7 @@
 Ollama 作为本地 LLM 平台被完整支持。
 
 - **Chat & 流式**：走 OpenAI 兼容协议（`/v1/chat/completions`）
-- **多模态**：支持视觉模型（`llava`、`moondream`、`minicpm-v` 等），本地需提前拉取对应模型
+- **图文输入**：支持视觉模型（`llava`、`moondream`、`minicpm-v` 等），本地需提前拉取对应模型
 - **模型列表**：调用 `/api/tags` 返回本地已拉取的模型列表
 
 ```json

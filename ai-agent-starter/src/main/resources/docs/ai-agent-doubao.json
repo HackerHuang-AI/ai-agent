@@ -4,7 +4,7 @@
         "endpoint": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
         "endpointId": "ep-20260608204404-22d5g"
     },
-    "multimodal": {
+    "responses": {
         "apiKey": "ark-Hcc87c9770d-da5c-4471-8a23-c2644936b909-94503",
         "endpoint": "https://ark.cn-beijing.volces.com/api/v3/responses",
         "model": "ep-20260608204404-22d5g"

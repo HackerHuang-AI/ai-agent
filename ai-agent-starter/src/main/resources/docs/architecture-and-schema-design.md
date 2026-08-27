@@ -19,7 +19,7 @@
 | 模块 | 定位 | 现状 |
 |---|---|---|
 | `ai-gateway` | 流量入口：鉴权、限流、TraceId 透传 | 有 filter 骨架（JWT/日志/TraceId），无业务逻辑 |
-| `ai-agent` | LLM 协议网关：屏蔽 13 个平台的协议差异，对外统一 `chat`/`chatStream`/`multimodalChat` | **代码量最完整**，Function Calling 已全平台打通 |
+| `ai-agent` | LLM 协议网关：屏蔽 13 个平台的协议差异，对外统一 `chat`/`chatStream`/`responses` | **代码量最完整**，Function Calling 已全平台打通 |
 | `ai-mcp` | 工具与 MCP 接入：内置工具注册 + 外部 MCP Server 接入，统一 `ToolRouter` 对外屏蔽来源差异 | 已有真实 MCP Client 实现（基于官方 mcp-sdk），Dubbo 对外暴露 |
 | `ai-orchestration` | 编排引擎：ReAct 循环，串联 LLM 调用 + 工具执行 + 记忆读写 | **仅有 DTO/Facade 骨架**（`OrchestrationRequest` 已定义 `mode: DIRECT/REACT`），核心循环未实现 |
 | `ai-memory` | 会话记忆：短期上下文、长期记忆存取 | 空壳（只有 `MemoryFacade`/`MemoryMessage` 骨架） |

@@ -24,6 +24,7 @@ Content-Type: application/json
 | 接口 | 方法 | URL |
 |------|------|-----|
 | 对话补全（同步 + 流式） | POST | `https://api.openai.com/v1/chat/completions` |
+| Responses API | POST | `https://api.openai.com/v1/responses` |
 | 模型列表 | GET | `https://api.openai.com/v1/models` |
 
 ---
@@ -31,7 +32,9 @@ Content-Type: application/json
 ## 本网关接入状态
 
 - 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
-- `POST /api/llm/chat/multimodal` 的 OpenAI 图文专用入口尚未实现，调用会返回空结果；常规对话会按 Chat Completions 的 `image_url` 格式下发 `IMAGE` 内容，需选择支持视觉的模型。
+- 已接入图文对话：`POST /api/llm/chat` 复用 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需选择支持视觉的模型。
+- OpenAI 官方已对外提供 `POST /v1/responses`；该协议使用 `input` / `output`，支持文本、图像、工具等内容。
+- 已接入 OpenAI Responses API：通过 `POST /api/llm/responses` 调用；网关透传 `input`，并统一解析响应中的 `output`、`usage` 与 `status`。
 
 ---
 

@@ -148,17 +148,6 @@ public class OllamaServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * Ollama 多模态对话，需本地加载视觉模型（如 llava、moondream、minicpm-v 等）。
-     * 走 OpenAI 兼容协议（/v1/chat/completions），图片通过 image_url 结构传入，与 chat() 链路完全一致。
-     * 若加载的模型不支持视觉，Ollama 会返回 400 错误。
-     */
-    @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        log.info("[Ollama-multimodal] 开始调用，请确认本地已加载视觉模型（如 llava / moondream / minicpm-v）");
-        return chat(request);
-    }
-
     // ==================== 凭证兜底 ====================
 
     private void fillDefaults(LlmRequest request) {

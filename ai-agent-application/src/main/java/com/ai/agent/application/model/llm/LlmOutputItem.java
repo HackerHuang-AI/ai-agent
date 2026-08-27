@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * @Description: 多模态响应输出节点，对应豆包 Responses API output[] 数组中的每个元素。
+ * @Description: Responses API 输出节点，对应豆包 Responses API output[] 数组中的每个元素。
  *               type 取值：
  *                 reasoning - 模型思考过程，内容在 summary 字段
  *                 message   - 模型对用户的回复，内容在 content 字段
@@ -33,6 +33,15 @@ public class LlmOutputItem {
 
     /** 节点状态：completed 等 */
     private String status;
+
+    /** 工具调用 ID，type=function_call 时有值，需作为 function_call_output 的 call_id 回传。 */
+    private String callId;
+
+    /** 工具名称，type=function_call 时有值。 */
+    private String name;
+
+    /** 工具参数，type=function_call 时有值，为 JSON 字符串。 */
+    private String arguments;
 
     /**
      * 思考摘要块列表，type=reasoning 时有值，对应 output[i].summary[]。

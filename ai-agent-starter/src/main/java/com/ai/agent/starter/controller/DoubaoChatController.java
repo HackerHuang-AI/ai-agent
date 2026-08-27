@@ -9,20 +9,18 @@ import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmCredentialVO;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
-import com.ai.agent.starter.controller.vo.MessageContentVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.util.CollectionUtils;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -30,10 +28,8 @@ import java.util.stream.Collectors;
  * @Description: 豆包（火山方舟）平台对话接口
  *               凭证（apiKey / endpoint）由调用方通过请求体传入，或从 Nacos 兜底。
  *
- *               POST /api/doubao/chat                    同步对话（Chat Completions 协议，纯文本）
+ *               POST /api/doubao/chat                    同步对话（Chat Completions 协议，文本和图文输入）
  *               POST /api/doubao/chat/stream              流式对话，SSE 实时推送 chunk
- *               POST /api/doubao/multimodal/chat          多模态对话（Responses API，image_url 或 Base64）
- *               POST /api/doubao/multimodal/chat/file     多模态对话（form-data，上传本地图片）
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
@@ -80,7 +76,7 @@ public class DoubaoChatController {
     }
 
     /**
-     * 同步对话接口（Chat Completions 协议，纯文本）
+     * 同步对话接口（Chat Completions 协议，支持文本和图文输入）
      * POST /api/doubao/chat
      */
     @PostMapping("/chat")
@@ -132,78 +128,9 @@ public class DoubaoChatController {
         };
     }
 
-    /**
-     * 多模态对话接口（Responses API，支持图片URL或Base64）
-     * POST /api/doubao/multimodal/chat
-     *
-     * <p>入参复用 {@link LlmRequestVO}，messages 中每条用 contents 字段描述多内容块：
-     * <pre>{@code
-     * {
-     *   "messages": [{
-     *     "role": "user",
-     *     "contents": [
-     *       {"type": "IMAGE", "value": "https://example.com/img.jpg"},
-     *       {"type": "TEXT",  "value": "描述这张图片"}
-     *     ]
-     *   }]
-     * }
-     * }</pre>
-     */
-    @PostMapping("/multimodal/chat")
-    public Result<LlmResponseVO> multimodalChat(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Doubao-multimodal] 开始处理, req={}", req);
-        try {
-            List<Map<String, Object>> input = toMultimodalInput(req);
-            LlmResponse response = doubaoService.multimodalChat(req.getModelCode(), input, req.getApiKey(), req.getEndpoint());
-            log.info("[Doubao-multimodal] 处理完成, response={}", response);
-            return Result.success(toVO(response));
-        } catch (BizException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("[Doubao-multimodal] 系统异常", e);
-            throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
-        }
-    }
-
-    /**
-     * 多模态对话接口（form-data 上传本地图片）
-     * POST /api/doubao/multimodal/chat/file
-     *
-     * <p>form-data 参数：
-     * <ul>
-     *   <li>image  - 图片文件</li>
-     *   <li>text   - 对图片的提问文字</li>
-     *   <li>apiKey / endpoint / model - 可选，为空从 Nacos 兜底</li>
-     * </ul>
-     */
-    @PostMapping("/multimodal/chat/file")
-    public Result<LlmResponseVO> multimodalChatFile(
-            @RequestParam("image") MultipartFile image,
-            @RequestParam("text") String text,
-            @RequestParam(value = "apiKey",   required = false) String apiKey,
-            @RequestParam(value = "endpoint", required = false) String endpoint,
-            @RequestParam(value = "model",    required = false) String model) {
-        log.info("[Doubao-multimodal-file] 开始处理, model={}, fileName={}", model, image.getOriginalFilename());
-        try {
-            if (image.isEmpty()) {
-                throw new BizException(ErrorCodeEnum.IMAGE_FILE_NOT_FOUND);
-            }
-            String mimeType = image.getContentType() != null ? image.getContentType() : "image/jpeg";
-            LlmResponse response = doubaoService.multimodalChatFile(
-                    image.getBytes(), mimeType, text, model, apiKey, endpoint);
-            log.info("[Doubao-multimodal-file] 处理完成, response={}", response);
-            return Result.success(toVO(response));
-        } catch (BizException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("[Doubao-multimodal-file] 系统异常", e);
-            throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
-        }
-    }
-
     // ==================== 私有方法 ====================
 
-    /** 非多模态接口：LlmRequestVO → LlmRequest（单内容块，type + value） */
+    /** LlmRequestVO → LlmRequest，支持 type/value 或 contents 图文内容块。 */
     private LlmRequest toServiceRequest(LlmRequestVO vo) {
         List<LlmMessage> messages = vo.getMessages().stream()
                 .map(m -> {
@@ -213,12 +140,16 @@ public class DoubaoChatController {
                     if (m.getToolCallId() != null) {
                         return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
                     }
+                    List<MessageContent> contents = m.getContents() != null && !m.getContents().isEmpty()
+                            ? m.getContents().stream()
+                                    .map(content -> new MessageContent(content.getType(), content.getValue(), content.getDetail()))
+                                    .collect(Collectors.toList())
+                            : List.of(new MessageContent(
+                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
+                                    m.getValue(), m.getDetail()));
                     return LlmMessage.builder()
                             .role(m.getRole())
-                            .contents(List.of(new MessageContent(
-                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
-                                    m.getValue(),
-                                    m.getDetail())))
+                            .contents(contents)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -236,49 +167,6 @@ public class DoubaoChatController {
                 .toolChoice(vo.getToolChoice())
                 .extraParams(vo.getExtraParams())
                 .build();
-    }
-
-    /**
-     * 多模态接口：LlmRequestVO.messages（contents 字段）→ 豆包 Responses API input 结构。
-     * 每条 message 的 contents 列表映射为 content 数组：
-     *   IMAGE → {type: "input_image", image_url: value}
-     *   TEXT  → {type: "input_text",  text: value}
-     * 其余类型（FILE/VIDEO）豆包 Responses API 暂不支持，直接拒绝。
-     */
-    private List<Map<String, Object>> toMultimodalInput(LlmRequestVO vo) {
-        if (CollectionUtils.isEmpty(vo.getMessages())) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "messages 不能为空");
-        }
-        return vo.getMessages().stream().map(msg -> {
-            if (CollectionUtils.isEmpty(msg.getContents())) {
-                throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "多模态消息的 contents 不能为空");
-            }
-            List<Map<String, Object>> contentList = msg.getContents().stream()
-                    .map(this::toDoubaoContent)
-                    .collect(Collectors.toList());
-            Map<String, Object> message = new LinkedHashMap<>();
-            message.put("role", msg.getRole());
-            message.put("content", contentList);
-            return message;
-        }).collect(Collectors.toList());
-    }
-
-    /** 单个内容块 VO → 豆包 Responses API content 元素 */
-    private Map<String, Object> toDoubaoContent(MessageContentVO c) {
-        if (c.getType() == null) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "contents 中 type 不能为空");
-        }
-        if (c.getValue() == null || c.getValue().isBlank()) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "contents 中 value 不能为空");
-        }
-        Map<String, Object> item = new LinkedHashMap<>();
-        switch (c.getType()) {
-            case IMAGE -> { item.put("type", "input_image"); item.put("image_url", c.getValue()); }
-            case TEXT  -> { item.put("type", "input_text");  item.put("text", c.getValue()); }
-            default    -> throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL,
-                    "豆包多模态暂不支持 " + c.getType() + " 类型");
-        }
-        return item;
     }
 
     private LlmResponseVO toVO(LlmResponse response) {

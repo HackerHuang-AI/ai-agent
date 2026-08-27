@@ -147,15 +147,6 @@ public class MimoServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * MiMo V2.5 官方模型已提供图片、音频和视频理解；当前适配器尚未完成多模态消息格式适配，返回 null。
-     */
-    @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[MiMo] 多模态接口暂未适配：MiMo V2.5 已提供多模态理解，当前适配器尚未完成消息格式转换");
-        return null;
-    }
-
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
         return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);

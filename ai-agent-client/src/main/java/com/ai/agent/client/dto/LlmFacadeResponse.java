@@ -43,16 +43,22 @@ public class LlmFacadeResponse implements Serializable {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
     public String getModelCode() { return modelCode; }
     public void setModelCode(String modelCode) { this.modelCode = modelCode; }
+
     public int getInputTokens() { return inputTokens; }
     public void setInputTokens(int inputTokens) { this.inputTokens = inputTokens; }
+
     public int getOutputTokens() { return outputTokens; }
     public void setOutputTokens(int outputTokens) { this.outputTokens = outputTokens; }
+
     public String getFinishReason() { return finishReason; }
     public void setFinishReason(String finishReason) { this.finishReason = finishReason; }
+
     public Map<String, Object> getExtraData() { return extraData; }
     public void setExtraData(Map<String, Object> extraData) { this.extraData = extraData; }
+
     public List<LlmToolCallDto> getToolCalls() { return toolCalls; }
     public void setToolCalls(List<LlmToolCallDto> toolCalls) { this.toolCalls = toolCalls; }
 }

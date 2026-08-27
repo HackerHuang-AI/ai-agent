@@ -147,14 +147,37 @@ public class OpenAiServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * OpenAI GPT-4o Vision 支持多模态，但其协议通过 Chat Completions 的 image_url 传入，
-     * 与当前通用多模态接口的 LlmRequest 结构尚未完成适配，暂不支持，返回 null。
-     */
     @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[OpenAI] 多模态接口暂未适配：GPT-4o Vision 需通过 Chat Completions image_url 协议传入图片，当前通用接口层尚未完成对接");
-        return null;
+    public LlmResponse responses(LlmResponsesRequest request) {
+        OpenAiBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "responses", OpenAiBO.class);
+        }
+        String apiKey = StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null);
+        String endpoint = StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null);
+        String model = StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null);
+        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        if (StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+
+        String requestBody;
+        try {
+            Map<String, Object> body = buildResponsesRequestBody(request, model);
+            requestBody = MAPPER.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        final String finalModel = model;
+        LlmResponse result = AppRetryUtil.retry(() -> {
+            Request okRequest = buildOkRequest(endpoint, apiKey, requestBody);
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(okRequest).execute()) {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(responseBody));
+                if (responseBody.isEmpty()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                return parseResponsesResponse(responseBody, finalModel);
+            }
+        }, retryConfig.getRetryParam(RetryConfigEnum.OPENAI));
+        if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        return result;
     }
 
     @Override
@@ -413,6 +436,73 @@ public class OpenAiServiceImpl implements LlmService {
                     .build());
         }
         return result;
+    }
+
+    private Map<String, Object> buildResponsesRequestBody(LlmResponsesRequest request, String model) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("input", request.getInput());
+        if (request.getInstructions() != null) body.put("instructions", request.getInstructions());
+        if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
+        if (request.getTopP() != null) body.put("top_p", request.getTopP());
+        if (request.getMaxOutputTokens() != null) body.put("max_output_tokens", request.getMaxOutputTokens());
+        if (request.getTools() != null && !request.getTools().isEmpty()) body.put("tools", request.getTools());
+        if (request.getToolChoice() != null) body.put("tool_choice", buildResponsesToolChoice(request.getToolChoice()));
+        if (request.getExtraParams() != null) {
+            request.getExtraParams().forEach((key, value) -> {
+                if (!body.containsKey(key)) body.put(key, value);
+            });
+        }
+        return body;
+    }
+
+    private Object buildResponsesToolChoice(String toolChoice) {
+        if ("auto".equals(toolChoice) || "none".equals(toolChoice) || "required".equals(toolChoice)) return toolChoice;
+        return Map.of("type", "function", "name", toolChoice);
+    }
+
+    private LlmResponse parseResponsesResponse(String responseJson, String model) {
+        try {
+            JsonNode root = MAPPER.readTree(responseJson);
+            JsonNode usage = root.path("usage");
+            int input = usage.path("input_tokens").asInt(0);
+            int output = usage.path("output_tokens").asInt(0);
+            List<LlmOutputItem> outputItems = new ArrayList<>();
+            for (JsonNode item : root.path("output")) {
+                String type = item.path("type").asText("");
+                if ("message".equals(type)) {
+                    List<LlmContentBlock> content = new ArrayList<>();
+                    for (JsonNode block : item.path("content")) {
+                        content.add(LlmContentBlock.builder().type(block.path("type").asText(""))
+                                .text(block.path("text").asText("")).build());
+                    }
+                    outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
+                            .status(item.path("status").asText(null)).role(item.path("role").asText(null)).content(content).build());
+                } else if ("reasoning".equals(type)) {
+                    List<LlmContentBlock> summary = new ArrayList<>();
+                    for (JsonNode block : item.path("summary")) {
+                        summary.add(LlmContentBlock.builder().type(block.path("type").asText(""))
+                                .text(block.path("text").asText("")).build());
+                    }
+                    outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
+                            .status(item.path("status").asText(null)).summary(summary).build());
+                } else if ("function_call".equals(type)) {
+                    outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
+                            .status(item.path("status").asText(null)).callId(item.path("call_id").asText(null))
+                            .name(item.path("name").asText(null)).arguments(item.path("arguments").asText(null)).build());
+                }
+            }
+            return LlmResponse.builder().requestId(root.path("id").asText(null)).modelCode(model)
+                    .createdAt(root.path("created_at").asLong(0) > 0 ? root.path("created_at").asLong() : null)
+                    .status(root.path("status").asText(null))
+                    .maxOutputTokens(root.path("max_output_tokens").asInt(0) > 0 ? root.path("max_output_tokens").asInt() : null)
+                    .output(outputItems)
+                    .usage(LlmUsage.builder().inputTokens(input).outputTokens(output)
+                            .totalTokens(usage.path("total_tokens").asInt(input + output)).build()).build();
+        } catch (IOException e) {
+            log.error("[OpenAI-responses] 响应解析失败", e);
+            throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
+        }
     }
 
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {

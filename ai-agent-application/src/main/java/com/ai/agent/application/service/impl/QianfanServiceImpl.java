@@ -147,15 +147,6 @@ public class QianfanServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * 百度千帆官方平台已提供多模态模型；当前独立多模态入口尚未适配，返回 null。
-     */
-    @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Qianfan] 多模态接口暂未适配：百度千帆已提供多模态模型，当前独立多模态入口尚未完成适配");
-        return null;
-    }
-
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
         return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);

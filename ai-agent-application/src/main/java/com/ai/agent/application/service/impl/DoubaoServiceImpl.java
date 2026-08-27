@@ -33,7 +33,7 @@ import java.util.function.Consumer;
 
 /**
  * @Description: 豆包（火山方舟）平台 LLM 服务实现
- *               支持 Chat Completions 协议（文本对话）和 Responses API（多模态对话）
+ *               支持 Chat Completions 协议（文本和图文对话）及独立的 Responses API
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
  * @ClassName: DoubaoServiceImpl
@@ -152,51 +152,19 @@ public class DoubaoServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * 统一接口入口：将 LlmRequest 中的 messages 转换为 Responses API input 格式后调用。
-     * 覆盖 LlmService 的 default 实现，豆包支持多模态。
-     */
     @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        if (request.getMessages() == null || request.getMessages().isEmpty()) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "messages 不能为空");
-        }
-        List<Map<String, Object>> input = request.getMessages().stream().map(msg -> {
-            if (msg.getContents() == null || msg.getContents().isEmpty()) {
-                throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "多模态消息的 contents 不能为空");
-            }
-            List<Map<String, Object>> contentList = msg.getContents().stream()
-                    .map(c -> {
-                        if (c.getType() == null || c.getValue() == null || c.getValue().isBlank()) {
-                            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL, "contents 中 type/value 不能为空");
-                        }
-                        Map<String, Object> item = new LinkedHashMap<>();
-                        switch (c.getType()) {
-                            case IMAGE -> { item.put("type", "input_image"); item.put("image_url", c.getValue()); }
-                            case TEXT  -> { item.put("type", "input_text");  item.put("text", c.getValue()); }
-                            default    -> throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL,
-                                    "豆包多模态暂不支持 " + c.getType() + " 类型");
-                        }
-                        return item;
-                    })
-                    .collect(java.util.stream.Collectors.toList());
-            Map<String, Object> message = new LinkedHashMap<>();
-            message.put("role", msg.getRole());
-            message.put("content", contentList);
-            return message;
-        }).collect(java.util.stream.Collectors.toList());
-        return multimodalChat(request.getModelCode(), input, request.getApiKey(), request.getEndpoint());
+    public LlmResponse responses(LlmResponsesRequest request) {
+        return responses(request.getModel(), request.getInput(), request.getApiKey(), request.getEndpoint());
     }
 
     /**
-     * 多模态对话（Responses API）
-     * 支持图片+文本混合输入，调用 /v3/responses 协议
+     * Responses API 调用。
      */
-    public LlmResponse multimodalChat(String model, List<Map<String, Object>> input, String apiKey, String endpoint) {
+    public LlmResponse responses(String model, Object input, String apiKey, String endpoint) {
         // 第一步：只在有字段为空时才读 Nacos
         DoubaoBO cfg = null;
         if (StringUtils.isBlank(apiKey) || StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) {
-            cfg = getMultimodalConfig();
+            cfg = getResponsesConfig();
         }
         // 第二步：入参为空时用 Nacos 补
         if (StringUtils.isBlank(apiKey))   apiKey   = cfg != null ? cfg.getApiKey()   : null;
@@ -204,15 +172,15 @@ public class DoubaoServiceImpl implements LlmService {
         if (StringUtils.isBlank(model))    model    = cfg != null ? cfg.getModel()    : null;
         // 第三步：补完后校验必填项
         if (StringUtils.isBlank(apiKey)) {
-            log.error("[Doubao-multimodal] apiKey 未配置，入参和 Nacos 均为空");
+            log.error("[Doubao-responses] apiKey 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         }
         if (StringUtils.isBlank(endpoint)) {
-            log.error("[Doubao-multimodal] endpoint 未配置，入参和 Nacos 均为空");
+            log.error("[Doubao-responses] endpoint 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
         if (StringUtils.isBlank(model)) {
-            log.error("[Doubao-multimodal] model 未配置，入参和 Nacos 均为空");
+            log.error("[Doubao-responses] model 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
         // ⚠️ 豆包 Responses API（/v3/responses）与 Chat Completions（/v3/chat/completions）是两套不同协议：
@@ -222,7 +190,7 @@ public class DoubaoServiceImpl implements LlmService {
         bodyMap.put("model", model);
         bodyMap.put("input", input);
 
-        log.info("[Doubao-multimodal] 开始调用, model={}, endpoint={}", model, endpoint);
+        log.info("[Doubao-responses] 开始调用, model={}, endpoint={}", model, endpoint);
         long start = System.currentTimeMillis();
         String requestBody;
         try {
@@ -243,40 +211,21 @@ public class DoubaoServiceImpl implements LlmService {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     String platformMsg = extractErrorMessage(responseBody);
-                    log.error("[Doubao-multimodal] HTTP {} 失败, platformError={}", response.code(), platformMsg);
+                    log.error("[Doubao-responses] HTTP {} 失败, platformError={}", response.code(), platformMsg);
                     throwByHttpCode(response.code(), platformMsg);
                 }
                 if (responseBody.isEmpty()) {
-                    log.error("[Doubao-multimodal] 响应体为空");
+                    log.error("[Doubao-responses] 响应体为空");
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
-                return parseMultimodalResponse(responseBody, finalModel);
+                return parseResponsesResponse(responseBody, finalModel);
             }
         }, retryConfig.getRetryParam(RetryConfigEnum.DOUBAO));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        log.info("[Doubao-multimodal] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
+        log.info("[Doubao-responses] 调用成功, inputTokens={}, outputTokens={}, costMs={}",
                 result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                 System.currentTimeMillis() - start);
         return result;
-    }
-
-    /**
-     * 多模态对话（form-data 文件上传）
-     * 接受原始图片字节，内部完成 base64 编码和 input 结构组装
-     */
-    public LlmResponse multimodalChatFile(byte[] imageBytes, String mimeType, String text,
-                                          String model, String apiKey, String endpoint) {
-        String base64 = Base64.getEncoder().encodeToString(imageBytes);
-        String imageUrl = "data:" + mimeType + ";base64," + base64;
-
-        List<Map<String, Object>> input = List.of(Map.of(
-                "role", "user",
-                "content", List.of(
-                        Map.of("type", "input_image", "image_url", imageUrl),
-                        Map.of("type", "input_text", "text", text)
-                )
-        ));
-        return multimodalChat(model, input, apiKey, endpoint);
     }
 
     // ==================== 私有方法 ====================
@@ -518,8 +467,8 @@ public class DoubaoServiceImpl implements LlmService {
         return nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "chat", DoubaoBO.class);
     }
 
-    private DoubaoBO getMultimodalConfig() {
-        return nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "multimodal", DoubaoBO.class);
+    private DoubaoBO getResponsesConfig() {
+        return nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DOUBAO, "responses", DoubaoBO.class);
     }
 
     /**
@@ -560,7 +509,7 @@ public class DoubaoServiceImpl implements LlmService {
         return s.length() > 200 ? s.substring(0, 200) + "..." : s;
     }
 
-    private LlmResponse parseMultimodalResponse(String responseJson, String model) {
+    private LlmResponse parseResponsesResponse(String responseJson, String model) {
         try {
             JsonNode root = MAPPER.readTree(responseJson);
             JsonNode usage = root.path("usage");
@@ -599,10 +548,17 @@ public class DoubaoServiceImpl implements LlmService {
                             .role(item.path("role").asText(null))
                             .content(contentBlocks)
                             .build());
+                } else if ("function_call".equals(type)) {
+                    outputItems.add(LlmOutputItem.builder()
+                            .id(id).type(type).status(status)
+                            .callId(item.path("call_id").asText(null))
+                            .name(item.path("name").asText(null))
+                            .arguments(item.path("arguments").asText(null))
+                            .build());
                 }
             }
             if (outputItems.stream().noneMatch(o -> "message".equals(o.getType()))) {
-                log.warn("[Doubao-multimodal] output 中未找到 type=message 节点，原始响应: {}", responseJson);
+                log.warn("[Doubao-responses] output 中未找到 type=message 节点，原始响应: {}", responseJson);
             }
 
             return LlmResponse.builder()
@@ -629,7 +585,7 @@ public class DoubaoServiceImpl implements LlmService {
                             .build())
                     .build();
         } catch (IOException e) {
-            log.error("[Doubao-multimodal] 响应解析失败", e);
+            log.error("[Doubao-responses] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }

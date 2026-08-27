@@ -27,9 +27,9 @@
 
 ## 网关接入状态说明
 
-下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。`POST /api/llm/chat/multimodal` 是图文专用入口，当前仅豆包和 Ollama 已实现，其他平台调用会返回空结果。
+下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。图文请求统一使用 `POST /api/llm/chat`，各适配器将 `IMAGE` 内容转换为厂商图像块格式；请求应选择对应厂商端点实际支持的视觉模型。`POST /api/llm/chat/stream` 同样支持流式图文对话。
 
-所有平台的常规对话均通过 `POST /api/llm/chat` 和 `POST /api/llm/chat/stream` 接入。各适配器会将统一消息中的 `IMAGE` 内容转换为厂商图像块格式；请求应选择对应厂商端点实际支持的视觉模型。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
+Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`，请求体中的 `input` 按厂商协议透传。已确认官方对外提供该协议的平台为 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`）；当前网关仅接入豆包，OpenAI 与 DeepSeek 尚未实现适配。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
 
 ---
 

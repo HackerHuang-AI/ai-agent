@@ -49,7 +49,7 @@ Ollama 提供两套 API：**原生 API** 和 **OpenAI 兼容 API**（v0.1.24+ �
 ## 本网关接入状态
 
 - 已接入：文本同步/流式对话、Function Calling 与工具结果回传、本地模型列表查询。
-- 已接入图文专用入口：统一的图片内容按 OpenAI 兼容 `image_url` 格式下发；需由本地加载的视觉模型实际支持，文件和视频类型不支持。
+- 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需由本地加载的视觉模型实际支持，文件和视频类型不支持。
 
 ---
 

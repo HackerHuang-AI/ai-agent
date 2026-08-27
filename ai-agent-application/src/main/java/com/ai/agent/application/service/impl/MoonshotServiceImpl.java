@@ -147,15 +147,6 @@ public class MoonshotServiceImpl implements LlmService {
         }
     }
 
-    /**
-     * Kimi 官方 API 已支持图片和视频输入；当前适配器尚未完成多模态消息格式与文件引用协议的转换，返回 null。
-     */
-    @Override
-    public LlmResponse multimodalChat(LlmRequest request) {
-        log.warn("[Moonshot] 多模态接口暂未适配：Kimi 已支持图片和视频输入，当前适配器尚未完成消息格式与文件引用协议转换");
-        return null;
-    }
-
     @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
         return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);

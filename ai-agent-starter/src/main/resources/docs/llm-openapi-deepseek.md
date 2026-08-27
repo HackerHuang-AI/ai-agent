@@ -24,6 +24,7 @@ Content-Type: application/json
 | 接口 | 方法 | URL |
 |------|------|-----|
 | 对话补全（同步 + 流式） | POST | `https://api.deepseek.com/chat/completions` |
+| Responses API | POST | `https://api.deepseek.com/responses` |
 | 模型列表 | GET | `https://api.deepseek.com/models` |
 
 ---
@@ -31,7 +32,9 @@ Content-Type: application/json
 ## 本网关接入状态
 
 - 已接入：文本同步/流式对话、`reasoning_content` 解析、Function Calling 与工具结果回传。
-- `POST /api/llm/chat/multimodal` 的 DeepSeek 图文专用入口尚未实现，调用会返回空结果；常规对话会按 OpenAI 兼容 `image_url` 格式下发 `IMAGE` 内容，需选择支持视觉的模型。
+- 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需选择视觉模型。
+- DeepSeek 官方已对外提供 `POST /responses`，兼容 OpenAI Responses API；支持 `input`、流式事件、工具调用，视觉模型还支持 `input_image`。
+- 已接入 DeepSeek Responses API：通过 `POST /api/llm/responses` 调用；网关透传 `input`，并统一解析响应中的 `output`、`usage` 与 `status`。
 
 ---
 

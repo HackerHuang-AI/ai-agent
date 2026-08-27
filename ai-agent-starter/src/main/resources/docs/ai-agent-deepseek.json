@@ -3,6 +3,11 @@
     "apiKey": "sk-Hcc675d2d8582cb42a6962ba158ccdc1243",
     "endpoint": "https://api.deepseek.com/chat/completions",
     "modelCode": "deepseek-chat"
+  },
+  "responses": {
+    "apiKey": "sk-Hcc675d2d8582cb42a6962ba158ccdc1243",
+    "endpoint": "https://api.deepseek.com/responses",
+    "modelCode": "deepseek-chat"
   }
 }
 
