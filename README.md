@@ -9,22 +9,22 @@
 | Platform | Provider | Chat | Stream | Vision input | Responses API | Tool Calling | List Models |
 |----------|----------|:----:|:------:|:------------:|:-------------:|:------------:|:-----------:|
 | **Doubao** | ByteDance | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **DeepSeek** | DeepSeek AI | ✅ | ✅ | ✅ | Provider supported; gateway pending | ✅ | — |
-| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | Provider supported; gateway pending | ✅ | — |
-| **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Qwen** | Alibaba | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Zhipu** | Zhipu AI | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Moonshot** | Moonshot AI | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | — |
+| **DeepSeek** | DeepSeek AI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Qwen** | Alibaba | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Zhipu** | Zhipu AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Moonshot** | Moonshot AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Qianfan** | Baidu | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Tokenhub** | Internal | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Mimo** | Xiaomi | ✅ | ✅ | ✅ | — | ✅ | — |
-| **Ollama** | Local | ✅ | ✅ | ✅ | — | ✅ | Internal only¹ |
+| **Tokenhub** | Internal | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Mimo** | Xiaomi | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Ollama** | Local | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 
-> Submit `IMAGE` content through `POST /api/llm/chat` or `/chat/stream`; each adapter serializes it into the provider image-block format. The gateway supports the Responses APIs of OpenAI, DeepSeek, and Doubao through `POST /api/llm/responses`.
+> Submit `IMAGE` content through `POST /api/llm/chat` or `/chat/stream`. Its value can be an image URL or a `data:image/...;base64,...` data URI; each adapter serializes it into the provider image-block format. The gateway supports the Responses APIs of OpenAI, DeepSeek, and Doubao through `POST /api/llm/responses`.
 >
-> ¹ `OllamaServiceImpl` implements model listing through `/api/tags`, but no HTTP `/api/ollama/models` endpoint is currently exposed. The HTTP model-list endpoints are `POST /api/doubao/models` and `POST /api/qianfan/models`.
+> `FILE` and `VIDEO` are reserved content types. They are not implemented by the common Chat adapters, and the gateway does not provide a multipart file-upload endpoint.
 
 ---
 
@@ -115,14 +115,14 @@ All HTTP endpoints below use the context path `/ai-agent`.
 
 **POST** `/ai-agent/api/llm/chat/stream` — SSE, `Content-Type: text/event-stream`
 
-`/chat` and `/chat/stream` both accept text and image content blocks; adapters serialize `IMAGE` into the provider-specific image input format.
+`/chat` and `/chat/stream` both accept text and `IMAGE` content blocks. `IMAGE` can use an image URL or a Base64 data URI; adapters serialize it into the provider-specific image input format.
 
-**POST** `/ai-agent/api/llm/responses` — separate Responses API endpoint. Its `input` is passed through according to the provider protocol; Doubao is currently supported.
+**POST** `/ai-agent/api/llm/responses` — separate Responses API endpoint. Its fixed `input` structure is mapped to the provider request by the adapter; Doubao, DeepSeek, and OpenAI are supported. Unsupported platforms return an empty `output` and emit a warning log.
 
 `tools` and `toolChoice` use the OpenAI-compatible function-calling format. `extraParams` is merged into the provider request body for provider-specific parameters.
 
 ### Per-Platform Dedicated Endpoints
-Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. Doubao additionally provides `POST /ai-agent/api/doubao/models`; Qianfan provides `POST /ai-agent/api/qianfan/models`. There is no unified model-list endpoint.
+Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. The unified model-list endpoint is `POST /ai-agent/api/llm/models`.
 
 ---
 
@@ -185,7 +185,7 @@ Each platform has an isolated stream executor thread pool, configurable via Naco
 Ollama is fully supported as a local LLM backend.
 
 - **Chat & Stream**: standard OpenAI-compatible protocol (`/v1/chat/completions`)
-- **Multimodal**: supported for vision-capable models (`llava`, `moondream`, `minicpm-v`, etc.)
+- **Vision input**: supported for vision-capable models (`llava`, `moondream`, `minicpm-v`, etc.)
 - **List Models**: calls `/api/tags` to return locally pulled models
 
 ```json

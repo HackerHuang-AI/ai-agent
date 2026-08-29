@@ -27,9 +27,9 @@
 
 ## 网关接入状态说明
 
-下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。图文请求统一使用 `POST /api/llm/chat`，各适配器将 `IMAGE` 内容转换为厂商图像块格式；请求应选择对应厂商端点实际支持的视觉模型。`POST /api/llm/chat/stream` 同样支持流式图文对话。
+下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。图文请求统一使用 `POST /api/llm/chat`，各适配器将 `IMAGE` 内容转换为厂商图像块格式；`IMAGE` 的值可为图片 URL 或 `data:image/...;base64,...` data URI，请求应选择对应厂商端点实际支持的视觉模型。`POST /api/llm/chat/stream` 同样支持流式图文对话。`FILE` 和 `VIDEO` 为预留内容类型，当前通用 Chat 适配器未实现支持，且网关不提供 multipart 文件上传接口。
 
-Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`，请求体中的 `input` 按厂商协议透传。已确认官方对外提供该协议的平台为 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`）；当前网关仅接入豆包，OpenAI 与 DeepSeek 尚未实现适配。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
+Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`。网关使用 OpenAI Responses API 兼容的固定 `input` 项结构，由适配器映射为厂商请求。已确认官方对外提供该协议的平台为 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`），三者均已完成网关适配；其他平台返回空 `output` 并记录警告日志。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
 
 ---
 

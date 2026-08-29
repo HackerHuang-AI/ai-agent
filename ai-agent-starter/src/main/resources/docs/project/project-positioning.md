@@ -24,7 +24,7 @@
 ## 三、本模块功能定位
 
 - 按平台路由 OpenAI、DeepSeek、通义、Gemini、Claude 等模型调用；
-- 统一 `chat`、`chatStream`、`multimodalChat` 和 Function Calling DTO；
+- 统一支持文本和图文内容块的 `chat`、`chatStream`、`responses` 与 Function Calling DTO；
 - 处理模型凭证、请求构造、响应解析、流式 SSE 和重试；
 - 对内通过 Dubbo 暴露标准 LLM Facade。
 

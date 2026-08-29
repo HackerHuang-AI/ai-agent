@@ -9,8 +9,8 @@
 | 平台 | 厂商 | 同步对话 | 流式对话 | 图文对话 | Responses API | 工具调用 | 模型列表 |
 |------|------|:------:|:------:|:--------:|:-------------:|:--------:|:--------:|
 | **豆包** | 字节跳动 | ✅ | ✅ | ✅¹ | ✅² | ✅ | ✅ |
-| **DeepSeek** | 深度求索 | ✅ | ✅ | ✅ | 厂商支持，网关未接入 | ✅ | ✅ |
-| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | 厂商支持，网关未接入 | ✅ | ✅ |
+| **DeepSeek** | 深度求索 | ✅ | ✅ | ✅ | ✅² | ✅ | ✅ |
+| **OpenAI** | OpenAI | ✅ | ✅ | ✅ | ✅² | ✅ | ✅ |
 | **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **通义千问** | 阿里巴巴 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
@@ -22,7 +22,9 @@
 | **Mimo** | 小米 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Ollama** | 本地部署 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 
-> 图文通过 `POST /api/llm/chat` 传入 `IMAGE` 内容，流式图文使用 `chat/stream`。适配器负责转换厂商图片块；是否可用取决于所选模型和厂商端点是否支持视觉输入。
+> 图文通过 `POST /api/llm/chat` 传入 `IMAGE` 内容，流式图文使用 `chat/stream`。`IMAGE` 的值可为图片 URL 或 `data:image/...;base64,...` data URI；适配器负责转换厂商图片块，是否可用取决于所选模型和厂商端点是否支持视觉输入。
+>
+> `FILE` 和 `VIDEO` 为预留内容类型，当前通用 Chat 适配器未实现支持，且网关不提供 multipart 文件上传接口。
 >
 > ¹ 图文能力取决于所选模型和厂商端点。² 豆包、DeepSeek 与 OpenAI 均已通过独立的 `POST /api/llm/responses` 接入其 Responses API。³ TokenHub 的视觉能力取决于所选上游模型。统一模型列表接口为 `POST /api/llm/models`。
 
@@ -119,17 +121,17 @@
 
 **POST** `/ai-agent/api/llm/chat/stream` — SSE 流式，`Content-Type: text/event-stream`
 
-`/chat` 和 `/chat/stream` 均支持文本、图片等内容块；`IMAGE` 由各平台适配器转换为对应的图像输入结构。
+`/chat` 和 `/chat/stream` 均支持文本和 `IMAGE` 内容块；`IMAGE` 可使用图片 URL 或 Base64 data URI，由各平台适配器转换为对应的图像输入结构。
 
-**POST** `/ai-agent/api/llm/responses` — 独立的 Responses API 入口，`input` 按厂商协议透传；当前已接入豆包。
+**POST** `/ai-agent/api/llm/responses` — 独立的 Responses API 入口，固定结构的 `input` 由适配器映射为厂商请求；已接入豆包、DeepSeek 与 OpenAI，不支持的平台返回空 `output` 并记录警告日志。
 
 `tools` 和 `toolChoice` 使用 OpenAI 兼容的函数调用格式。`extraParams` 会合并到对应平台的请求体，用于传递平台私有参数。`topK` 不适用于 OpenAI、Moonshot 和 DeepSeek；`frequencyPenalty` 不适用于 Anthropic，在 DeepSeek 中已废弃，Moonshot 文档未定义该参数。
-每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
+
 ### 平台专属接口
 每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
 
 ### Dubbo RPC 接口
-服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，并调用支持图文内容块的 `chat` 或服务端流式 `chatStream`。
+服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，调用支持图文内容块的 `chat`、服务端流式 `chatStream` 或 `responses`。
 
 ### 运维接口
 - `POST /ai-agent/api/nacos/config`：按传入的 `dataId` 查询 Nacos 缓存配置。
@@ -150,7 +152,7 @@
     "modelCode": "model-name"
   }
 }
-部分平台存在额外配置块。例如豆包的 Responses API 使用独立的 `responses` 凭证和模型配置。
+支持 Responses API 的平台使用独立的 `responses` 凭证和模型配置。
 
 ### OkHttp 连接池（`ai-agent-http.json`）
 ```json

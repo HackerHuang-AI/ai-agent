@@ -61,7 +61,7 @@ knowledge_document  -- 文档元数据（状态机：待处理→解析中→向
 
 ### 现存的核心问题：表和代码是脱节的
 
-1. **`agent`/`agent_tool`/`agent_mcp` 这几张表目前没有任何 Mapper/Service 在用**——`ai-agent-starter` 的 `resources/mapper/` 目录是空的，也没接 MyBatis-Plus 依赖（对比 `ai-analysis-starter/pom.xml` 才有 `mysql-connector-j` + `mybatis-plus`）。也就是说，这份 DDL 目前只是"设计稿"，没有落地成可运行的持久层。
+1. **`agent`/`agent_tool`/`agent_mcp` 这几张表目前没有任何 Mapper/Service 在用**——`ai-agent-starter` 已声明 MySQL 驱动和 MyBatis-Plus 依赖，但 `resources/mapper/` 目录为空，尚未实现对应 Entity、Mapper、Service 和实际读写链路。也就是说，这份 DDL 目前仍只是"设计稿"，没有落地成可运行的持久层。
 2. **`agent_tool`/`agent_mcp` 只存了关联 ID（`tool_id`/`mcp_id`），但没有对应的 `tool` 主表和 `mcp_server` 主表**——现在"工具"是靠 `@Service("toolName")` 硬编码在 `ai-mcp` 代码里，"MCP Server"是靠 Nacos 的 `ai-mcp-config.json`（`McpServerConfig`：name/transport/url/command/args）配置的，两者都不在数据库里，管理台没法对它们做增删改查。
 3. **`ai_agent` 库和 `ai_knowledge` 库是两个独立的库**，`agent_knowledge` 表里的 `knowledge_id` 是跨库外键（只能应用层保证一致性，不能建物理外键）——这是分库分表场景下的正常设计，但需要在文档里明确写出来，避免以后有人想当然加 `FOREIGN KEY`。
 
@@ -111,7 +111,7 @@ knowledge_document  -- 文档元数据（状态机：待处理→解析中→向
 聚焦到你这轮真正想解决的问题——「工具管理平台 / MCP 管理平台」——建表节奏建议是：
 
 1. 先补 `tool` 主表 + `mcp_server` 主表（管理台要用的最小闭环）
-2. 给 `ai-agent-starter` 接入 MyBatis-Plus + 数据源（现在还没接，只有 DDL 没有持久层代码）
+2. 完成 `ai-agent-starter` 的数据源与 MyBatis-Plus 运行时配置，并实现最小持久层读写链路（依赖已声明，当前只有 DDL 没有持久层代码）
 3. 决定 `mcp_server` 表和 Nacos `ai-mcp-config.json` 的关系（覆盖 or 共存），这一步会影响 `McpClientManager` 的改造范围
 4. 最后才是把 `agent_tool`/`agent_mcp` 这两张已经建好的关联表接上 Service 层，让截图里的管理页面真正可用
 
