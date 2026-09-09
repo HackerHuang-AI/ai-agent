@@ -1,6 +1,6 @@
 # Ollama OpenAPI 文档
 
-> 版本: v1 | 更新时间: 2026-06-01 | 官方文档: https://github.com/ollama/ollama/blob/main/docs/api.md
+> 版本: v2 | 更新时间: 2026-09-09 | 官方文档: https://docs.ollama.com/api/openai-compatibility
 
 ---
 
@@ -14,16 +14,16 @@ Ollama 默认运行在本地，无需认证：
 Content-Type: application/json
 ```
 
-### 可选：开启 API Key 认证
+### Ollama 云端 API 认证
 
-如需鉴权（如暴露为公网服务），启动时设置环境变量：
+访问本地 `http://localhost:11434` 无需认证。使用 Ollama 云端模型时，本地安装可通过 `ollama signin` 自动完成认证；直接调用 `https://ollama.com/api` 时，需要在控制台创建 API Key，并通过环境变量提供：
 ```bash
-OLLAMA_API_KEY=your_key ollama serve
+export OLLAMA_API_KEY=your_api_key
 ```
 
-启用后请求 Header 需加：
+直接调用云端 API 时使用：
 ```http
-Authorization: Bearer your_key
+Authorization: Bearer <OLLAMA_API_KEY>
 ```
 
 ---
@@ -36,6 +36,7 @@ Ollama 提供两套 API：**原生 API** 和 **OpenAI 兼容 API**（v0.1.24+ �
 |------|------|---------------------|
 | **原生** 对话补全（流式） | POST | `http://localhost:11434/api/chat` |
 | **OpenAI 兼容** 对话补全 | POST | `http://localhost:11434/v1/chat/completions` |
+| **OpenAI 兼容** Responses API | POST | `http://localhost:11434/v1/responses` |
 | 模型列表 | GET | `http://localhost:11434/api/tags` |
 | 拉取模型 | POST | `http://localhost:11434/api/pull` |
 | 删除模型 | DELETE | `http://localhost:11434/api/delete` |
@@ -50,6 +51,7 @@ Ollama 提供两套 API：**原生 API** 和 **OpenAI 兼容 API**（v0.1.24+ �
 
 - 已接入：文本同步/流式对话、Function Calling 与工具结果回传、本地模型列表查询。
 - 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需由本地加载的视觉模型实际支持，文件和视频类型不支持。
+- Ollama 官方 OpenAI 兼容层已提供 `/v1/responses`；本项目尚未适配 Ollama Responses API。
 
 ---
 
@@ -259,7 +261,7 @@ Content-Type: application/json
 | 差异项 | OpenAI | Ollama |
 |--------|--------|--------|
 | 部署方式 | 云端 API | **本地部署**，无网络延迟 |
-| 认证方式 | Bearer API Key（必须） | **默认无鉴权**，可选开启 |
+| 认证方式 | Bearer API Key（必须） | **本地 API 默认无鉴权**；Ollama 云端 API 使用 API Key |
 | 原生流式格式 | SSE（`data: ...`） | **JSON Lines**（逐行 JSON，无 `data:` 前缀） |
 | OpenAI 兼容接口 | 原生 | `/v1/chat/completions` 兼容 SSE 格式 |
 | `max_tokens` 字段 | `max_tokens` | 原生接口为 `options.num_predict` |
@@ -287,12 +289,12 @@ Content-Type: application/json
 
 | HTTP 状态码 | 系统错误码 | 说明 |
 |------------|-----------|------|
-| 401 | `LLM_AUTH_FAILED`(2002009) | 开启了 API Key 认证但未提供或 Key 错误 |
-| 403 | `LLM_AUTH_FAILED`(2002009) | 请求来源 IP 未在白名单（配置了访问控制） |
+| 401 | `LLM_AUTH_FAILED`(2002009) | 调用 Ollama 云端 API 时未提供或使用了错误 API Key |
+| 403 | `LLM_AUTH_FAILED`(2002009) | 云端 API 权限不足或访问被拒绝 |
 | 400 / 422 | `PARAM_ILLEGAL`(2001001) | 请求参数非法（如模型名不存在） |
 | 429 | `LLM_RATE_LIMIT`(2002011) | 并发请求超出本地处理能力 |
 | 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
 
-> ⚠️ Ollama 默认无认证，401/403 仅在显式配置鉴权后出现。常见错误是模型未下载（`model not found`），触发 `PARAM_ILLEGAL`。
+> ⚠️ 本地 Ollama API 默认无认证；401/403 通常发生在使用 Ollama 云端 API 或经由外部访问控制时。常见错误是模型未下载（`model not found`），触发 `PARAM_ILLEGAL`。
 > 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
 

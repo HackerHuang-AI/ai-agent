@@ -1,6 +1,6 @@
 # 腾讯 TokenHub OpenAPI 文档
 
-> 版本: v1 | 更新时间: 2026-06-28 | 官方文档: https://cloud.tencent.com/document/product/1729
+> 版本: v2 | 更新时间: 2026-09-09 | 官方文档: https://cloud.tencent.com/document/product/1729
 
 ---
 
@@ -32,7 +32,7 @@ Content-Type: application/json
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
+- 已接入：文本同步/流式对话、模型列表、Function Calling 与工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；实际能力由所选模型决定。
 
 ---
@@ -126,19 +126,14 @@ data: [DONE]
 
 | 模型标识 | 上下文窗口 | Tool Call | 说明 |
 |----------|-----------|-----------|------|
-| `hy3-preview` | 128K | ✅ | 腾讯混元 3 旗舰版 |
-| `deepseek-v4-pro` | 64K | ✅ | TokenHub 托管 DeepSeek V4 Pro |
-| `deepseek-v4-flash` | 64K | ✅ | TokenHub 托管 DeepSeek V4 Flash |
-| `glm-5.2` | 128K | ✅ | TokenHub 托管 GLM-5.2 |
-| `glm-5.1` | 128K | ✅ | TokenHub 托管 GLM-5.1 |
-| `glm-5` | 128K | ✅ | TokenHub 托管 GLM-5 |
-| `glm-5-turbo` | 128K | ✅ | TokenHub 托管 GLM-5 Turbo |
-| `kimi-k2.7-code` | 128K | ✅ | TokenHub 托管 Kimi K2.7 Code |
-| `kimi-k2.6` | 128K | ✅ | TokenHub 托管 Kimi K2.6 |
-| `kimi-k2.5` | 128K | ✅ | TokenHub 托管 Kimi K2.5 |
-| `minimax-m3` | 1M | ✅ | TokenHub 托管 MiniMax M3 |
-| `minimax-m2.7` | 256K | ✅ | TokenHub 托管 MiniMax M2.7 |
-| `minimax-m2.5` | 256K | ✅ | TokenHub 托管 MiniMax M2.5 |
+| `hy4-preview` | 以平台模型页为准 | 以模型说明为准 | 当前混元预览模型 |
+| `hy3` | 以平台模型页为准 | 以模型说明为准 | 混元 3 系列 |
+| `deepseek-v4-pro` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 DeepSeek V4 Pro |
+| `deepseek-v4-flash` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 DeepSeek V4 Flash |
+| `glm-5.3` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 GLM-5.3 |
+| `glm-5.3-flash` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 GLM-5.3 Flash |
+| `kimi-k3` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 Kimi K3 |
+| `minimax-m3` | 以平台模型页为准 | 以模型说明为准 | TokenHub 托管 MiniMax M3 |
 
 ---
 

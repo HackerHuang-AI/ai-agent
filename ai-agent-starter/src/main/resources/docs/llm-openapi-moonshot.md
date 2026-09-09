@@ -1,6 +1,6 @@
 # Moonshot（Kimi）OpenAPI 文档
 
-> 版本: v1 | 更新时间: 2026-06-01 | 官方文档: https://platform.moonshot.cn/docs/api/chat
+> 版本: v2 | 更新时间: 2026-09-09 | 官方文档: https://platform.moonshot.cn/docs/api/chat
 
 ---
 
@@ -24,15 +24,17 @@ Content-Type: application/json
 | 接口 | 方法 | URL |
 |------|------|-----|
 | 对话补全（同步 + 流式） | POST | `https://api.moonshot.cn/v1/chat/completions` |
+| Responses API | POST | `https://api.moonshot.cn/v1/responses` |
 | 模型列表 | GET | `https://api.moonshot.cn/v1/models` |
+| 文件管理 | 多种方法 | `https://api.moonshot.cn/v1/files` 及其子资源 |
 
 ---
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
+- 已接入：文本同步/流式对话、模型列表、Function Calling 与工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`。
-- 视频和文件引用仍需按厂商协议单独适配。
+- Moonshot 官方已提供 Responses API、文件管理以及 Chat Completions 中的图片/视频文件引用；本项目尚未适配 Responses API、`FILE`、`VIDEO` 或文件上传，统一入口仅支持 `TEXT` 与 `IMAGE`。
 
 ---
 
@@ -121,16 +123,11 @@ data: [DONE]
 
 ---
 
-## 六、主流模型列表
+## 六、模型选择
 
-| 模型标识 | 上下文窗口 | 说明 |
-|----------|-----------|------|
-| `moonshot-v1-8k` | 8K | 轻量快速，适合短对话 |
-| `moonshot-v1-32k` | 32K | 均衡，适合长文档 |
-| `moonshot-v1-128k` | 128K | 超长上下文，适合长文分析 |
-| `kimi-latest` | 128K | 始终指向最新 Kimi 模型 |
+Moonshot 的模型更新较快。当前公开文档已使用 `kimi-k3` 作为 Chat Completions 与 Responses API 示例，并提供 `kimi-k2.6` 等视觉模型示例。生产调用应通过 `GET /v1/models` 获取当前账户可用模型和模型标识，避免依赖已淘汰的 `moonshot-v1-*` 静态列表。
 
-> ℹ️ 上下文窗口同时限制输入+输出总量，选择模型时注意控制总 token 数。
+> ℹ️ 具体的上下文长度、视觉、工具调用和文件/视频能力均以模型列表与对应模型说明为准。
 
 ---
 

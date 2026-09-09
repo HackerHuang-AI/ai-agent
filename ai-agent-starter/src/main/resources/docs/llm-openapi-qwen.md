@@ -1,6 +1,6 @@
 # Qwen（阿里云百炼）OpenAPI 文档
 
-> 版本: v1 | 更新时间: 2026-06-01 | 官方文档: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
+> 版本: v2 | 更新时间: 2026-09-09 | 官方文档: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
 
 ---
 
@@ -24,6 +24,7 @@ Content-Type: application/json
 | 接口 | 方法 | URL |
 |------|------|-----|
 | 对话补全（OpenAI 兼容，同步 + 流式） | POST | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
+| Responses API（OpenAI 兼容） | POST | `https://dashscope.aliyuncs.com/compatible-mode/v1/responses` |
 | 模型列表 | GET | `https://dashscope.aliyuncs.com/compatible-mode/v1/models` |
 
 > ⚠️ 注意：阿里云还提供原生 DashScope 协议（`/api/v1/services/aigc/...`），本文档仅记录 OpenAI 兼容模式。
@@ -32,8 +33,9 @@ Content-Type: application/json
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、`enable_search` 等扩展参数透传、Function Calling 与工具结果回传。
+- 已接入：文本同步/流式对话、模型列表、`enable_search` 等扩展参数透传、Function Calling 与工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需选择 Qwen-VL 等视觉模型。
+- 百炼官方已提供 OpenAI 兼容的 Responses API；本项目尚未适配 Qwen Responses API。
 
 ---
 

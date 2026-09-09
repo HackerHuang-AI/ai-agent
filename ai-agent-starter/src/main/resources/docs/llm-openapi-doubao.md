@@ -35,7 +35,7 @@ Content-Type: application/json
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、Function Calling 与工具结果回传。
+- 已接入：文本同步/流式对话、模型列表、Function Calling 与工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 使用 Chat Completions 协议，并将 `IMAGE` 内容转换为 `image_url`。
 - 已接入 Responses API：`POST /api/llm/responses` 路由至火山方舟 `POST /api/v3/responses` 并透传 `input`；`input_text`、`input_image` 等结构由调用方按官方协议提供。
 - Responses API 与 Chat Completions 的请求、响应和生成参数语义不同。

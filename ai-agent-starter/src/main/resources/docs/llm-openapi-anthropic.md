@@ -37,7 +37,7 @@ Content-Type: application/json
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、Anthropic 工具协议转换及工具结果回传。
+- 已接入：文本同步/流式对话、模型列表、Anthropic 工具协议转换及工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 复用 Anthropic Messages 链路，将 `IMAGE` 内容转换为 `image` 块；需选择支持视觉的模型。
 
 ---

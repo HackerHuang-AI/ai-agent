@@ -1,6 +1,6 @@
 # LLM 平台 OpenAPI 协议对比总览
 
-> 版本: v3 | 更新时间: 2026-06-28
+> 版本: v4 | 更新时间: 2026-09-09
 
 ---
 
@@ -13,7 +13,7 @@
 | Qwen（阿里云百炼） | OpenAI 兼容 | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（`enable_search` 等扩展参数） |
 | 阿里云灵积 Token Plan | OpenAI 兼容 | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（与 Qwen 协议一致，不同 Key 和 Endpoint） |
 | 豆包（字节跳动） | OpenAI 兼容 | `https://ark.cn-beijing.volces.com/api/v3/chat/completions` | Bearer Token | SSE | ⭐⭐ 中（`model` 填 endpoint_id） |
-| Minimax | 自有协议 | `https://api.minimaxi.com/v1/text/chatcompletion_v2` | Bearer Token | SSE | ⭐⭐⭐ 高（入参结构差异大） |
+| Minimax | ChatCompletion v2（OpenAI 风格的自有协议） | `https://api.minimaxi.com/v1/text/chatcompletion_v2` | Bearer Token | SSE | ⭐⭐ 中（`name`、`base_resp` 等字段差异） |
 | 智谱 GLM | OpenAI 兼容 | `https://open.bigmodel.cn/api/paas/v4/chat/completions` | JWT（自签） | SSE | ⭐⭐ 中（JWT 生成方式特殊） |
 | Moonshot（Kimi） | OpenAI 兼容 | `https://api.moonshot.cn/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（基本无差异） |
 | 百度千帆 | OpenAI 兼容 | `https://qianfan.baidubce.com/v2/chat/completions` | Bearer Token | SSE | ⭐ 低（`temperature` 范围上限为 1） |
@@ -29,7 +29,7 @@
 
 下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。图文请求统一使用 `POST /api/llm/chat`，各适配器将 `IMAGE` 内容转换为厂商图像块格式；`IMAGE` 的值可为图片 URL 或 `data:image/...;base64,...` data URI，请求应选择对应厂商端点实际支持的视觉模型。`POST /api/llm/chat/stream` 同样支持流式图文对话。`FILE` 和 `VIDEO` 为预留内容类型，当前通用 Chat 适配器未实现支持，且网关不提供 multipart 文件上传接口。
 
-Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`。网关使用 OpenAI Responses API 兼容的固定 `input` 项结构，由适配器映射为厂商请求。已确认官方对外提供该协议的平台为 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`），三者均已完成网关适配；其他平台返回空 `output` 并记录警告日志。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
+Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`。网关使用 OpenAI Responses API 兼容的固定 `input` 项结构，由适配器映射为厂商请求。当前已完成网关适配的是 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`）。厂商公开文档还确认 **Qwen/百炼**、**Moonshot/Kimi** 与 **Ollama**（后两者为 `POST /v1/responses`，Ollama 为 OpenAI 兼容层）提供该协议，但本项目尚未适配，调用时返回空 `output` 并记录警告日志。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
 
 ---
 
@@ -93,7 +93,7 @@ data: [DONE]
 | [llm-openapi-deepseek.md](llm-openapi-deepseek.md) | Deepseek，OpenAI 兼容，含 `reasoning_content` |
 | [llm-openapi-qwen.md](llm-openapi-qwen.md) | Qwen 阿里云百炼，OpenAI 兼容，含 `enable_search` |
 | [llm-openapi-doubao.md](llm-openapi-doubao.md) | 豆包字节跳动，model 填 endpoint_id |
-| [llm-openapi-minimax.md](llm-openapi-minimax.md) | Minimax，自有协议，差异最大 |
+| [llm-openapi-minimax.md](llm-openapi-minimax.md) | Minimax ChatCompletion v2，OpenAI 风格自有协议 |
 | [llm-openapi-zhipu.md](llm-openapi-zhipu.md) | 智谱 GLM，JWT 认证 |
 | [llm-openapi-moonshot.md](llm-openapi-moonshot.md) | Moonshot Kimi，基本无差异 |
 | [llm-openapi-baidu-qianfan.md](llm-openapi-baidu-qianfan.md) | 百度千帆，temperature 上限为 1，聚合第三方模型 |

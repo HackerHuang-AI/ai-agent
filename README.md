@@ -163,7 +163,7 @@ Proxy configuration is supported per-platform (e.g. for Anthropic / Gemini requi
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
-    "nonRetryableCodes": ["2002009", "2001001", "2002011"]
+    "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002008"]
   }
 }
 ```
@@ -173,7 +173,8 @@ Proxy configuration is supported per-platform (e.g. for Anthropic / Gemini requi
 | `2002009` | Auth failed — no retry |
 | `2001001` | Invalid params — no retry |
 | `2002010` | Insufficient balance — no retry |
-| `2002011` | Platform unsupported content type — no retry |
+| `2002008` | Unsupported content type — no retry |
+| `2002011` | Rate limited — retry according to the platform policy |
 
 ### Thread Pool (`ai-agent-thread-pool.json`)
 Each platform has an isolated stream executor thread pool, configurable via Nacos.

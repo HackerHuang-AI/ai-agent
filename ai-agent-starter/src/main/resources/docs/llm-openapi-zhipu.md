@@ -1,6 +1,6 @@
 # 智谱 GLM OpenAPI 文档
 
-> 版本: v1 | 更新时间: 2026-06-01 | 官方文档: https://open.bigmodel.cn/dev/api
+> 版本: v2 | 更新时间: 2026-09-09 | 官方文档: https://open.bigmodel.cn/dev/api
 
 ---
 
@@ -67,7 +67,7 @@ Content-Type: application/json
 
 ## 本网关接入状态
 
-- 已接入：文本同步/流式对话、JWT 鉴权、Function Calling 与工具结果回传。
+- 已接入：文本同步/流式对话、JWT 鉴权、模型列表、Function Calling 与工具结果回传。
 - 已接入图文对话：`POST /api/llm/chat` 复用 OpenAI 兼容 Chat Completions 链路，将 `IMAGE` 内容转换为 `image_url`；需选择 GLM 视觉模型。
 
 ---
@@ -169,11 +169,10 @@ data: [DONE]
 | `glm-4-flash` | 128K | ❌ | ✅ | 免费模型 |
 | `glm-4v` | 2K | ✅ | ✅ | 视觉理解 |
 | `glm-4v-plus` | 8K | ✅ | ✅ | 视觉增强版 |
-| `glm-4.6` | 128K | ❌ | ✅ | 新一代主力 |
-| `glm-4.6v` | 128K | ✅ | ✅ | 新一代视觉 |
-| `glm-4.7` | 128K | ❌ | ✅ | 新一代增强 |
-| `glm-5` | 128K | ❌ | ✅ | 旗舰模型 |
-| `glm-5.1` | 128K | ❌ | ✅ | 旗舰增强 |
+| `glm-5.2` | 以官方模型页为准 | ❌ | 以模型说明为准 | 当前一代文本主力 |
+| `glm-5.3` | 以官方模型页为准 | ❌ | 以模型说明为准 | 当前旗舰文本模型 |
+| `glm-5.3-flash` | 以官方模型页为准 | ✅ | 以模型说明为准 | 当前轻量多模态模型 |
+| `glm-ocr` | 以官方模型页为准 | ✅ | ❌ | OCR 模型 |
 
 ---
 
