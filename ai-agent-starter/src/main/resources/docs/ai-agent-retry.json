@@ -6,91 +6,91 @@
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "doubao": {
+  "Doubao": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "deepseek": {
+  "Deepseek": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "qwen": {
+  "Qwen": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "zhipu": {
+  "Glm": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "moonshot": {
+  "Moonshot": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "openai": {
+  "OpenAI": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "anthropic": {
+  "Anthropic": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "gemini": {
+  "Gemini": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "mimo": {
+  "Mimo": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002010", "2002011"]
   },
-  "minimax": {
+  "MiniMax": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "ollama": {
+  "Ollama": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "qianfan": {
+  "Qianfan": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
     "maxWaitMs": 30000,
     "nonRetryableCodes": ["2002009", "2001001", "2002011"]
   },
-  "tokenhub": {
+  "TokenHub": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,

@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.impl.TokenhubServiceImpl;
+import com.ai.agent.application.service.impl.TokenHubServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
- * @ClassName: TokenhubChatController
+ * @ClassName: TokenHubChatController
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
@@ -43,19 +43,19 @@ import java.util.stream.Collectors;
 @Validated
 @RestController
 @RequestMapping("/api/tokenhub")
-public class TokenhubChatController {
+public class TokenHubChatController {
 
-    private final TokenhubServiceImpl tokenhubService;
+    private final TokenHubServiceImpl tokenHubService;
 
-    public TokenhubChatController(TokenhubServiceImpl tokenhubService) {
-        this.tokenhubService = tokenhubService;
+    public TokenHubChatController(TokenHubServiceImpl tokenHubService) {
+        this.tokenHubService = tokenHubService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
         log.info("[TokenHub-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = tokenhubService.chat(toServiceRequest(req));
+            LlmResponse response = tokenHubService.chat(toServiceRequest(req));
             log.info("[TokenHub-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,7 +70,7 @@ public class TokenhubChatController {
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
         log.info("[TokenHub-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        tokenhubService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        tokenHubService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 

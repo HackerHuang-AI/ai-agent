@@ -33,8 +33,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>Nacos 配置示例（ai-agent-thread-pool.json）：
  * <pre>{@code
  * {
- *   "doubao-stream-pool":   { "corePoolSize": 10, "maxPoolSize": 50, "queueCapacity": 100, "keepAliveSeconds": 60 },
- *   "deepseek-stream-pool": { "corePoolSize": 5,  "maxPoolSize": 30, "queueCapacity": 50,  "keepAliveSeconds": 60 }
+ *   "Doubao-stream-pool":   { "corePoolSize": 10, "maxPoolSize": 50, "queueCapacity": 100, "keepAliveSeconds": 60 },
+ *   "Deepseek-stream-pool": { "corePoolSize": 5,  "maxPoolSize": 30, "queueCapacity": 50,  "keepAliveSeconds": 60 }
  * }
  * }</pre>
  *
@@ -54,19 +54,19 @@ public class LlmThreadPoolConfig {
     // Nacos 有配置时用 Nacos 值，无配置时用此处默认值兜底
 
     enum PoolDef {
-        DOUBAO          ("doubao-stream-pool",             10, 50, 100, 60),
-        DEEPSEEK        ("deepseek-stream-pool",            5, 30,  50, 60),
-        QWEN            ("qwen-stream-pool",                5, 30,  50, 60),
-        ZHIPU           ("zhipu-stream-pool",               5, 30,  50, 60),
-        MOONSHOT        ("moonshot-stream-pool",            5, 30,  50, 60),
-        OPENAI          ("openai-stream-pool",              5, 30,  50, 60),
-        ANTHROPIC       ("anthropic-stream-pool",           5, 30,  50, 60),
-        GEMINI          ("gemini-stream-pool",              5, 30,  50, 60),
-        MIMO            ("mimo-stream-pool",                5, 30,  50, 60),
-        MINIMAX         ("minimax-stream-pool",             5, 30,  50, 60),
-        OLLAMA          ("ollama-stream-pool",              5, 30,  50, 60),
-        QIANFAN         ("qianfan-stream-pool",             5, 30,  50, 60),
-        TOKENHUB        ("tokenhub-stream-pool",            5, 30,  50, 60),
+        Doubao          ("Doubao-stream-pool",             10, 50, 100, 60),
+        Deepseek        ("Deepseek-stream-pool",            5, 30,  50, 60),
+        Qwen            ("Qwen-stream-pool",                5, 30,  50, 60),
+        Glm             ("Glm-stream-pool",                 5, 30,  50, 60),
+        Moonshot        ("Moonshot-stream-pool",            5, 30,  50, 60),
+        OpenAI          ("OpenAI-stream-pool",              5, 30,  50, 60),
+        Anthropic       ("Anthropic-stream-pool",           5, 30,  50, 60),
+        Gemini          ("Gemini-stream-pool",              5, 30,  50, 60),
+        Mimo            ("Mimo-stream-pool",                5, 30,  50, 60),
+        MiniMax         ("MiniMax-stream-pool",             5, 30,  50, 60),
+        Ollama          ("Ollama-stream-pool",              5, 30,  50, 60),
+        Qianfan         ("Qianfan-stream-pool",             5, 30,  50, 60),
+        TokenHub        ("TokenHub-stream-pool",            5, 30,  50, 60),
         ;
 
         final String nacosKey;
@@ -100,43 +100,43 @@ public class LlmThreadPoolConfig {
     // ==================== Bean 定义（每个 @Bean 只有一行逻辑，职责纯粹）====================
 
     @Bean("doubaoStreamExecutor")
-    public ThreadPoolExecutor doubaoStreamExecutor()         { return createAndRegister(PoolDef.DOUBAO); }
+    public ThreadPoolExecutor doubaoStreamExecutor()         { return createAndRegister(PoolDef.Doubao); }
 
     @Bean("deepseekStreamExecutor")
-    public ThreadPoolExecutor deepseekStreamExecutor()       { return createAndRegister(PoolDef.DEEPSEEK); }
+    public ThreadPoolExecutor deepseekStreamExecutor()       { return createAndRegister(PoolDef.Deepseek); }
 
     @Bean("qwenStreamExecutor")
-    public ThreadPoolExecutor qwenStreamExecutor()           { return createAndRegister(PoolDef.QWEN); }
+    public ThreadPoolExecutor qwenStreamExecutor()           { return createAndRegister(PoolDef.Qwen); }
 
-    @Bean("zhipuStreamExecutor")
-    public ThreadPoolExecutor zhipuStreamExecutor()          { return createAndRegister(PoolDef.ZHIPU); }
+    @Bean("glmStreamExecutor")
+    public ThreadPoolExecutor glmStreamExecutor()          { return createAndRegister(PoolDef.Glm); }
 
     @Bean("moonshotStreamExecutor")
-    public ThreadPoolExecutor moonshotStreamExecutor()       { return createAndRegister(PoolDef.MOONSHOT); }
+    public ThreadPoolExecutor moonshotStreamExecutor()       { return createAndRegister(PoolDef.Moonshot); }
 
-    @Bean("openaiStreamExecutor")
-    public ThreadPoolExecutor openaiStreamExecutor()         { return createAndRegister(PoolDef.OPENAI); }
+    @Bean("openAIStreamExecutor")
+    public ThreadPoolExecutor openAIStreamExecutor()         { return createAndRegister(PoolDef.OpenAI); }
 
     @Bean("anthropicStreamExecutor")
-    public ThreadPoolExecutor anthropicStreamExecutor()      { return createAndRegister(PoolDef.ANTHROPIC); }
+    public ThreadPoolExecutor anthropicStreamExecutor()      { return createAndRegister(PoolDef.Anthropic); }
 
     @Bean("geminiStreamExecutor")
-    public ThreadPoolExecutor geminiStreamExecutor()         { return createAndRegister(PoolDef.GEMINI); }
+    public ThreadPoolExecutor geminiStreamExecutor()         { return createAndRegister(PoolDef.Gemini); }
 
     @Bean("mimoStreamExecutor")
-    public ThreadPoolExecutor mimoStreamExecutor()           { return createAndRegister(PoolDef.MIMO); }
+    public ThreadPoolExecutor mimoStreamExecutor()           { return createAndRegister(PoolDef.Mimo); }
 
-    @Bean("minimaxStreamExecutor")
-    public ThreadPoolExecutor minimaxStreamExecutor()        { return createAndRegister(PoolDef.MINIMAX); }
+    @Bean("miniMaxStreamExecutor")
+    public ThreadPoolExecutor miniMaxStreamExecutor()        { return createAndRegister(PoolDef.MiniMax); }
 
     @Bean("ollamaStreamExecutor")
-    public ThreadPoolExecutor ollamaStreamExecutor()         { return createAndRegister(PoolDef.OLLAMA); }
+    public ThreadPoolExecutor ollamaStreamExecutor()         { return createAndRegister(PoolDef.Ollama); }
 
     @Bean("qianfanStreamExecutor")
-    public ThreadPoolExecutor qianfanStreamExecutor()        { return createAndRegister(PoolDef.QIANFAN); }
+    public ThreadPoolExecutor qianfanStreamExecutor()        { return createAndRegister(PoolDef.Qianfan); }
 
-    @Bean("tokenhubStreamExecutor")
-    public ThreadPoolExecutor tokenhubStreamExecutor()       { return createAndRegister(PoolDef.TOKENHUB); }
+    @Bean("tokenHubStreamExecutor")
+    public ThreadPoolExecutor tokenHubStreamExecutor()       { return createAndRegister(PoolDef.TokenHub); }
 
 
 // ==================== Nacos 热更新

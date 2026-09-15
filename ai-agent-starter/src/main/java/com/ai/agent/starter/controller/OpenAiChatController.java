@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.impl.OpenAiServiceImpl;
+import com.ai.agent.application.service.impl.OpenAIServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
- * @ClassName: OpenAiChatController
+ * @ClassName: OpenAIChatController
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
@@ -43,19 +43,19 @@ import java.util.stream.Collectors;
 @Validated
 @RestController
 @RequestMapping("/api/openai")
-public class OpenAiChatController {
+public class OpenAIChatController {
 
-    private final OpenAiServiceImpl openAiService;
+    private final OpenAIServiceImpl openAIService;
 
-    public OpenAiChatController(OpenAiServiceImpl openAiService) {
-        this.openAiService = openAiService;
+    public OpenAIChatController(OpenAIServiceImpl openAIService) {
+        this.openAIService = openAIService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
         log.info("[OpenAI-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = openAiService.chat(toServiceRequest(req));
+            LlmResponse response = openAIService.chat(toServiceRequest(req));
             log.info("[OpenAI-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,7 +70,7 @@ public class OpenAiChatController {
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
         log.info("[OpenAI-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        openAiService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        openAIService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 

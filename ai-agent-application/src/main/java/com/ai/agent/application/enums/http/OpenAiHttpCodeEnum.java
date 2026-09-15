@@ -8,7 +8,7 @@ import lombok.Getter;
  * <p>参考：<a href="https://platform.openai.com/docs/guides/error-codes">OpenAI 错误码文档</a>
  */
 @Getter
-public enum OpenAiHttpCodeEnum {
+public enum OpenAIHttpCodeEnum {
 
     UNAUTHORIZED      (401, "API Key 无效或已过期"),
     INSUFFICIENT_FUNDS(402, "账号余额不足"),
@@ -19,7 +19,7 @@ public enum OpenAiHttpCodeEnum {
     private final int code;
     private final String description;
 
-    OpenAiHttpCodeEnum(int code, String description) {
+    OpenAIHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

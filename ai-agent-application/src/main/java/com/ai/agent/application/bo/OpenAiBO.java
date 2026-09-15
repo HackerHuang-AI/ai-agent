@@ -19,13 +19,13 @@ import lombok.Data;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.bo
- * @ClassName: OpenAiBO
+ * @ClassName: OpenAIBO
  * @Author: HUANGcong
  * @Date: Created in 2026/7/12
  * @Version: 1.0
  */
 @Data
-public class OpenAiBO {
+public class OpenAIBO {
 
     /** API Key，格式：sk-xxxxxxxxxxxxxxxx */
     private String apiKey;

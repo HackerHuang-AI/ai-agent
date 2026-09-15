@@ -16,7 +16,7 @@ import lombok.Data;
 @Data
 public class LlmCredentialVO {
 
-    /** 平台标识；统一模型列表接口必传 */
+    /** 平台编码；统一模型列表接口必传，使用 PascalCase */
     private String platform;
 
     /** 页码，从 1 开始，默认 1 */

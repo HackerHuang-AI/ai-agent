@@ -21,13 +21,13 @@ import java.util.function.Consumer;
  * <p>重试逻辑在各 ServiceImpl.chat() 内部实现，紧贴 HTTP 调用层，
  * 避免在路由层重试时重复执行序列化、日志等无用操作。
  *
- * <p>新增平台只需在对应 ServiceImpl 上添加 {@code @Service("xxx")} 注解即可，本类无需改动。
+ * <p>平台编码为 PascalCase；新增平台时需确保其 Service Bean 名称可由本类解析。
  *
- * <h3>支持的 platform 值（对应各 ServiceImpl 的 Bean 名称后缀，不区分大小写）</h3>
+ * <h3>支持的 platform 编码</h3>
  * <pre>
- *   doubao / openai / deepseek / anthropic / zhipu / qwen
- *   moonshot / minimax / gemini / ollama / qianfan
- *   tokenhub / mimo
+ *   Doubao / OpenAI / Deepseek / Anthropic / Glm / Qwen
+ *   Moonshot / MiniMax / Gemini / Ollama / Qianfan
+ *   TokenHub / Mimo
  * </pre>
  */
 @Slf4j
@@ -36,7 +36,7 @@ public class LlmRouter {
 
     /**
      * Spring 自动将所有 LlmService 实现类注入为 Map，key 为 Bean 名称。
-     * 各 ServiceImpl 的 Bean 名称须与 platform 值对应（见各类 @Service 注解）。
+     * Bean 名称由类名默认生成，首字母缩写平台通过 PLATFORM_BEAN_MAP 映射。
      */
     private final Map<String, LlmService> serviceMap;
 
@@ -50,7 +50,7 @@ public class LlmRouter {
      * <p>重试由各 ServiceImpl 内部在 HTTP 调用层执行，本层不做重试。
      * 4xx 错误（客户端错误）由 ServiceImpl 内部识别并抛出 BizException，直接向上传递。
      *
-     * @param platform platform 标识（不区分大小写）
+     * @param platform 平台编码
      * @param request  已组装好的 LlmRequest
      * @return LLM 响应
      */
@@ -67,7 +67,7 @@ public class LlmRouter {
     /**
      * 根据 platform 路由到对应 Service 执行 Responses API 调用。
      *
-     * @param platform platform 标识（不区分大小写）
+     * @param platform 平台编码
      * @param request  统一 Responses API 入参
      * @return 统一响应
      */
@@ -95,7 +95,7 @@ public class LlmRouter {
     /**
      * 根据 platform 路由到对应 Service 执行流式调用
      *
-     * @param platform      platform 标识（不区分大小写）
+     * @param platform      平台编码
      * @param request       已组装好的 LlmRequest
      * @param chunkConsumer 每个流式 chunk 的回调，null 表示正常结束，"[ERROR]" 表示出错结束
      */
@@ -105,23 +105,33 @@ public class LlmRouter {
         service.chatStream(request, chunkConsumer);
     }
 
-/**
-* platform 值与 Spring Bean 名的特殊映射表。
-* 目前无特殊平台需要映射，其余平台 Bean 名 = platform.toLowerCase() + "ServiceImpl"。
-*/
-private static final Map<String, String> PLATFORM_BEAN_MAP = Map.of();
+    /**
+     * 平台编码与 Spring Bean 名的映射表。
+     */
+    private static final Map<String, String> PLATFORM_BEAN_MAP = Map.ofEntries(
+            Map.entry("Doubao", "doubaoServiceImpl"),
+            Map.entry("OpenAI", "openAIServiceImpl"),
+            Map.entry("Deepseek", "deepseekServiceImpl"),
+            Map.entry("Anthropic", "anthropicServiceImpl"),
+            Map.entry("Glm", "glmServiceImpl"),
+            Map.entry("Qwen", "qwenServiceImpl"),
+            Map.entry("Moonshot", "moonshotServiceImpl"),
+            Map.entry("MiniMax", "miniMaxServiceImpl"),
+            Map.entry("Gemini", "geminiServiceImpl"),
+            Map.entry("Ollama", "ollamaServiceImpl"),
+            Map.entry("Qianfan", "qianfanServiceImpl"),
+            Map.entry("TokenHub", "tokenHubServiceImpl"),
+            Map.entry("Mimo", "mimoServiceImpl"));
 
     /**
-     * 将 platform 映射到 Bean 名称后查找。
-     * 优先查特殊映射表；未命中则按 "platform + ServiceImpl" 通用规则拼接。
+     * 按平台编码映射到 Bean 名称后查找。
      */
     private LlmService resolve(String platform) {
         if (platform == null || platform.isBlank()) {
             throw new BizException(ErrorCodeEnum.LLM_PLATFORM_NOT_SUPPORTED);
         }
-        String key = platform.toLowerCase();
-        String beanName = PLATFORM_BEAN_MAP.getOrDefault(key, key + "ServiceImpl");
-        LlmService service = serviceMap.get(beanName);
+        String beanName = PLATFORM_BEAN_MAP.get(platform);
+        LlmService service = beanName == null ? null : serviceMap.get(beanName);
         if (service == null) {
             log.error("[LlmRouter] 不支持的平台: {}, beanName={}", platform, beanName);
             throw new BizException(ErrorCodeEnum.LLM_PLATFORM_NOT_SUPPORTED);

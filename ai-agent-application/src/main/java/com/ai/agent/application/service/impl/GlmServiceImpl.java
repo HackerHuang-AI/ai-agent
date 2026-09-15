@@ -1,9 +1,9 @@
 package com.ai.agent.application.service.impl;
 
-import com.ai.agent.application.bo.ZhipuBO;
+import com.ai.agent.application.bo.GlmBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.ZhipuHttpCodeEnum;
+import com.ai.agent.application.enums.http.GlmHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
@@ -40,14 +40,14 @@ import java.util.function.Consumer;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
- * @ClassName: ZhipuServiceImpl
+ * @ClassName: GlmServiceImpl
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
  */
 @Slf4j
 @Service
-public class ZhipuServiceImpl implements LlmService {
+public class GlmServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG   = "[DONE]";
@@ -63,7 +63,7 @@ public class ZhipuServiceImpl implements LlmService {
     private final RetryConfig retryConfig;
     private final NacosConfig nacosConfig;
 
-    public ZhipuServiceImpl(@Qualifier("zhipuStreamExecutor") ExecutorService streamExecutor,
+    public GlmServiceImpl(@Qualifier("glmStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
             RetryConfig retryConfig,
             NacosConfig nacosConfig) {
@@ -76,28 +76,28 @@ public class ZhipuServiceImpl implements LlmService {
     @Override
     public LlmResponse chat(LlmRequest request) {
         fillDefaults(request);
-        log.info("[Zhipu-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        log.info("[Glm-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.ZHIPU).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Glm).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
-                        log.error("[Zhipu-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                        log.error("[Glm-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
                         throwByHttpCode(response.code(), platformErr);
                     }
                     if (responseBody.isEmpty()) {
-                        log.error("[Zhipu-chat] 响应体为空");
+                        log.error("[Glm-chat] 响应体为空");
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.ZHIPU));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Glm));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        log.info("[Zhipu-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+        log.info("[Glm-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                                 System.currentTimeMillis() - start);
         return result;
@@ -107,7 +107,7 @@ public class ZhipuServiceImpl implements LlmService {
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
         fillDefaults(request);
         String requestBody = buildRequestBody(request, true);
-        log.info("[Zhipu-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        log.info("[Glm-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
         try {
@@ -116,18 +116,18 @@ public class ZhipuServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.ZHIPU).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Glm).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
-                            log.error("[Zhipu-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
+                            log.error("[Glm-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
                             resp.close();
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.ZHIPU));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Glm));
                     if (response == null || response.body() == null) {
-                        log.error("[Zhipu] 连接失败或响应体为空");
+                        log.error("[Glm] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
                         return;
                     }
@@ -137,17 +137,17 @@ public class ZhipuServiceImpl implements LlmService {
                         response.close();
                     }
                 } catch (BizException e) {
-                    log.error("[Zhipu-stream] 业务异常", e);
+                    log.error("[Glm-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } catch (Exception e) {
-                    log.error("[Zhipu-stream] 未预期异常", e);
+                    log.error("[Glm-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();
                 }
             });
         } catch (RejectedExecutionException e) {
-            log.error("[Zhipu-stream] 线程池已满，拒绝请求", e);
+            log.error("[Glm-stream] 线程池已满，拒绝请求", e);
             chunkConsumer.accept("[ERROR]");
         }
     }
@@ -160,7 +160,7 @@ public class ZhipuServiceImpl implements LlmService {
 
     private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
-            ZhipuBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_ZHIPU, "chat", ZhipuBO.class);
+            GlmBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_GLM, "chat", GlmBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;
         }
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
@@ -169,7 +169,7 @@ public class ZhipuServiceImpl implements LlmService {
                 .get()
                 .header("Authorization", "Bearer " + generateJwtToken(apiKey))
                 .build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.ZHIPU).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Glm).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
             List<LlmModelInfo> models = new ArrayList<>();
@@ -181,10 +181,10 @@ public class ZhipuServiceImpl implements LlmService {
                         .created(item.path("created").asLong(0))
                         .build());
             }
-            log.info("[Zhipu-models] 获取模型列表成功, count={}", models.size());
+            log.info("[Glm-models] 获取模型列表成功, count={}", models.size());
             return models;
         } catch (IOException e) {
-            log.error("[Zhipu-models] 获取模型列表失败", e);
+            log.error("[Glm-models] 获取模型列表失败", e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
     }
@@ -192,15 +192,15 @@ public class ZhipuServiceImpl implements LlmService {
     // ==================== 凭证兜底 ====================
 
     /**
-     * 入参兜底：调用方未传的字段从 Nacos ai-agent-zhipu.json 的 chat 块补全。
+     * 入参兜底：调用方未传的字段从 Nacos ai-agent-glm.json 的 chat 块补全。
      * 补完后校验必填项，缺失时抛异常。
      */
     private void fillDefaults(LlmRequest request) {
-        ZhipuBO cfg = null;
+        GlmBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_ZHIPU, "chat", ZhipuBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_GLM, "chat", GlmBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);
@@ -209,15 +209,15 @@ public class ZhipuServiceImpl implements LlmService {
         if (StringUtils.isBlank(request.getModelCode()))
             request.setModelCode(cfg != null ? cfg.getModelCode() : null);
         if (StringUtils.isBlank(request.getApiKey())) {
-            log.error("[Zhipu] apiKey 未配置，入参和 Nacos 均为空");
+            log.error("[Glm] apiKey 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         }
         if (StringUtils.isBlank(request.getEndpoint())) {
-            log.error("[Zhipu] endpoint 未配置，入参和 Nacos 均为空");
+            log.error("[Glm] endpoint 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
         if (StringUtils.isBlank(request.getModelCode())) {
-            log.error("[Zhipu] modelCode 未配置，入参和 Nacos 均为空");
+            log.error("[Glm] modelCode 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
     }
@@ -341,7 +341,7 @@ public class ZhipuServiceImpl implements LlmService {
     private String generateJwtToken(String apiKey) {
         String[] parts = apiKey.split("\\.");
         if (parts.length != 2) {
-            log.error("[Zhipu] API Key 格式错误，应为 id.secret 格式");
+            log.error("[Glm] API Key 格式错误，应为 id.secret 格式");
             throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         }
         String id = parts[0];
@@ -418,7 +418,7 @@ public class ZhipuServiceImpl implements LlmService {
                             .build())
                     .build();
         } catch (IOException e) {
-            log.error("[Zhipu-chat] 响应解析失败", e);
+            log.error("[Glm-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -476,7 +476,7 @@ public class ZhipuServiceImpl implements LlmService {
             flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
             chunkConsumer.accept(null);
         } catch (IOException e) {
-            log.error("[Zhipu-stream] 流式响应解析失败, model={}", modelCode, e);
+            log.error("[Glm-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -494,7 +494,7 @@ public class ZhipuServiceImpl implements LlmService {
             }
             chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(list));
         } catch (IOException e) {
-            log.warn("[Zhipu-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
+            log.warn("[Glm-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
         }
     }
 
@@ -502,12 +502,12 @@ public class ZhipuServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == ZhipuHttpCodeEnum.UNAUTHORIZED.getCode()) {
+        if (httpCode == GlmHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == ZhipuHttpCodeEnum.BAD_REQUEST.getCode()
-                || httpCode == ZhipuHttpCodeEnum.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == GlmHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == GlmHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == ZhipuHttpCodeEnum.RATE_LIMIT.getCode()) {
+        } else if (httpCode == GlmHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

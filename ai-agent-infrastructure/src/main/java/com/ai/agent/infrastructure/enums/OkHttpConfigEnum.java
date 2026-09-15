@@ -23,19 +23,19 @@ package com.ai.agent.infrastructure.enums;
  */
 public enum OkHttpConfigEnum {
 
-    DOUBAO       ("doubao"),
-    DEEPSEEK     ("deepseek"),
-    QWEN         ("qwen"),
-    ZHIPU        ("zhipu"),
-    MOONSHOT     ("moonshot"),
-    OPENAI       ("openai"),
-    ANTHROPIC    ("anthropic"),
-    GEMINI       ("gemini"),
-    MIMO         ("mimo"),
-    MINIMAX      ("minimax"),
-    OLLAMA       ("ollama"),
-    QIANFAN      ("qianfan"),
-    TOKENHUB     ("tokenhub"),
+    Doubao       ("Doubao"),
+    Deepseek     ("Deepseek"),
+    Qwen         ("Qwen"),
+    Glm          ("Glm"),
+    Moonshot     ("Moonshot"),
+    OpenAI       ("OpenAI"),
+    Anthropic    ("Anthropic"),
+    Gemini       ("Gemini"),
+    Mimo         ("Mimo"),
+    MiniMax      ("MiniMax"),
+    Ollama       ("Ollama"),
+    Qianfan      ("Qianfan"),
+    TokenHub     ("TokenHub"),
 
     /** 兜底项：找不到专属枚举时使用，对应 Nacos ai-agent-http.json 中的 {@code "default"} 全局超时配置块 */
     DEFAULT      ("default"),
@@ -52,15 +52,14 @@ public enum OkHttpConfigEnum {
      * 根据 scope 字符串查找对应枚举项。
      * 找不到时返回 {@link #DEFAULT}，不抛异常。
      *
-     * @param scope 业务场景标识（不区分大小写）
+     * @param scope 业务场景标识（需与平台注册编码一致）
      */
     public static OkHttpConfigEnum of(String scope) {
         if (scope == null || scope.isBlank()) {
             return DEFAULT;
         }
-        String key = scope.toLowerCase();
         for (OkHttpConfigEnum item : values()) {
-            if (item != DEFAULT && item.nacosKey.equals(key)) {
+            if (item != DEFAULT && item.nacosKey.equals(scope)) {
                 return item;
             }
         }

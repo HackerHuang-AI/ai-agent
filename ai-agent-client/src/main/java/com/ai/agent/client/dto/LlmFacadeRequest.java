@@ -10,18 +10,19 @@ import java.util.Map;
  *
  * <h3>平台路由规则（platform 字段）</h3>
  * <pre>
- *   doubao      → 豆包（火山方舟）
- *   openai      → OpenAI
- *   deepseek    → Deepseek
- *   anthropic   → Anthropic（Claude）
- *   zhipu       → 智谱 GLM
- *   qwen        → 阿里灵积（通义千问）
- *   moonshot    → Moonshot（Kimi）
- *   minimax     → Minimax
- *   gemini      → Google Gemini
- *   ollama      → Ollama（本地部署）
- *   qianfan     → 百度千帆
- *   tokenhub    → 腾讯 TokenHub
+ *   Doubao      → 豆包（火山方舟）
+ *   OpenAI      → OpenAI
+ *   Deepseek    → Deepseek
+ *   Anthropic   → Anthropic（Claude）
+ *   Glm         → 智谱 GLM
+ *   Qwen        → 阿里灵积（通义千问）
+ *   Moonshot    → Moonshot（Kimi）
+ *   MiniMax     → MiniMax
+ *   Gemini      → Google Gemini
+ *   Ollama      → Ollama（本地部署）
+ *   Qianfan     → 百度千帆
+ *   TokenHub    → 腾讯 TokenHub
+ *   Mimo        → 小米 MiMo
  * </pre>
  */
 public class LlmFacadeRequest implements Serializable {
@@ -29,8 +30,8 @@ public class LlmFacadeRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 平台标识，用于路由到对应 Service。
-     * 不区分大小写，内部统一转小写处理。
+     * 平台编码，用于路由到对应 Service。
+     * 使用 PascalCase，如 {@code Doubao}、{@code OpenAI}、{@code Glm}。
      */
     private String platform;
 

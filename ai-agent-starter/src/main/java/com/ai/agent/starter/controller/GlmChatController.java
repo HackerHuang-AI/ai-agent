@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.impl.ZhipuServiceImpl;
+import com.ai.agent.application.service.impl.GlmServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
@@ -30,12 +30,12 @@ import java.util.stream.Collectors;
  * @Description: 智谱 GLM 平台对话接口
  *               注意：apiKey 格式为 id.secret，服务层内部自动生成 JWT Token。
  *
- *               POST /api/zhipu/chat        同步对话
- *               POST /api/zhipu/chat/stream  流式对话，SSE 实时推送 chunk
+ *               POST /api/glm/chat        同步对话
+ *               POST /api/glm/chat/stream  流式对话，SSE 实时推送 chunk
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
- * @ClassName: ZhipuChatController
+ * @ClassName: GlmChatController
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
@@ -43,35 +43,35 @@ import java.util.stream.Collectors;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/api/zhipu")
-public class ZhipuChatController {
+@RequestMapping("/api/glm")
+public class GlmChatController {
 
-    private final ZhipuServiceImpl zhipuService;
+    private final GlmServiceImpl glmService;
 
-    public ZhipuChatController(ZhipuServiceImpl zhipuService) {
-        this.zhipuService = zhipuService;
+    public GlmChatController(GlmServiceImpl glmService) {
+        this.glmService = glmService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Zhipu-chat] 开始处理, req={}", req);
+        log.info("[Glm-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = zhipuService.chat(toServiceRequest(req));
-            log.info("[Zhipu-chat] 处理完成, response={}", response);
+            LlmResponse response = glmService.chat(toServiceRequest(req));
+            log.info("[Glm-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Zhipu-chat] 系统异常", e);
+            log.error("[Glm-chat] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Zhipu-stream] 开始处理, req={}", req);
+        log.info("[Glm-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        zhipuService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        glmService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -81,7 +81,7 @@ public class ZhipuChatController {
                 try {
                     emitter.send(SseEmitter.event().name("done").data("[DONE]"));
                 } catch (IOException e) {
-                    log.warn("[Zhipu-stream] 发送 done 事件失败, model={}", tag);
+                    log.warn("[Glm-stream] 发送 done 事件失败, model={}", tag);
                 }
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
@@ -90,7 +90,7 @@ public class ZhipuChatController {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));
                 } catch (IOException e) {
-                    log.warn("[Zhipu-stream] 客户端已断开, model={}", tag);
+                    log.warn("[Glm-stream] 客户端已断开, model={}", tag);
                     emitter.completeWithError(e);
                 }
             }

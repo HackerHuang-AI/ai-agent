@@ -78,7 +78,7 @@ public class OllamaServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OLLAMA).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Ollama).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -91,7 +91,7 @@ public class OllamaServiceImpl implements LlmService {
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.OLLAMA));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Ollama));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Ollama-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
@@ -112,7 +112,7 @@ public class OllamaServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OLLAMA).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Ollama).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -121,7 +121,7 @@ public class OllamaServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.OLLAMA));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Ollama));
                     if (response == null || response.body() == null) {
                         log.error("[Ollama] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -453,7 +453,7 @@ public class OllamaServiceImpl implements LlmService {
                 .get()
                 .header("Authorization", "Bearer " + effectiveApiKey)
                 .build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OLLAMA).newCall(okRequest).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Ollama).newCall(okRequest).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
                 log.error("[Ollama-models] HTTP {} 失败, body={}", response.code(), truncate(body));

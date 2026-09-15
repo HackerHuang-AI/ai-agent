@@ -1,9 +1,9 @@
 package com.ai.agent.application.service.impl;
 
-import com.ai.agent.application.bo.TokenhubBO;
+import com.ai.agent.application.bo.TokenHubBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.TokenhubHttpCodeEnum;
+import com.ai.agent.application.enums.http.TokenHubHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
@@ -37,14 +37,14 @@ import java.util.function.Consumer;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
- * @ClassName: TokenhubServiceImpl
+ * @ClassName: TokenHubServiceImpl
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
  */
 @Slf4j
 @Service
-public class TokenhubServiceImpl implements LlmService {
+public class TokenHubServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG   = "[DONE]";
@@ -58,7 +58,7 @@ public class TokenhubServiceImpl implements LlmService {
     private final RetryConfig retryConfig;
     private final NacosConfig nacosConfig;
 
-    public TokenhubServiceImpl(@Qualifier("tokenhubStreamExecutor") ExecutorService streamExecutor,
+    public TokenHubServiceImpl(@Qualifier("tokenHubStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
             RetryConfig retryConfig,
             NacosConfig nacosConfig) {
@@ -77,7 +77,7 @@ public class TokenhubServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TOKENHUB).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TokenHub).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -90,7 +90,7 @@ public class TokenhubServiceImpl implements LlmService {
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.TOKENHUB));
+        }, retryConfig.getRetryParam(RetryConfigEnum.TokenHub));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[TokenHub-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
@@ -111,7 +111,7 @@ public class TokenhubServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TOKENHUB).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TokenHub).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -120,7 +120,7 @@ public class TokenhubServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.TOKENHUB));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.TokenHub));
                     if (response == null || response.body() == null) {
                         log.error("[TokenHub] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -154,13 +154,13 @@ public class TokenhubServiceImpl implements LlmService {
 
     private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
-            TokenhubBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_TOKENHUB, "chat", TokenhubBO.class);
+            TokenHubBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_TOKENHUB, "chat", TokenHubBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;
         }
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         Request request = new Request.Builder().url("https://tokenhub.tencentmaas.com/v1/models").get()
                 .header("Authorization", "Bearer " + apiKey).build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TOKENHUB).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.TokenHub).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
             List<LlmModelInfo> models = new ArrayList<>();
@@ -179,11 +179,11 @@ public class TokenhubServiceImpl implements LlmService {
     // ==================== 凭证兜底 ====================
 
     private void fillDefaults(LlmRequest request) {
-        TokenhubBO cfg = null;
+        TokenHubBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_TOKENHUB, "chat", TokenhubBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_TOKENHUB, "chat", TokenHubBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);
@@ -461,12 +461,12 @@ public class TokenhubServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == TokenhubHttpCodeEnum.UNAUTHORIZED.getCode()) {
+        if (httpCode == TokenHubHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == TokenhubHttpCodeEnum.BAD_REQUEST.getCode()
-                || httpCode == TokenhubHttpCodeEnum.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == TokenHubHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == TokenHubHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == TokenhubHttpCodeEnum.RATE_LIMIT.getCode()) {
+        } else if (httpCode == TokenHubHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

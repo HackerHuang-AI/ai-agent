@@ -77,7 +77,7 @@ public class GeminiServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.GEMINI).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Gemini).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -90,7 +90,7 @@ public class GeminiServiceImpl implements LlmService {
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.GEMINI));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Gemini));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Gemini-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
@@ -111,7 +111,7 @@ public class GeminiServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.GEMINI).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Gemini).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -120,7 +120,7 @@ public class GeminiServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.GEMINI));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Gemini));
                     if (response == null || response.body() == null) {
                         log.error("[Gemini] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -167,7 +167,7 @@ public class GeminiServiceImpl implements LlmService {
                         .addQueryParameter("key", apiKey);
                 if (pageToken != null) urlBuilder.addQueryParameter("pageToken", pageToken);
                 Request request = new Request.Builder().url(urlBuilder.build()).get().build();
-                try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.GEMINI).newCall(request).execute()) {
+                try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Gemini).newCall(request).execute()) {
                     String body = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
                     JsonNode root = MAPPER.readTree(body);

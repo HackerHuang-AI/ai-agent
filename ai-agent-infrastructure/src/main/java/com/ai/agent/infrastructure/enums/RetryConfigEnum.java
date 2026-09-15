@@ -23,19 +23,19 @@ package com.ai.agent.infrastructure.enums;
  */
 public enum RetryConfigEnum {
 
-    DOUBAO       ("doubao"),
-    DEEPSEEK     ("deepseek"),
-    QWEN         ("qwen"),
-    ZHIPU        ("zhipu"),
-    MOONSHOT     ("moonshot"),
-    OPENAI       ("openai"),
-    ANTHROPIC    ("anthropic"),
-    GEMINI       ("gemini"),
-    MIMO         ("mimo"),
-    MINIMAX      ("minimax"),
-    OLLAMA       ("ollama"),
-    QIANFAN      ("qianfan"),
-    TOKENHUB     ("tokenhub"),
+    Doubao       ("Doubao"),
+    Deepseek     ("Deepseek"),
+    Qwen         ("Qwen"),
+    Glm          ("Glm"),
+    Moonshot     ("Moonshot"),
+    OpenAI       ("OpenAI"),
+    Anthropic    ("Anthropic"),
+    Gemini       ("Gemini"),
+    Mimo         ("Mimo"),
+    MiniMax      ("MiniMax"),
+    Ollama       ("Ollama"),
+    Qianfan      ("Qianfan"),
+    TokenHub     ("TokenHub"),
 
     /** 兜底项：找不到专属枚举时使用，对应 Nacos 中的全局通用重试配置 */
     DEFAULT      ("default"),
@@ -52,15 +52,14 @@ public enum RetryConfigEnum {
      * 根据 scope 字符串查找对应枚举项。
      * 找不到时返回 {@link #DEFAULT}，不抛异常。
      *
-     * @param scope 业务场景标识（不区分大小写）
+     * @param scope 业务场景标识（需与平台注册编码一致）
      */
     public static RetryConfigEnum of(String scope) {
         if (scope == null || scope.isBlank()) {
             return DEFAULT;
         }
-        String key = scope.toLowerCase();
         for (RetryConfigEnum item : values()) {
-            if (item != DEFAULT && item.nacosKey.equals(key)) {
+            if (item != DEFAULT && item.nacosKey.equals(scope)) {
                 return item;
             }
         }

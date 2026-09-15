@@ -1,4 +1,4 @@
-# Minimax OpenAPI 文档
+# MiniMax OpenAPI 文档
 
 > 版本: v1 | 更新时间: 2026-06-01 | 官方文档: https://platform.minimaxi.com/document/ChatCompletion%20v2
 
@@ -63,14 +63,14 @@ Content-Type: application/json
 | `model` | string | ✅ | 模型标识，如 `abab6.5s-chat`、`abab6.5g-chat`、`abab7-preview` |
 | `messages` | array | ✅ | 对话列表，**每条消息多了 `name` 字段（必填）** |
 | `messages[].role` | string | ✅ | `system` / `user` / `assistant` / `tool` |
-| `messages[].name` | string | ✅ | **Minimax 特有**：角色名称，通常填 `"MM智能助手"` 或 `"user"` |
+| `messages[].name` | string | ✅ | **MiniMax 特有**：角色名称，通常填 `"MM智能助手"` 或 `"user"` |
 | `messages[].content` | string | ✅ | 消息内容 |
 | `stream` | boolean | ❌ | 是否流式，默认 `false` |
 | `temperature` | float | ❌ | 范围 `[0.01, 1]`，默认 `0.9`（上限 1，非 2） |
 | `max_tokens` | integer | ❌ | 最大输出 token，默认 `4096`，最大 `16384` |
 | `top_p` | float | ❌ | 范围 `(0, 1)`，默认 `0.95` |
 | `tools` | array | ❌ | Function Call，格式与 OpenAI 基本一致 |
-| `mask_sensitive_info` | boolean | ❌ | **Minimax 特有**：是否对输出中的敏感信息（手机号等）打码，默认 `false` |
+| `mask_sensitive_info` | boolean | ❌ | **MiniMax 特有**：是否对输出中的敏感信息（手机号等）打码，默认 `false` |
 
 ---
 
@@ -108,10 +108,10 @@ Content-Type: application/json
 | 字段 | 说明 |
 |------|------|
 | `choices[0].message.content` | 模型回复内容 |
-| `choices[0].message.name` | **Minimax 特有**：助手角色名 |
+| `choices[0].message.name` | **MiniMax 特有**：助手角色名 |
 | `choices[0].finish_reason` | `stop` / `length` / `tool_calls` |
-| `base_resp.status_code` | **Minimax 特有**：业务状态码，`0` 为成功，非 0 为错误 |
-| `base_resp.status_msg` | **Minimax 特有**：业务状态信息 |
+| `base_resp.status_code` | **MiniMax 特有**：业务状态码，`0` 为成功，非 0 为错误 |
+| `base_resp.status_msg` | **MiniMax 特有**：业务状态信息 |
 
 > ⚠️ HTTP 状态码为 200 不等于业务成功，需检查 `base_resp.status_code` 是否为 0。
 
@@ -132,8 +132,8 @@ data: [DONE]
 | 字段 | 说明 |
 |------|------|
 | `choices[0].delta.content` | 当前 chunk 文本 |
-| `choices[0].delta.name` | **Minimax 特有**：助手角色名（首帧携带） |
-| `usage`（最后正式帧） | Minimax 在最后一帧（finish_reason 非空时）附带 usage |
+| `choices[0].delta.name` | **MiniMax 特有**：助手角色名（首帧携带） |
+| `usage`（最后正式帧） | MiniMax 在最后一帧（finish_reason 非空时）附带 usage |
 | `data: [DONE]` | 流结束标志 |
 
 ---
@@ -153,7 +153,7 @@ data: [DONE]
 
 ## 七、与 OpenAI 的差异点
 
-| 差异项 | OpenAI | Minimax |
+| 差异项 | OpenAI | MiniMax |
 |--------|--------|---------|
 | `messages[].name` | 可选 | **必填**（每条消息都要有角色名） |
 | `temperature` 范围 | `[0, 2]` | `[0.01, 1]`（不能为 0，上限为 1） |
@@ -197,7 +197,7 @@ data: [DONE]
 | 429 | `LLM_RATE_LIMIT`(2002011) | 调用频率超限 |
 | 其他 4xx/5xx | `LLM_CALL_FAILED`(2002001) | 平台调用失败（兜底） |
 
-### Minimax 业务错误码（`base_resp.status_code`）
+### MiniMax 业务错误码（`base_resp.status_code`）
 
 | `status_code` | 说明 | 对应处理 |
 |--------------|------|---------|
@@ -209,6 +209,6 @@ data: [DONE]
 | 1008 | 余额不足 | `LLM_INSUFFICIENT_BALANCE` |
 | 2013 | 参数非法 | `PARAM_ILLEGAL` |
 
-> ⚠️ Minimax HTTP 200 不等于业务成功，需检查 `base_resp.status_code`，非 0 视为错误（Service 层统一映射到 `LLM_CALL_FAILED`，错误信息来自 `status_msg`）。
+> ⚠️ MiniMax HTTP 200 不等于业务成功，需检查 `base_resp.status_code`，非 0 视为错误（Service 层统一映射到 `LLM_CALL_FAILED`，错误信息来自 `status_msg`）。
 > 流式接口遇到 HTTP 错误时推送 `[ERROR:{httpCode}]`；同步接口抛 `BizException`，包含错误码和平台原始信息。
 

@@ -1,9 +1,9 @@
 package com.ai.agent.application.service.impl;
 
-import com.ai.agent.application.bo.MinimaxBO;
+import com.ai.agent.application.bo.MiniMaxBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.MinimaxHttpCodeEnum;
+import com.ai.agent.application.enums.http.MiniMaxHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Minimax 平台 LLM 服务实现。
+ * @Description: MiniMax 平台 LLM 服务实现。
  *               协议基本兼容 OpenAI，关键差异：
  *               1. messages 每条消息需携带 name 字段（system→"assistant"，user→"user"，assistant→"MM智能助手"）
  *               2. HTTP 200 不等于业务成功，需检查响应体中的 base_resp.status_code == 0
@@ -40,14 +40,14 @@ import java.util.function.Consumer;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
- * @ClassName: MinimaxServiceImpl
+ * @ClassName: MiniMaxServiceImpl
  * @Author: HUANGcong
  * @Date: Created in 2026/6/29
  * @Version: 1.0
  */
 @Slf4j
 @Service
-public class MinimaxServiceImpl implements LlmService {
+public class MiniMaxServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG   = "[DONE]";
@@ -61,7 +61,7 @@ public class MinimaxServiceImpl implements LlmService {
     private final RetryConfig retryConfig;
     private final NacosConfig nacosConfig;
 
-    public MinimaxServiceImpl(@Qualifier("minimaxStreamExecutor") ExecutorService streamExecutor,
+    public MiniMaxServiceImpl(@Qualifier("miniMaxStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
             RetryConfig retryConfig,
             NacosConfig nacosConfig) {
@@ -74,28 +74,28 @@ public class MinimaxServiceImpl implements LlmService {
     @Override
     public LlmResponse chat(LlmRequest request) {
         fillDefaults(request);
-        log.info("[Minimax-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        log.info("[MiniMax-chat] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         String requestBody = buildRequestBody(request, false);
         long start = System.currentTimeMillis();
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MINIMAX).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MiniMax).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
-                        log.error("[Minimax-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
+                        log.error("[MiniMax-chat] HTTP {} 失败, platformError={}", response.code(), platformErr);
                         throwByHttpCode(response.code(), platformErr);
                     }
                     if (responseBody.isEmpty()) {
-                        log.error("[Minimax-chat] 响应体为空");
+                        log.error("[MiniMax-chat] 响应体为空");
                         throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.MINIMAX));
+        }, retryConfig.getRetryParam(RetryConfigEnum.MiniMax));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-        log.info("[Minimax-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
+        log.info("[MiniMax-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                                 System.currentTimeMillis() - start);
         return result;
@@ -105,7 +105,7 @@ public class MinimaxServiceImpl implements LlmService {
     public void chatStream(LlmRequest request, Consumer<String> chunkConsumer) {
         fillDefaults(request);
         String requestBody = buildRequestBody(request, true);
-        log.info("[Minimax-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
+        log.info("[MiniMax-stream] 开始调用, model={}, endpoint={}", request.getModelCode(), request.getEndpoint());
         Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
         try {
@@ -114,18 +114,18 @@ public class MinimaxServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MINIMAX).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MiniMax).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
-                            log.error("[Minimax-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
+                            log.error("[MiniMax-stream] HTTP {} 失败, platformError={}", resp.code(), platformMsg);
                             resp.close();
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.MINIMAX));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.MiniMax));
                     if (response == null || response.body() == null) {
-                        log.error("[Minimax] 连接失败或响应体为空");
+                        log.error("[MiniMax] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
                         return;
                     }
@@ -135,17 +135,17 @@ public class MinimaxServiceImpl implements LlmService {
                         response.close();
                     }
                 } catch (BizException e) {
-                    log.error("[Minimax-stream] 业务异常", e);
+                    log.error("[MiniMax-stream] 业务异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } catch (Exception e) {
-                    log.error("[Minimax-stream] 未预期异常", e);
+                    log.error("[MiniMax-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
                 } finally {
                     MDC.clear();
                 }
             });
         } catch (RejectedExecutionException e) {
-            log.error("[Minimax-stream] 线程池已满，拒绝请求", e);
+            log.error("[MiniMax-stream] 线程池已满，拒绝请求", e);
             chunkConsumer.accept("[ERROR]");
         }
     }
@@ -157,13 +157,13 @@ public class MinimaxServiceImpl implements LlmService {
 
     private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
-            MinimaxBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MINIMAX, "chat", MinimaxBO.class);
+            MiniMaxBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MINIMAX, "chat", MiniMaxBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;
         }
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         Request request = new Request.Builder().url("https://api.minimaxi.com/v1/models").get()
                 .header("Authorization", "Bearer " + apiKey).build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MINIMAX).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MiniMax).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
             List<LlmModelInfo> models = new ArrayList<>();
@@ -175,10 +175,10 @@ public class MinimaxServiceImpl implements LlmService {
                         .created(item.path("created").asLong(0))
                         .build());
             }
-            log.info("[Minimax-models] 获取模型列表成功, count={}", models.size());
+            log.info("[MiniMax-models] 获取模型列表成功, count={}", models.size());
             return models;
         } catch (IOException e) {
-            log.error("[Minimax-models] 获取模型列表失败", e);
+            log.error("[MiniMax-models] 获取模型列表失败", e);
             throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         }
     }
@@ -190,11 +190,11 @@ public class MinimaxServiceImpl implements LlmService {
      * 补完后校验必填项，缺失时抛异常。
      */
     private void fillDefaults(LlmRequest request) {
-        MinimaxBO cfg = null;
+        MiniMaxBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MINIMAX, "chat", MinimaxBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MINIMAX, "chat", MiniMaxBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);
@@ -203,15 +203,15 @@ public class MinimaxServiceImpl implements LlmService {
         if (StringUtils.isBlank(request.getModelCode()))
             request.setModelCode(cfg != null ? cfg.getModelCode() : null);
         if (StringUtils.isBlank(request.getApiKey())) {
-            log.error("[Minimax] apiKey 未配置，入参和 Nacos 均为空");
+            log.error("[MiniMax] apiKey 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         }
         if (StringUtils.isBlank(request.getEndpoint())) {
-            log.error("[Minimax] endpoint 未配置，入参和 Nacos 均为空");
+            log.error("[MiniMax] endpoint 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
         if (StringUtils.isBlank(request.getModelCode())) {
-            log.error("[Minimax] modelCode 未配置，入参和 Nacos 均为空");
+            log.error("[MiniMax] modelCode 未配置，入参和 Nacos 均为空");
             throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
         }
     }
@@ -267,7 +267,7 @@ public class MinimaxServiceImpl implements LlmService {
     }
 
     /**
-     * Minimax 特有：每条消息需带 name 字段。
+     * MiniMax 特有：每条消息需带 name 字段。
      * role=system → name="assistant"
      * role=user   → name="user"
      * role=assistant → name="MM智能助手"
@@ -278,7 +278,7 @@ public class MinimaxServiceImpl implements LlmService {
         for (LlmMessage msg : request.getMessages()) {
             Map<String, Object> m = new HashMap<>();
             m.put("role", msg.getRole());
-            m.put("name", resolveMinimaxName(msg.getRole()));
+            m.put("name", resolveMiniMaxName(msg.getRole()));
             if (msg.getToolCalls() != null) {
                 String text = msg.getTextContent();
                 m.put("content", text.isEmpty() ? null : text);
@@ -296,7 +296,7 @@ public class MinimaxServiceImpl implements LlmService {
         return messages;
     }
 
-    private String resolveMinimaxName(String role) {
+    private String resolveMiniMaxName(String role) {
         return switch (role) {
             case "user"      -> "user";
             case "assistant" -> "MM智能助手";
@@ -356,7 +356,7 @@ public class MinimaxServiceImpl implements LlmService {
     // ==================== 响应解析 ====================
 
     /**
-     * Minimax 特有：HTTP 200 时仍需检查 base_resp.status_code，非 0 为业务错误。
+     * MiniMax 特有：HTTP 200 时仍需检查 base_resp.status_code，非 0 为业务错误。
      */
     private void checkBaseResp(String responseBody) {
         try {
@@ -365,8 +365,8 @@ public class MinimaxServiceImpl implements LlmService {
             if (!baseResp.isMissingNode()) {
                 int code = baseResp.path("status_code").asInt(0);
                 if (code != 0) {
-                    String msg = baseResp.path("status_msg").asText("Minimax business error");
-                    log.error("[Minimax-chat] 业务错误 base_resp.status_code={}, msg={}", code, msg);
+                    String msg = baseResp.path("status_msg").asText("MiniMax business error");
+                    log.error("[MiniMax-chat] 业务错误 base_resp.status_code={}, msg={}", code, msg);
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED, msg);
                 }
             }
@@ -421,7 +421,7 @@ public class MinimaxServiceImpl implements LlmService {
                             .build())
                     .build();
         } catch (IOException e) {
-            log.error("[Minimax-chat] 响应解析失败", e);
+            log.error("[MiniMax-chat] 响应解析失败", e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -475,11 +475,11 @@ public class MinimaxServiceImpl implements LlmService {
                     }
                 }
             }
-            // 流正常读完但没有收到 [DONE] 帧（Minimax 服务端偶发），兜底关闭 SSE 连接
+            // 流正常读完但没有收到 [DONE] 帧（MiniMax 服务端偶发），兜底关闭 SSE 连接
             flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
             chunkConsumer.accept(null);
         } catch (IOException e) {
-            log.error("[Minimax-stream] 流式响应解析失败, model={}", modelCode, e);
+            log.error("[MiniMax-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
     }
@@ -497,21 +497,21 @@ public class MinimaxServiceImpl implements LlmService {
             }
             chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(list));
         } catch (IOException e) {
-            log.warn("[Minimax-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
+            log.warn("[MiniMax-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
         }
     }
 
     // ==================== 工具方法 ====================
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
-        // Minimax: 错误码与 OpenAI 一致，另有业务错误通过 base_resp.status_code 商定
+        // MiniMax: 错误码与 OpenAI 一致，另有业务错误通过 base_resp.status_code 商定
         ErrorCodeEnum errorCode;
-        if (httpCode == MinimaxHttpCodeEnum.UNAUTHORIZED.getCode()) {
+        if (httpCode == MiniMaxHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == MinimaxHttpCodeEnum.BAD_REQUEST.getCode()
-                || httpCode == MinimaxHttpCodeEnum.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == MiniMaxHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == MiniMaxHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == MinimaxHttpCodeEnum.RATE_LIMIT.getCode()) {
+        } else if (httpCode == MiniMaxHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;
@@ -525,7 +525,7 @@ public class MinimaxServiceImpl implements LlmService {
             JsonNode errorNode = root.path("error");
             String msg = errorNode.path("message").asText("");
             if (msg.isEmpty()) {
-                // Minimax 业务错误在 base_resp.status_msg
+                // MiniMax 业务错误在 base_resp.status_msg
                 msg = root.path("base_resp").path("status_msg").asText("");
             }
             return msg.isEmpty() ? truncate(responseBody) : msg;

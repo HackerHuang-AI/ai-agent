@@ -78,7 +78,7 @@ public class QwenServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.QWEN).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Qwen).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -91,7 +91,7 @@ public class QwenServiceImpl implements LlmService {
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.QWEN));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Qwen));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Qwen-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
@@ -112,7 +112,7 @@ public class QwenServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.QWEN).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Qwen).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -121,7 +121,7 @@ public class QwenServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.QWEN));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Qwen));
                     if (response == null || response.body() == null) {
                         log.error("[Qwen] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -161,7 +161,7 @@ public class QwenServiceImpl implements LlmService {
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         Request request = new Request.Builder().url("https://dashscope.aliyuncs.com/compatible-mode/v1/models").get()
                 .header("Authorization", "Bearer " + apiKey).build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.QWEN).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Qwen).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
             List<LlmModelInfo> models = new ArrayList<>();

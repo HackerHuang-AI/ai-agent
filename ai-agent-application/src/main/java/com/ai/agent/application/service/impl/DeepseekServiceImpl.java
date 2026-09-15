@@ -90,7 +90,7 @@ public class DeepseekServiceImpl implements LlmService {
                     .post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(request.getApiKey())))
                     .build();
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
                     log.error("[Deepseek-chat] HTTP {} 失败, body={}", response.code(), responseBody);
@@ -102,7 +102,7 @@ public class DeepseekServiceImpl implements LlmService {
                 }
                 return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.DEEPSEEK));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Deepseek));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[Deepseek-chat] 调用成功, result={}, costMs={}",
                 result, System.currentTimeMillis() - start);
@@ -127,7 +127,7 @@ public class DeepseekServiceImpl implements LlmService {
                             .build();
 
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             log.error("[Deepseek-stream] HTTP {} 失败, body={}", resp.code(), errBody);
@@ -135,7 +135,7 @@ public class DeepseekServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), errBody);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.DEEPSEEK));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Deepseek));
                     if (response == null || response.body() == null) {
                         log.error("[Deepseek] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -185,13 +185,13 @@ public class DeepseekServiceImpl implements LlmService {
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = new Request.Builder().url(endpoint).post(RequestBody.create(requestBody, JSON))
                     .headers(Headers.of(buildHeaders(apiKey))).build();
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) throwByHttpCode(response.code(), responseBody);
                 if (responseBody.isEmpty()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 return parseResponsesResponse(responseBody, finalModel);
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.DEEPSEEK));
+        }, retryConfig.getRetryParam(RetryConfigEnum.Deepseek));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         return result;
     }
@@ -209,7 +209,7 @@ public class DeepseekServiceImpl implements LlmService {
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
         Request request = new Request.Builder().url("https://api.deepseek.com/models").get()
                 .header("Authorization", "Bearer " + apiKey).build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.DEEPSEEK).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), body);
             List<LlmModelInfo> models = new ArrayList<>();

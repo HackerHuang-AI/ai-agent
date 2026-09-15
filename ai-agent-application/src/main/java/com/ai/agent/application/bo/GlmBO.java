@@ -3,10 +3,10 @@ package com.ai.agent.application.bo;
 import lombok.Data;
 
 /**
- * @Description: 智谱 GLM 平台默认凭证配置 BO，从 Nacos ai-agent-zhipu.json 中读取。
+ * @Description: 智谱 GLM 平台默认凭证配置 BO，从 Nacos ai-agent-glm.json 中读取。
  *               调用方若未传 apiKey / endpoint / modelCode，Service 层从此处兜底。
  *
- * <p>Nacos 配置示例（ai-agent-zhipu.json）：
+ * <p>Nacos 配置示例（ai-agent-glm.json）：
  * <pre>{@code
  * {
  *   "chat": {
@@ -19,13 +19,13 @@ import lombok.Data;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.bo
- * @ClassName: ZhipuBO
+ * @ClassName: GlmBO
  * @Author: HUANGcong
  * @Date: Created in 2026/7/12
  * @Version: 1.0
  */
 @Data
-public class ZhipuBO {
+public class GlmBO {
 
     /** API Key，格式：{id}.{secret} */
     private String apiKey;

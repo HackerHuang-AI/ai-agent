@@ -64,7 +64,7 @@ public class RetryConfig {
      *   <li>Nacos 未配置时使用代码内置默认值兜底</li>
      * </ol>
      *
-     * @param platform 平台标识（不区分大小写，与 LlmRouter 中的 platform 值一致）
+     * @param platform 平台编码（使用 PascalCase，与 LlmRouter 中的 platform 值一致）
      */
     public RetryParam getRetryParam(RetryConfigEnum platform) {
         return getRetryParam(platform.nacosKey);

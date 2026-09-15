@@ -1,9 +1,9 @@
 package com.ai.agent.application.service.impl;
 
-import com.ai.agent.application.bo.OpenAiBO;
+import com.ai.agent.application.bo.OpenAIBO;
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.enums.http.OpenAiHttpCodeEnum;
+import com.ai.agent.application.enums.http.OpenAIHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
@@ -37,14 +37,14 @@ import java.util.function.Consumer;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.service.impl
- * @ClassName: OpenAiServiceImpl
+ * @ClassName: OpenAIServiceImpl
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
  */
 @Slf4j
-@Service("openaiServiceImpl")
-public class OpenAiServiceImpl implements LlmService {
+@Service
+public class OpenAIServiceImpl implements LlmService {
 
     private static final String SSE_DATA_PREFIX = "data: ";
     private static final String SSE_DONE_FLAG   = "[DONE]";
@@ -58,7 +58,7 @@ public class OpenAiServiceImpl implements LlmService {
     private final RetryConfig retryConfig;
     private final NacosConfig nacosConfig;
 
-    public OpenAiServiceImpl(@Qualifier("openaiStreamExecutor") ExecutorService streamExecutor,
+    public OpenAIServiceImpl(@Qualifier("openAIStreamExecutor") ExecutorService streamExecutor,
             OkHttpConfig okHttpConfig,
             RetryConfig retryConfig,
             NacosConfig nacosConfig) {
@@ -77,7 +77,7 @@ public class OpenAiServiceImpl implements LlmService {
 
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(okRequest).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
                     if (!response.isSuccessful()) {
                         String platformErr = extractErrorMessage(responseBody);
@@ -90,7 +90,7 @@ public class OpenAiServiceImpl implements LlmService {
                     }
                     return parseResponse(responseBody, request.getModelCode());
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.OPENAI));
+        }, retryConfig.getRetryParam(RetryConfigEnum.OpenAI));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         log.info("[OpenAI-chat] 调用成功, model={}, inputTokens={}, outputTokens={}, costMs={}",
                                 request.getModelCode(), result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
@@ -111,7 +111,7 @@ public class OpenAiServiceImpl implements LlmService {
                 try {
                     Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
                     Response response = AppRetryUtil.retryForStream(() -> {
-                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(okRequest).execute();
+                        Response resp = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(okRequest).execute();
                         if (!resp.isSuccessful()) {
                             String errBody = resp.body() != null ? resp.body().string() : "";
                             String platformMsg = extractErrorMessage(errBody);
@@ -120,7 +120,7 @@ public class OpenAiServiceImpl implements LlmService {
                             throwByHttpCode(resp.code(), platformMsg);
                         }
                         return resp;
-                    }, retryConfig.getRetryParam(RetryConfigEnum.OPENAI));
+                    }, retryConfig.getRetryParam(RetryConfigEnum.OpenAI));
                     if (response == null || response.body() == null) {
                         log.error("[OpenAI] 连接失败或响应体为空");
                         chunkConsumer.accept("[ERROR]");
@@ -149,9 +149,9 @@ public class OpenAiServiceImpl implements LlmService {
 
     @Override
     public LlmResponse responses(LlmResponsesRequest request) {
-        OpenAiBO cfg = null;
+        OpenAIBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "responses", OpenAiBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "responses", OpenAIBO.class);
         }
         String apiKey = StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null);
         String endpoint = StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null);
@@ -169,13 +169,13 @@ public class OpenAiServiceImpl implements LlmService {
         final String finalModel = model;
         LlmResponse result = AppRetryUtil.retry(() -> {
             Request okRequest = buildOkRequest(endpoint, apiKey, requestBody);
-            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(okRequest).execute()) {
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(responseBody));
                 if (responseBody.isEmpty()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 return parseResponsesResponse(responseBody, finalModel);
             }
-        }, retryConfig.getRetryParam(RetryConfigEnum.OPENAI));
+        }, retryConfig.getRetryParam(RetryConfigEnum.OpenAI));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         return result;
     }
@@ -187,7 +187,7 @@ public class OpenAiServiceImpl implements LlmService {
 
     private List<LlmModelInfo> fetchModels(String apiKey) {
         if (StringUtils.isBlank(apiKey)) {
-            OpenAiBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAiBO.class);
+            OpenAIBO cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAIBO.class);
             apiKey = cfg != null ? cfg.getApiKey() : null;
         }
         if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
@@ -196,7 +196,7 @@ public class OpenAiServiceImpl implements LlmService {
 
     private List<LlmModelInfo> requestModels(String url, String apiKey) {
         Request request = new Request.Builder().url(url).get().header("Authorization", "Bearer " + apiKey).build();
-        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OPENAI).newCall(request).execute()) {
+        try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(body));
             List<LlmModelInfo> models = new ArrayList<>();
@@ -219,11 +219,11 @@ public class OpenAiServiceImpl implements LlmService {
      * 补完后校验必填项，缺失时抛异常。
      */
     private void fillDefaults(LlmRequest request) {
-        OpenAiBO cfg = null;
+        OpenAIBO cfg = null;
         if (StringUtils.isBlank(request.getApiKey())
                 || StringUtils.isBlank(request.getEndpoint())
                 || StringUtils.isBlank(request.getModelCode())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAiBO.class);
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "chat", OpenAIBO.class);
         }
         if (StringUtils.isBlank(request.getApiKey()))
             request.setApiKey(cfg != null ? cfg.getApiKey() : null);
@@ -572,14 +572,14 @@ public class OpenAiServiceImpl implements LlmService {
 
     private void throwByHttpCode(int httpCode, String platformMsg) {
         ErrorCodeEnum errorCode;
-        if (httpCode == OpenAiHttpCodeEnum.UNAUTHORIZED.getCode()) {
+        if (httpCode == OpenAIHttpCodeEnum.UNAUTHORIZED.getCode()) {
             errorCode = ErrorCodeEnum.LLM_AUTH_FAILED;
-        } else if (httpCode == OpenAiHttpCodeEnum.INSUFFICIENT_FUNDS.getCode()) {
+        } else if (httpCode == OpenAIHttpCodeEnum.INSUFFICIENT_FUNDS.getCode()) {
             errorCode = ErrorCodeEnum.LLM_INSUFFICIENT_BALANCE;
-        } else if (httpCode == OpenAiHttpCodeEnum.BAD_REQUEST.getCode()
-                || httpCode == OpenAiHttpCodeEnum.UNPROCESSABLE.getCode()) {
+        } else if (httpCode == OpenAIHttpCodeEnum.BAD_REQUEST.getCode()
+                || httpCode == OpenAIHttpCodeEnum.UNPROCESSABLE.getCode()) {
             errorCode = ErrorCodeEnum.PARAM_ILLEGAL;
-        } else if (httpCode == OpenAiHttpCodeEnum.RATE_LIMIT.getCode()) {
+        } else if (httpCode == OpenAIHttpCodeEnum.RATE_LIMIT.getCode()) {
             errorCode = ErrorCodeEnum.LLM_RATE_LIMIT;
         } else {
             errorCode = ErrorCodeEnum.LLM_CALL_FAILED;

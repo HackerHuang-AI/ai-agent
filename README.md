@@ -14,11 +14,11 @@
 | **Anthropic** | Anthropic | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Gemini** | Google | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Qwen** | Alibaba | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Zhipu** | Zhipu AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **Glm** | Zhipu AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Moonshot** | Moonshot AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **MiniMax** | MiniMax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Qianfan** | Baidu | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Tokenhub** | Internal | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **TokenHub** | Internal | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Mimo** | Xiaomi | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Ollama** | Local | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 
@@ -101,7 +101,7 @@ All HTTP endpoints below use the context path `/ai-agent`.
 **POST** `/ai-agent/api/llm/chat`
 ```json
 {
-  "platform": "doubao",
+  "platform": "Doubao",
   "apiKey": "optional-override",
   "endpoint": "optional-override",
   "modelCode": "ep-20240101-xxxxx",
@@ -122,7 +122,7 @@ All HTTP endpoints below use the context path `/ai-agent`.
 `tools` and `toolChoice` use the OpenAI-compatible function-calling format. `extraParams` is merged into the provider request body for provider-specific parameters.
 
 ### Per-Platform Dedicated Endpoints
-Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. The unified model-list endpoint is `POST /ai-agent/api/llm/models`.
+Platform codes use PascalCase: `Doubao`, `OpenAI`, `MiniMax`, `Glm`, `Anthropic`, `Qianfan`, and so on. Each platform also exposes `/ai-agent/api/{platform}/chat` and `/ai-agent/api/{platform}/chat/stream`. The unified model-list endpoint is `POST /ai-agent/api/llm/models`.
 
 ---
 
@@ -144,7 +144,7 @@ All configuration is managed in Nacos and hot-reloaded at runtime. No restart re
 ### OkHttp Connection Pool (`ai-agent-http.json`)
 ```json
 {
-  "doubao": {
+  "Doubao": {
     "connectTimeoutSeconds": 10,
     "readTimeoutSeconds": 180,
     "writeTimeoutSeconds": 30,
@@ -158,7 +158,7 @@ Proxy configuration is supported per-platform (e.g. for Anthropic / Gemini requi
 ### Retry Policy (`ai-agent-retry.json`)
 ```json
 {
-  "doubao": {
+  "Doubao": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
@@ -215,7 +215,7 @@ mvn spring-boot:run -pl ai-agent-starter -Dspring.profiles.active=dev
 ```
 
 ### Add a New Platform
-1. Create `XxxServiceImpl` implementing `LlmService`, annotate with `@Service("xxxServiceImpl")`
+1. Create `XxxServiceImpl` implementing `LlmService`, annotate with `@Service("xxxServiceImpl")`; use PascalCase for the platform code
 2. Create `XxxHttpCodeEnum` for HTTP status code mapping
 3. Create `XxxBO` for Nacos config binding
 4. Add Nacos config files: `ai-agent-xxx.json`, entry in `ai-agent-http.json` and `ai-agent-retry.json`

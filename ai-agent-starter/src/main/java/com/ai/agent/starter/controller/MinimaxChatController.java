@@ -7,7 +7,7 @@ import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.model.llm.MessageContent;
-import com.ai.agent.application.service.impl.MinimaxServiceImpl;
+import com.ai.agent.application.service.impl.MiniMaxServiceImpl;
 import com.ai.agent.starter.common.Result;
 import com.ai.agent.starter.controller.vo.LlmRequestVO;
 import com.ai.agent.starter.controller.vo.LlmResponseVO;
@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.starter.controller
- * @ClassName: MinimaxChatController
+ * @ClassName: MiniMaxChatController
  * @Author: HUANGcong
  * @Date: Created in 2026/6/28
  * @Version: 1.0
@@ -43,34 +43,34 @@ import java.util.stream.Collectors;
 @Validated
 @RestController
 @RequestMapping("/api/minimax")
-public class MinimaxChatController {
+public class MiniMaxChatController {
 
-    private final MinimaxServiceImpl minimaxService;
+    private final MiniMaxServiceImpl miniMaxService;
 
-    public MinimaxChatController(MinimaxServiceImpl minimaxService) {
-        this.minimaxService = minimaxService;
+    public MiniMaxChatController(MiniMaxServiceImpl miniMaxService) {
+        this.miniMaxService = miniMaxService;
     }
 
     @PostMapping("/chat")
     public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Minimax-chat] 开始处理, req={}", req);
+        log.info("[MiniMax-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = minimaxService.chat(toServiceRequest(req));
-            log.info("[Minimax-chat] 处理完成, response={}", response);
+            LlmResponse response = miniMaxService.chat(toServiceRequest(req));
+            log.info("[MiniMax-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Minimax-chat] 系统异常", e);
+            log.error("[MiniMax-chat] 系统异常", e);
             throw new BizException(ErrorCodeEnum.SYSTEM_ERROR);
         }
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
-        log.info("[Minimax-stream] 开始处理, req={}", req);
+        log.info("[MiniMax-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        minimaxService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        miniMaxService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -80,7 +80,7 @@ public class MinimaxChatController {
                 try {
                     emitter.send(SseEmitter.event().name("done").data("[DONE]"));
                 } catch (IOException e) {
-                    log.warn("[Minimax-stream] 发送 done 事件失败, model={}", tag);
+                    log.warn("[MiniMax-stream] 发送 done 事件失败, model={}", tag);
                 }
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
@@ -89,7 +89,7 @@ public class MinimaxChatController {
                 try {
                     emitter.send(SseEmitter.event().name("chunk").data(chunk));
                 } catch (IOException e) {
-                    log.warn("[Minimax-stream] 客户端已断开, model={}", tag);
+                    log.warn("[MiniMax-stream] 客户端已断开, model={}", tag);
                     emitter.completeWithError(e);
                 }
             }

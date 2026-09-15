@@ -40,8 +40,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * {
  *   "okhttp":   { "connectTimeoutSeconds": 5, "readTimeoutSeconds": 15, "writeTimeoutSeconds": 10, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
  *   "default":  { "connectTimeoutSeconds": 10, "readTimeoutSeconds": 120, "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
- *   "doubao":   { "connectTimeoutSeconds": 10, "readTimeoutSeconds": 180, "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
- *   "deepseek": { "connectTimeoutSeconds": 15, "readTimeoutSeconds": 60,  "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 }
+ *   "Doubao":   { "connectTimeoutSeconds": 10, "readTimeoutSeconds": 180, "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 },
+ *   "Deepseek": { "connectTimeoutSeconds": 15, "readTimeoutSeconds": 60,  "writeTimeoutSeconds": 30, "maxIdleConnections": 50, "keepAliveMinutes": 5 }
  * }
  * }</pre>
  * <p>查找语义（与 RetryConfig 对齐）：平台专属块 → {@code "default"} 全局块 → {@code "okhttp"} 块（代码默认值），
@@ -51,8 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <pre>{@code
  * {
  *   "default": { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 2.0, "maxWaitMs": 30000 },
- *   "doubao":  { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
- *   "deepseek":{ "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
+ *   "Doubao":  { "maxRetries": 3, "intervalMs": 500,  "backoffMultiplier": 1.5, "maxWaitMs": 30000 },
+ *   "Deepseek":{ "maxRetries": 1, "intervalMs": 2000, "backoffMultiplier": 2.0, "maxWaitMs": 60000 }
  * }
  * }</pre>
  *
@@ -152,7 +152,7 @@ public class OkHttpConfig {
      *   <li>每次调用实时读取，Nacos 热更新后下一次请求自动生效，无需重启</li>
      * </ul>
      *
-     * @param scope 业务场景标识（不区分大小写，如平台名 {@code "gemini"}；传 null 或空串走 default 兜底）
+     * @param scope 业务场景标识（平台编码使用 PascalCase，如 {@code "Gemini"}；传 null 或空串走 default 兜底）
      */
     public OkHttpClient getClientByPlatform(OkHttpConfigEnum scope) {
         return getClientByPlatform(scope.nacosKey);

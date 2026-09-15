@@ -14,7 +14,7 @@ import java.util.Map;
 @Data
 public class LlmResponsesRequestVO {
 
-    /** 平台标识 */
+    /** 平台编码，使用 PascalCase */
     private String platform;
 
     /** API Key，可为空并由平台配置兜底 */

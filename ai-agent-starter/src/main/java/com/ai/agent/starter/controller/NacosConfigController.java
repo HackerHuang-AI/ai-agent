@@ -80,16 +80,16 @@ public class NacosConfigController {
      *
      * 响应示例：
      *   {
-     *     "doubao-stream-pool":   { "corePoolSize": 10, "maxPoolSize": 50, "activeCount": 3, "queueSize": 12, "completedTaskCount": 100 },
-     *     "deepseek-stream-pool": { "corePoolSize": 5,  "maxPoolSize": 30, "activeCount": 1, "queueSize": 0,  "completedTaskCount": 50  }
+     *     "Doubao-stream-pool":   { "corePoolSize": 10, "maxPoolSize": 50, "activeCount": 3, "queueSize": 12, "completedTaskCount": 100 },
+     *     "Deepseek-stream-pool": { "corePoolSize": 5,  "maxPoolSize": 30, "activeCount": 1, "queueSize": 0,  "completedTaskCount": 50  }
      *   }
      * </pre>
      */
     @GetMapping("/thread-pool")
     public Result<Map<String, Map<String, Object>>> getThreadPoolStats() {
         Map<String, Map<String, Object>> result = new LinkedHashMap<>();
-        result.put("doubao-stream-pool",   buildStats(doubaoStreamExecutor));
-        result.put("deepseek-stream-pool", buildStats(deepseekStreamExecutor));
+        result.put("Doubao-stream-pool",   buildStats(doubaoStreamExecutor));
+        result.put("Deepseek-stream-pool", buildStats(deepseekStreamExecutor));
         return Result.success(result);
     }
 

@@ -8,7 +8,7 @@ import lombok.Getter;
  * <p>参考：<a href="https://cloud.tencent.com/document/product/1729/97732">腾讯混元错误码文档</a>
  */
 @Getter
-public enum TokenhubHttpCodeEnum {
+public enum TokenHubHttpCodeEnum {
 
     UNAUTHORIZED  (401, "API Key 无效或已过期"),
     BAD_REQUEST   (400, "请求参数错误"),
@@ -18,7 +18,7 @@ public enum TokenhubHttpCodeEnum {
     private final int code;
     private final String description;
 
-    TokenhubHttpCodeEnum(int code, String description) {
+    TokenHubHttpCodeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }

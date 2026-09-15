@@ -18,13 +18,13 @@ import lombok.Data;
  *
  * @ProjectName: ai-agent
  * @Package: com.ai.agent.application.bo
- * @ClassName: TokenhubBO
+ * @ClassName: TokenHubBO
  * @Author: HUANGcong
  * @Date: Created in 2026/7/13
  * @Version: 1.0
  */
 @Data
-public class TokenhubBO {
+public class TokenHubBO {
 
     /** API Key */
     private String apiKey;

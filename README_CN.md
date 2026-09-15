@@ -16,9 +16,9 @@
 | **通义千问** | 阿里巴巴 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **智谱** | 智谱 AI | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Moonshot** | 月之暗面 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Minimax** | Minimax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **MiniMax** | MiniMax | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **千帆** | 百度 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| **Tokenhub** | 内部平台 | ✅ | ✅ | ✅³ | — | ✅ | ✅ |
+| **TokenHub** | 内部平台 | ✅ | ✅ | ✅³ | — | ✅ | ✅ |
 | **Mimo** | 小米 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | **Ollama** | 本地部署 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 
@@ -104,7 +104,7 @@
 **POST** `/ai-agent/api/llm/chat`
 ```json
 {
-  "platform": "doubao",
+  "platform": "Doubao",
   "apiKey": "可选，不填时从 Nacos 读取",
   "endpoint": "可选，不填时从 Nacos 读取",
   "modelCode": "ep-20240101-xxxxx",
@@ -128,7 +128,7 @@
 `tools` 和 `toolChoice` 使用 OpenAI 兼容的函数调用格式。`extraParams` 会合并到对应平台的请求体，用于传递平台私有参数。`topK` 不适用于 OpenAI、Moonshot 和 DeepSeek；`frequencyPenalty` 不适用于 Anthropic，在 DeepSeek 中已废弃，Moonshot 文档未定义该参数。
 
 ### 平台专属接口
-每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
+平台编码使用 PascalCase：`Doubao`、`OpenAI`、`MiniMax`、`Glm`、`Anthropic`、`Qianfan` 等。每个平台同时保留 `/ai-agent/api/{platform}/chat` 和 `/ai-agent/api/{platform}/chat/stream`。统一模型列表路由为 `POST /ai-agent/api/llm/models`。
 
 ### Dubbo RPC 接口
 服务通过 `tri`（Triple）协议在 `20890` 端口暴露 `LlmFacade`；消费方可使用 `@DubboReference` 注入，调用支持图文内容块的 `chat`、服务端流式 `chatStream` 或 `responses`。
@@ -159,7 +159,7 @@
 ### OkHttp 连接池（`ai-agent-http.json`）
 ```json
 {
-  "doubao": {
+  "Doubao": {
     "connectTimeoutSeconds": 10,
     "readTimeoutSeconds": 180,
     "writeTimeoutSeconds": 30,
@@ -173,7 +173,7 @@
 ### 重试策略（`ai-agent-retry.json`）
 ```json
 {
-  "doubao": {
+  "Doubao": {
     "maxRetries": 3,
     "intervalMs": 500,
     "backoffMultiplier": 2.0,
@@ -230,7 +230,7 @@ mvn spring-boot:run -pl ai-agent-starter -Dspring.profiles.active=dev
 ```
 
 ### 接入新平台（四步完成）
-1. 新建 `XxxServiceImpl` 实现 `LlmService`，添加 `@Service("xxxServiceImpl")`
+1. 新建 `XxxServiceImpl` 实现 `LlmService`，添加 `@Service("xxxServiceImpl")`；平台编码使用 PascalCase
 2. 新建 `XxxHttpCodeEnum` 定义该平台的 HTTP 状态码映射
 3. 新建 `XxxBO` 绑定 Nacos 配置结构
 4. 添加 Nacos 配置文件：`ai-agent-xxx.json`，并在 `ai-agent-http.json`、`ai-agent-retry.json` 中添加对应 key

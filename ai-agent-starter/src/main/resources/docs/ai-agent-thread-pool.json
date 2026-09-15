@@ -1,77 +1,77 @@
 {
-  "doubao-stream-pool": {
+  "Doubao-stream-pool": {
     "corePoolSize": 10,
     "maxPoolSize": 50,
     "queueCapacity": 100,
     "keepAliveSeconds": 60
   },
-  "deepseek-stream-pool": {
+  "Deepseek-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "qwen-stream-pool": {
+  "Qwen-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "zhipu-stream-pool": {
+  "Glm-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "moonshot-stream-pool": {
+  "Moonshot-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "openai-stream-pool": {
+  "OpenAI-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "anthropic-stream-pool": {
+  "Anthropic-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "gemini-stream-pool": {
+  "Gemini-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "mimo-stream-pool": {
+  "Mimo-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "minimax-stream-pool": {
+  "MiniMax-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "ollama-stream-pool": {
+  "Ollama-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "qianfan-stream-pool": {
+  "Qianfan-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,
     "keepAliveSeconds": 60
   },
-  "tokenhub-stream-pool": {
+  "TokenHub-stream-pool": {
     "corePoolSize": 5,
     "maxPoolSize": 30,
     "queueCapacity": 50,

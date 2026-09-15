@@ -23,7 +23,7 @@ import java.util.Map;
 @Data
 public class LlmRequestVO {
 
-    /** 平台标识，统一接口必传，平台专属接口不需要传。支持：doubao / openai / deepseek / anthropic / zhipu / qwen / moonshot / minimax / gemini / ollama / qianfan / tokenhub / mimo */
+    /** 平台编码，统一接口必传，平台专属接口不需要传。支持：Doubao / OpenAI / Deepseek / Anthropic / Glm / Qwen / Moonshot / MiniMax / Gemini / Ollama / Qianfan / TokenHub / Mimo */
     private String platform;
 
     /** API Key，可选（支持 Nacos 兜底的平台可不传） */

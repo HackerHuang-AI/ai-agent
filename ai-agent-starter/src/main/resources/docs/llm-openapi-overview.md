@@ -13,7 +13,7 @@
 | Qwen（阿里云百炼） | OpenAI 兼容 | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（`enable_search` 等扩展参数） |
 | 阿里云灵积 Token Plan | OpenAI 兼容 | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（与 Qwen 协议一致，不同 Key 和 Endpoint） |
 | 豆包（字节跳动） | OpenAI 兼容 | `https://ark.cn-beijing.volces.com/api/v3/chat/completions` | Bearer Token | SSE | ⭐⭐ 中（`model` 填 endpoint_id） |
-| Minimax | ChatCompletion v2（OpenAI 风格的自有协议） | `https://api.minimaxi.com/v1/text/chatcompletion_v2` | Bearer Token | SSE | ⭐⭐ 中（`name`、`base_resp` 等字段差异） |
+| MiniMax | ChatCompletion v2（OpenAI 风格的自有协议） | `https://api.minimaxi.com/v1/text/chatcompletion_v2` | Bearer Token | SSE | ⭐⭐ 中（`name`、`base_resp` 等字段差异） |
 | 智谱 GLM | OpenAI 兼容 | `https://open.bigmodel.cn/api/paas/v4/chat/completions` | JWT（自签） | SSE | ⭐⭐ 中（JWT 生成方式特殊） |
 | Moonshot（Kimi） | OpenAI 兼容 | `https://api.moonshot.cn/v1/chat/completions` | Bearer Token | SSE | ⭐ 低（基本无差异） |
 | 百度千帆 | OpenAI 兼容 | `https://qianfan.baidubce.com/v2/chat/completions` | Bearer Token | SSE | ⭐ 低（`temperature` 范围上限为 1） |
@@ -42,7 +42,7 @@ Responses API 是与 Chat Completions / Messages 独立的协议，统一入口�
 | Qwen | `Authorization` | `Bearer sk-xxx` | 阿里云百炼控制台获取 API Key |
 | 阿里云灵积 Token Plan | `Authorization` | `Bearer sk-xxx` | Token Plan 管理页面单独创建 Key |
 | 豆包 | `Authorization` | `Bearer xxx` | 火山引擎控制台获取 API Key |
-| Minimax | `Authorization` | `Bearer xxx` | 控制台获取 API Key |
+| MiniMax | `Authorization` | `Bearer xxx` | 控制台获取 API Key |
 | 智谱 GLM | `Authorization` | `Bearer <JWT>` | 用 API Key 本地生成 JWT（有效期可配置） |
 | Moonshot | `Authorization` | `Bearer sk-xxx` | 控制台直接获取 API Key |
 | 百度千帆 | `Authorization` | `Bearer bce-v3/ALTAK-xxx` | 千帆控制台获取 API Key，格式特殊 |
@@ -57,7 +57,7 @@ Responses API 是与 Chat Completions / Messages 独立的协议，统一入口�
 
 ## 三、核心入参差异对比
 
-| 参数 | OpenAI | Deepseek | Qwen | DashScope-TokenPlan | 豆包 | Minimax | 智谱 | Moonshot | 百度千帆 | TokenHub | HY-TokenPlan | MiMo | Ollama | Anthropic | Google |
+| 参数 | OpenAI | Deepseek | Qwen | DashScope-TokenPlan | 豆包 | MiniMax | 智谱 | Moonshot | 百度千帆 | TokenHub | HY-TokenPlan | MiMo | Ollama | Anthropic | Google |
 |------|--------|----------|------|---------------------|------|---------|------|----------|---------|---------|-------------|------|--------|-----------|--------|
 | `model` | 模型名 | 模型名 | 模型名 | 模型名 | **endpoint_id** | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 | 模型名 |
 | `messages` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅（结构略不同） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅（不含 system） | ✅（兼容）/ **`contents`**（原生） |
@@ -81,7 +81,7 @@ data: [DONE]
 
 **差异点：**
 - **Ollama**：流式默认返回 `{"message":{"content":"..."},"done":false}`，使用 `/api/chat` 接口而非 `/v1/chat/completions`（但 Ollama 也提供 OpenAI 兼容的 `/v1/chat/completions`）
-- **Minimax**：流式结束标志为 `data: [DONE]`，但中间帧有额外的 `usage` 字段
+- **MiniMax**：流式结束标志为 `data: [DONE]`，但中间帧有额外的 `usage` 字段
 
 ---
 
@@ -93,8 +93,8 @@ data: [DONE]
 | [llm-openapi-deepseek.md](llm-openapi-deepseek.md) | Deepseek，OpenAI 兼容，含 `reasoning_content` |
 | [llm-openapi-qwen.md](llm-openapi-qwen.md) | Qwen 阿里云百炼，OpenAI 兼容，含 `enable_search` |
 | [llm-openapi-doubao.md](llm-openapi-doubao.md) | 豆包字节跳动，model 填 endpoint_id |
-| [llm-openapi-minimax.md](llm-openapi-minimax.md) | Minimax ChatCompletion v2，OpenAI 风格自有协议 |
-| [llm-openapi-zhipu.md](llm-openapi-zhipu.md) | 智谱 GLM，JWT 认证 |
+| [llm-openapi-minimax.md](llm-openapi-minimax.md) | MiniMax ChatCompletion v2，OpenAI 风格自有协议 |
+| [llm-openapi-glm.md](llm-openapi-glm.md) | 智谱 GLM，JWT 认证 |
 | [llm-openapi-moonshot.md](llm-openapi-moonshot.md) | Moonshot Kimi，基本无差异 |
 | [llm-openapi-baidu-qianfan.md](llm-openapi-baidu-qianfan.md) | 百度千帆，temperature 上限为 1，聚合第三方模型 |
 | [llm-openapi-tencent-tokenhub.md](llm-openapi-tencent-tokenhub.md) | 腾讯 TokenHub，聚合平台（混元+DeepSeek+GLM+Kimi+MiniMax） |

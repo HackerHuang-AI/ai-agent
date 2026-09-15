@@ -32,8 +32,8 @@ public enum NacosDataIdEnum {
     /** Qwen（阿里云百炼）平台默认凭证配置，对应 Nacos 上的 ai-agent-qwen.json */
     AI_AGENT_QWEN("ai-agent-qwen.json"),
 
-    /** 智谱 GLM 平台默认凭证配置，对应 Nacos 上的 ai-agent-zhipu.json */
-    AI_AGENT_ZHIPU("ai-agent-zhipu.json"),
+    /** 智谱 GLM 平台默认凭证配置，对应 Nacos 上的 ai-agent-glm.json */
+    AI_AGENT_GLM("ai-agent-glm.json"),
 
     /** Moonshot（Kimi）平台默认凭证配置，对应 Nacos 上的 ai-agent-moonshot.json */
     AI_AGENT_MOONSHOT("ai-agent-moonshot.json"),
@@ -50,7 +50,7 @@ public enum NacosDataIdEnum {
     /** 小米 MiMo 平台默认凭证配置，对应 Nacos 上的 ai-agent-mimo.json */
     AI_AGENT_MIMO("ai-agent-mimo.json"),
 
-    /** Minimax 平台默认凭证配置，对应 Nacos 上的 ai-agent-minimax.json */
+    /** MiniMax 平台默认凭证配置，对应 Nacos 上的 ai-agent-minimax.json */
     AI_AGENT_MINIMAX("ai-agent-minimax.json"),
 
     /** Ollama 本地部署默认配置，对应 Nacos 上的 ai-agent-ollama.json */
