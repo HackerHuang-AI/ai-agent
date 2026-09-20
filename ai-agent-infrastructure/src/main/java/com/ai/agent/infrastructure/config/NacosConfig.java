@@ -50,6 +50,15 @@ public class NacosConfig {
     @Value("${spring.application.name}")
     private String group;
 
+    @Value("${spring.cloud.nacos.config.namespace:}")
+    private String namespace;
+
+    @Value("${spring.cloud.nacos.config.username:}")
+    private String username;
+
+    @Value("${spring.cloud.nacos.config.password:}")
+    private String password;
+
     @Value("${nacos.index-data-id:ai-agent-index.properties}")
     private String indexDataId;
 
@@ -74,8 +83,12 @@ public class NacosConfig {
         try {
             Properties nacosProperties = new Properties();
             nacosProperties.put("serverAddr", serverAddr);
-            nacosProperties.put("namespace", "");
+            nacosProperties.put("namespace", namespace);
             nacosProperties.put("appName", group);
+            if (!username.isBlank()) {
+                nacosProperties.put("username", username);
+                nacosProperties.put("password", password);
+            }
             configService = NacosFactory.createConfigService(nacosProperties);
         } catch (NacosException e) {
             log.error("[NacosConfig] 创建 ConfigService 失败，serverAddr={}，error={}", serverAddr, e.getMessage(), e);
