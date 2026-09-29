@@ -50,7 +50,7 @@ public class NacosConfig {
     @Value("${spring.application.name}")
     private String group;
 
-    @Value("${spring.cloud.nacos.config.namespace:}")
+    @Value("${spring.cloud.nacos.config.namespace}")
     private String namespace;
 
     @Value("${spring.cloud.nacos.config.username:}")

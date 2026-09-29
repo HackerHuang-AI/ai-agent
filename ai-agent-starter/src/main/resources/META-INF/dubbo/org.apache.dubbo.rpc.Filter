@@ -1,0 +1,3 @@
+dubboContextConsumer=com.ai.agent.starter.filter.DubboContextConsumerFilter
+dubboContextProvider=com.ai.agent.starter.filter.DubboContextProviderFilter
+

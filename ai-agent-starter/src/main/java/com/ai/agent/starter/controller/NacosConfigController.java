@@ -1,6 +1,8 @@
 package com.ai.agent.starter.controller;
 
 
+import com.ai.agent.application.common.BizException;
+import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.starter.common.Result;
 import lombok.extern.slf4j.Slf4j;
@@ -62,11 +64,11 @@ public class NacosConfigController {
         log.info("getConfigByDataId 请求参数：{}", body);
         String dataId = body.get("dataId");
         if (dataId == null || dataId.isBlank()) {
-            return Result.error("dataId 不能为空");
+            throw new BizException(ErrorCodeEnum.PARAMETER_REQUIRED);
         }
         Map<String, String> config = nacosConfig.getCacheByDataId(dataId);
         if (config == null) {
-            return Result.error("DataId 不存在或尚未加载：" + dataId);
+            throw new BizException(ErrorCodeEnum.PARAMETER_VALUE_INVALID);
         }
         return Result.success(config);
     }

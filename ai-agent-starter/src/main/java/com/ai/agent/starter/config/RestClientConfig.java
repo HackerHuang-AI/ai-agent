@@ -1,5 +1,8 @@
 package com.ai.agent.starter.config;
 
+import com.ai.agent.application.model.request.RequestContext;
+import com.ai.agent.application.model.request.RequestContextHolder;
+import com.ai.agent.application.common.TraceContextSupport;
 import com.ai.agent.starter.handler.TraceIdInterceptorHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +31,11 @@ import java.util.Locale;
 @Configuration
 @RequiredArgsConstructor
 public class RestClientConfig implements WebMvcConfigurer {
+    private static final String TRACEPARENT_HEADER = "traceparent";
+    private static final String USER_ID_HEADER = "X-Internal-User-Id";
+    private static final String TENANT_ID_HEADER = "X-Internal-Tenant-Id";
+    private static final String SESSION_ID_HEADER = "X-Internal-Session-Id";
+    private static final String CALL_CHAIN_HEADER = "X-Call-Chain";
 
     private final TraceIdInterceptorHandler traceIdInterceptorHandler;
 
@@ -61,7 +69,25 @@ public class RestClientConfig implements WebMvcConfigurer {
         return RestClient.builder()
                 .requestFactory(factory)
                 .defaultHeader("Content-Type", "application/json")
+                .requestInterceptor((request, body, execution) -> {
+                    RequestContextHolder.current().ifPresent(context -> propagate(request, context));
+                    return execution.execute(request, body);
+                })
                 .build();
+    }
+
+    private void propagate(org.springframework.http.HttpRequest request, RequestContext context) {
+        request.getHeaders().set(TRACEPARENT_HEADER, TraceContextSupport.childTraceparent(context.traceparent()));
+        setHeader(request, USER_ID_HEADER, context.userId());
+        setHeader(request, TENANT_ID_HEADER, context.tenantId());
+        setHeader(request, SESSION_ID_HEADER, context.sessionId());
+        setHeader(request, CALL_CHAIN_HEADER, context.callChain());
+    }
+
+    private void setHeader(org.springframework.http.HttpRequest request, String name, String value) {
+        if (value != null && !value.isBlank()) {
+            request.getHeaders().set(name, value);
+        }
     }
 }
 

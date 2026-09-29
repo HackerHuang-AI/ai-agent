@@ -2,6 +2,7 @@ package com.ai.agent.application.service.impl;
 
 import com.ai.agent.application.bo.DoubaoBO;
 import com.ai.agent.application.common.BizException;
+import com.ai.agent.application.common.TraceContextSupport;
 import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.enums.http.DoubaoHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
@@ -18,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -103,11 +103,8 @@ public class DoubaoServiceImpl implements LlmService {
         fillChatDefaults(request);
         String requestBody = buildRequestBody(request, true);
         log.info("[Doubao-stream] 开始调用, request={}", request);
-        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
-
         try {
-            streamExecutor.submit(() -> {
-                if (mdcContext != null) MDC.setContextMap(mdcContext);
+            streamExecutor.submit(TraceContextSupport.wrap(() -> {
                 try {
                     Request okRequest = new Request.Builder()
                             .url(request.getEndpoint())
@@ -142,10 +139,8 @@ public class DoubaoServiceImpl implements LlmService {
                 } catch (Exception e) {
                     log.error("[Doubao-stream] 未预期异常", e);
                     chunkConsumer.accept("[ERROR]");
-                } finally {
-                    MDC.clear();
                 }
-            });
+            }));
         } catch (RejectedExecutionException e) {
             log.error("[Doubao-stream] 线程池已满，拒绝请求", e);
             chunkConsumer.accept("[ERROR]");

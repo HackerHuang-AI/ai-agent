@@ -2,6 +2,8 @@ package com.ai.agent.application.enums;
 
 import lombok.Getter;
 
+import java.util.Arrays;
+
 /**
  * @Description: 业务异常码枚举。
  *
@@ -26,6 +28,12 @@ public enum ErrorCodeEnum {
     PARAM_ILLEGAL("2001001", "error.2001001", "参数不合法"),
     SYSTEM_ERROR("2001002", "error.2001002", "系统异常，请稍后重试"),
     IMAGE_FILE_NOT_FOUND("2001003", "error.2001003", "图片文件为空或不存在"),
+    REQUEST_VALIDATION_FAILED("2001004", "error.2001004", "请求参数校验失败"),
+    REQUEST_BODY_INVALID("2001005", "error.2001005", "请求体格式错误"),
+    PARAMETER_REQUIRED("2001006", "error.2001006", "参数不能为空"),
+    PARAMETER_FORMAT_INVALID("2001007", "error.2001007", "参数格式不合法"),
+    PARAMETER_OUT_OF_RANGE("2001008", "error.2001008", "参数超出允许范围"),
+    PARAMETER_VALUE_INVALID("2001009", "error.2001009", "参数值不合法"),
 
     // ==================== LLM 调用（2002xxx）====================
     LLM_PLATFORM_NOT_SUPPORTED("2002001", "error.2002001", "不支持的 LLM 平台"),
@@ -53,6 +61,13 @@ public enum ErrorCodeEnum {
         this.code = code;
         this.messageKey = messageKey;
         this.defaultMessage = defaultMessage;
+    }
+
+    public static ErrorCodeEnum fromCode(String code) {
+        return Arrays.stream(values())
+                .filter(errorCode -> errorCode.code.equals(code))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown error code: " + code));
     }
 }
 
