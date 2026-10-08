@@ -8,15 +8,11 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * @Description: LLM 对话接口请求 VO
+ * LLM 对话接口请求 VO
  *               用户只需关心：用哪个模型、发什么内容（文本/图片/文件/视频）
  *               apiKey、endpoint 等关键信息由服务端从 DB 读取，不对外暴露
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: ChatRequest
- * @Author: HUANGcong
- * @Date: Created in 2026/6/2
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-02
  */
 @Data
 public class ChatRequest {

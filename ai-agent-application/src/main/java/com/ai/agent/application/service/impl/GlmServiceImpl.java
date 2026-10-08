@@ -34,16 +34,12 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: 智谱 GLM 平台 LLM 服务实现
+ * 智谱 GLM 平台 LLM 服务实现
  *               OpenAI 兼容协议，唯一差异：认证方式为本地自签 JWT（非直接 Bearer API Key）。
  *               JWT 规则：用 API Key（格式 id.secret）中的 secret 做 HMAC-SHA256 签名，有效期 30 分钟。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: GlmServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Service

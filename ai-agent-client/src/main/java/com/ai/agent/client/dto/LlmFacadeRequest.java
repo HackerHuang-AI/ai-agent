@@ -24,6 +24,9 @@ import java.util.Map;
  *   TokenHub    → 腾讯 TokenHub
  *   Mimo        → 小米 MiMo
  * </pre>
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public class LlmFacadeRequest implements Serializable {
 

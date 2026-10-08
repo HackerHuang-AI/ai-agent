@@ -32,15 +32,11 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: 腾讯 TokenHub 平台 LLM 服务实现
+ * 腾讯 TokenHub 平台 LLM 服务实现
  *               OpenAI 高度兼容协议，与标准实现无差异。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: TokenHubServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Service

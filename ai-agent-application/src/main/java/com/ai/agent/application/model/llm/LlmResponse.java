@@ -9,14 +9,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @Description: LLM 统一调用返回，调用方收到此对象，无需感知底层平台差异。
+ * LLM 统一调用返回，调用方收到此对象，无需感知底层平台差异。
  *               Chat 场景填 choices + usage，Responses API 场景填 output + status + maxOutputTokens + usage。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmResponse
- * @Author: HUANGcong
- * @Date: Created in 2026/6/1
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-01
  */
 @Data
 @Builder

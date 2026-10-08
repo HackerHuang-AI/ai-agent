@@ -20,13 +20,9 @@ import java.time.Duration;
 import java.util.Locale;
 
 /**
- * @Description: RestClient配置（基于JDK21原生HttpClient）
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.config
- * @ClassName: RestClientConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * RestClient配置（基于JDK21原生HttpClient）
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Configuration
 @RequiredArgsConstructor

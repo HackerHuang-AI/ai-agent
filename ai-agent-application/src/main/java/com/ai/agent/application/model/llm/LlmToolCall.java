@@ -6,16 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: 工具调用请求，对应 OpenAI/豆包协议 message.tool_calls[] 中的单个元素。
+ * 工具调用请求，对应 OpenAI/豆包协议 message.tool_calls[] 中的单个元素。
  *               出现在两个场景：
  *               1. 响应侧：{@link LlmChoice#getToolCalls()}，模型要求调用的工具列表
  *               2. 请求侧：{@link LlmMessage#getToolCalls()}，回填 assistant 历史消息用于多轮对话
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmToolCall
- * @Author: HUANGcong
- * @Date: Created in 2026/8/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-08-10
  */
 @Data
 @Builder

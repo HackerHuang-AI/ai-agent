@@ -1,8 +1,8 @@
 package com.ai.agent.starter.handler;
 
+import com.ai.agent.application.common.TraceContextSupport;
 import com.ai.agent.application.model.request.RequestContext;
 import com.ai.agent.application.model.request.RequestContextHolder;
-import com.ai.agent.application.common.TraceContextSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +13,12 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+/**
+ * HTTP 请求链路拦截器，初始化请求上下文并维护 traceId。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 @Slf4j
 @Component
 public class TraceIdInterceptorHandler implements HandlerInterceptor {

@@ -2,6 +2,9 @@ package com.ai.agent.client.facade;
 
 /**
  * 测试用 Dubbo 接口，用于验证超时等动态治理配置是否生效。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public interface TestFacade {
 

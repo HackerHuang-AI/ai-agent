@@ -8,16 +8,12 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * @Description: Responses API 输出节点，对应豆包 Responses API output[] 数组中的每个元素。
+ * Responses API 输出节点，对应豆包 Responses API output[] 数组中的每个元素。
  *               type 取值：
  *                 reasoning - 模型思考过程，内容在 summary 字段
  *                 message   - 模型对用户的回复，内容在 content 字段
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmOutputItem
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 @Builder

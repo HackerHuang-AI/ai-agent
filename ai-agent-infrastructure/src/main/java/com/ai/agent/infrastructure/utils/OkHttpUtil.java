@@ -8,15 +8,11 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * @Description: OkHttp 纯静态工具类，不依赖 Spring 容器。
+ * OkHttp 纯静态工具类，不依赖 Spring 容器。
  *               调用方需自行注入 {@code OkHttpConfig} 并通过其获取 {@link OkHttpClient} 后传入本类方法。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.utils
- * @ClassName: OkHttpUtil
- * @Author: HUANGcong
- * @Date: Created in 23:01 2026/4/12
- * @Version: 3.0
+ * @author HUANGcong
+ * @since 2026-04-12
  */
 @Slf4j
 public class OkHttpUtil {

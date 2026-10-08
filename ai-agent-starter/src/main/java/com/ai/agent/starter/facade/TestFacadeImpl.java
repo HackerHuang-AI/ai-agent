@@ -5,6 +5,9 @@ import org.apache.dubbo.config.annotation.DubboService;
 
 /**
  * TestFacade Dubbo Provider 实现，用于验证超时等动态治理配置是否生效。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @DubboService(group = "ai-agent", version = "1.0.0")
 public class TestFacadeImpl implements TestFacade {

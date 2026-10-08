@@ -3,7 +3,7 @@ package com.ai.agent.application.bo;
 import lombok.Data;
 
 /**
- * @Description: Google Gemini 平台默认凭证配置 BO，从 Nacos ai-agent-gemini.json 中读取。
+ * Google Gemini 平台默认凭证配置 BO，从 Nacos ai-agent-gemini.json 中读取。
  *
  * <p>Nacos 配置示例（ai-agent-gemini.json）：
  * <pre>{@code
@@ -16,12 +16,8 @@ import lombok.Data;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: GeminiBO
- * @Author: HUANGcong
- * @Date: Created in 2026/7/13
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-13
  */
 @Data
 public class GeminiBO {

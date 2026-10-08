@@ -7,17 +7,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: 消息内容单元，对应各平台 messages[].content[] 中的一个元素
+ * 消息内容单元，对应各平台 messages[].content[] 中的一个元素
  *               type=TEXT  → value 为纯文本字符串
  *               type=IMAGE → value 为图片 URL 或 "data:image/jpeg;base64,<base64>"
  *               type=FILE  → value 为 "data:<mimeType>;base64,<base64>"，detail 为文件名
  *               type=VIDEO → value 为视频 URL 或 "data:video/mp4;base64,<base64>"
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: MessageContent
- * @Author: HUANGcong
- * @Date: Created in 2026/6/2
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-02
  */
 @Data
 @Builder

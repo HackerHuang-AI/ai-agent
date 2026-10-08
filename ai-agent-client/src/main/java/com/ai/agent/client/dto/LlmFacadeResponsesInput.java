@@ -3,7 +3,12 @@ package com.ai.agent.client.dto;
 import java.io.Serializable;
 import java.util.List;
 
-/** OpenAI Responses API 兼容的 Dubbo 输入项。 */
+/**
+ * OpenAI Responses API 兼容的 Dubbo 输入项。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 public class LlmFacadeResponsesInput implements Serializable {
 
     private static final long serialVersionUID = 1L;

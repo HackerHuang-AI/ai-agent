@@ -3,7 +3,7 @@ package com.ai.agent.infrastructure.config.param;
 import lombok.Data;
 
 /**
- * @Description: OkHttp 客户端参数配置实体，对应 Nacos ai-agent-http.json 中的各配置块（通用结构）。
+ * OkHttp 客户端参数配置实体，对应 Nacos ai-agent-http.json 中的各配置块（通用结构）。
  *
  *               <p>同一个类用于三种场景，语义由 key 决定：
  *               <ul>
@@ -13,12 +13,8 @@ import lombok.Data;
  *               </ul>
  *
  *               <p>字段缺失时由 OkHttpConfig 按 平台 → llm → okhttp → 代码默认值 顺序兜底。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config.param
- * @ClassName: OkHttpParam
- * @Author: HUANGcong
- * @Date: Created in 2026/7/8
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-08
  */
 @Data
 public class OkHttpParam {

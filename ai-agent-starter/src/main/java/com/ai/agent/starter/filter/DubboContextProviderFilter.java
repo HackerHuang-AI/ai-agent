@@ -1,13 +1,19 @@
 package com.ai.agent.starter.filter;
 
+import com.ai.agent.application.common.TraceContextSupport;
 import com.ai.agent.application.model.request.RequestContext;
 import com.ai.agent.application.model.request.RequestContextHolder;
-import com.ai.agent.application.common.TraceContextSupport;
 import org.apache.dubbo.common.extension.Activate;
 import org.apache.dubbo.rpc.*;
 import org.apache.dubbo.rpc.model.ApplicationModel;
 import org.slf4j.MDC;
 
+/**
+ * Dubbo 服务端上下文过滤器，恢复上游链路与身份信息并校验调用链。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 @Activate(group = "provider")
 public class DubboContextProviderFilter implements Filter {
     private static final String TRACE_ID = "traceId";

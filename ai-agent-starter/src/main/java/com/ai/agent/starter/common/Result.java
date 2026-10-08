@@ -10,13 +10,9 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * @Description: 统一响应体，所有 Controller 接口返回值均用此类包装。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.common
- * @ClassName: Result
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * 统一响应体，所有 Controller 接口返回值均用此类包装。
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Data
 @NoArgsConstructor

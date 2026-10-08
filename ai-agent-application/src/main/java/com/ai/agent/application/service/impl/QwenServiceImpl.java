@@ -32,16 +32,12 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Qwen（阿里云百炼）平台 LLM 服务实现
+ * Qwen（阿里云百炼）平台 LLM 服务实现
  *               OpenAI 兼容协议，与 Deepseek 完全一致，无平台私有响应字段。
  *               平台特有入参（enable_search 等）通过 extraParams 传入。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: QwenServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Service

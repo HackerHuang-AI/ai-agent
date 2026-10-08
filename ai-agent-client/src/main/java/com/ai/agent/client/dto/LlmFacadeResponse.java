@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * LlmFacade Dubbo 接口响应 DTO
+ * LlmFacade Dubbo 接口响应 DTO。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public class LlmFacadeResponse implements Serializable {
 

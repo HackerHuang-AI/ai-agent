@@ -14,13 +14,9 @@ import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * @Description: Nacos 配置查询接口，支持按 dataId 查看当前缓存中的配置内容，用于调试和验证配置是否生效。
- * @ProjectName: ai-analysis
- * @Package: com.ai.analysis.controller
- * @ClassName: NacosConfigController
- * @Author: HUANGcong
- * @Date: Created in 2026/5/17
- * @Version: 1.0
+ * Nacos 配置查询接口，支持按 dataId 查看当前缓存中的配置内容，用于调试和验证配置是否生效。
+ * @author HUANGcong
+ * @since 2026-05-17
  */
 @Slf4j
 @RestController

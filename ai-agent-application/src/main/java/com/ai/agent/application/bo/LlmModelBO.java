@@ -6,13 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: LLM 模型业务对象，从 llm_model 表查出后的内存表示
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: LlmModelBO
- * @Author: HUANGcong
- * @Date: Created in 2026/6/1
- * @Version: 1.0
+ * LLM 模型业务对象，从 llm_model 表查出后的内存表示
+ * @author HUANGcong
+ * @since 2026-06-01
  */
 @Data
 @Builder

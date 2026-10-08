@@ -25,18 +25,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: 百度千帆平台对话接口
+ * 百度千帆平台对话接口
  *
  *               POST /api/qianfan/models       查询平台支持的模型列表
  *               POST /api/qianfan/chat        同步对话
  *               POST /api/qianfan/chat/stream  流式对话，SSE 实时推送 chunk
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: QianfanChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Validated

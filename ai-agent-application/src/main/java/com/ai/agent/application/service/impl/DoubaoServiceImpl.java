@@ -32,14 +32,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: 豆包（火山方舟）平台 LLM 服务实现
+ * 豆包（火山方舟）平台 LLM 服务实现
  *               支持 Chat Completions 协议（文本和图文对话）及独立的 Responses API
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: DoubaoServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/24
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-24
  */
 @Slf4j
 @Service

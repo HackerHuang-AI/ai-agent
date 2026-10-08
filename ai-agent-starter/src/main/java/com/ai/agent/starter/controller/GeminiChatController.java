@@ -27,17 +27,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Google Gemini 平台对话接口
+ * Google Gemini 平台对话接口
  *
  *               POST /api/gemini/chat        同步对话
  *               POST /api/gemini/chat/stream  流式对话，SSE 实时推送 chunk
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: GeminiChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Validated

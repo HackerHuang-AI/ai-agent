@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Anthropic（Claude）平台 LLM 服务实现。
+ * Anthropic（Claude）平台 LLM 服务实现。
  *               与其他平台的关键差异：
  *               1. 认证：x-api-key Header（非 Authorization:Bearer），必须携带 anthropic-version
  *               2. Endpoint：/v1/messages（非 /v1/chat/completions）
@@ -41,12 +41,8 @@ import java.util.function.Consumer;
  *               5. 响应：content[0].text；token 字段 input_tokens/output_tokens
  *               6. 流式结束：event: message_stop（无 [DONE]）；文本 chunk 在 content_block_delta 事件
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: AnthropicServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/29
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-29
  */
 @Slf4j
 @Service

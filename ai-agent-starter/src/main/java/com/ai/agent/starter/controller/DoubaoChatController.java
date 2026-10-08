@@ -26,18 +26,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: 豆包（火山方舟）平台对话接口
+ * 豆包（火山方舟）平台对话接口
  *               凭证（apiKey / endpoint）由调用方通过请求体传入，或从 Nacos 兜底。
  *
  *               POST /api/doubao/chat                    同步对话（Chat Completions 协议，文本和图文输入）
  *               POST /api/doubao/chat/stream              流式对话，SSE 实时推送 chunk
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: DoubaoChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/6/4
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-04
  */
 @Slf4j
 @Validated

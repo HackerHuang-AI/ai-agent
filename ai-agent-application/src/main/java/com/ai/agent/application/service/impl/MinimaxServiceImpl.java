@@ -32,18 +32,14 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: MiniMax 平台 LLM 服务实现。
+ * MiniMax 平台 LLM 服务实现。
  *               协议基本兼容 OpenAI，关键差异：
  *               1. messages 每条消息需携带 name 字段（system→"assistant"，user→"user"，assistant→"MM智能助手"）
  *               2. HTTP 200 不等于业务成功，需检查响应体中的 base_resp.status_code == 0
  *               平台私有参数（mask_sensitive_info 等）通过 extraParams 传入。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: MiniMaxServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/29
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-29
  */
 @Slf4j
 @Service

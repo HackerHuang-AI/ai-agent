@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * @Description: LLM 流式调用线程池统一配置。
+ * LLM 流式调用线程池统一配置。
  *
  * <p>设计要点：
  * <ul>
@@ -38,12 +38,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.config
- * @ClassName: LlmThreadPoolConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/6/26
- * @Version: 2.0
+ * @author HUANGcong
+ * @since 2026-06-26
  */
 @Slf4j
 @Configuration

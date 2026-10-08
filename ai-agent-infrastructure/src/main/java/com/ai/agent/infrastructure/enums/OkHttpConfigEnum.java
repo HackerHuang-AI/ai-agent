@@ -1,7 +1,7 @@
 package com.ai.agent.infrastructure.enums;
 
 /**
- * @Description: OkHttp 超时策略作用域枚举，定义各业务场景对应的 Nacos 超时配置 key。
+ * OkHttp 超时策略作用域枚举，定义各业务场景对应的 Nacos 超时配置 key。
  *
  * <p>不局限于 LLM 平台，任何需要独立配置超时参数的业务场景均可在此注册一行。
  *
@@ -14,12 +14,8 @@ package com.ai.agent.infrastructure.enums;
  *
  * <p>新增业务场景只需在此追加一行枚举项，OkHttpConfig 无需改动。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.enums
- * @ClassName: OkHttpConfigEnum
- * @Author: HUANGcong
- * @Date: Created in 2026/7/9
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-09
  */
 public enum OkHttpConfigEnum {
 

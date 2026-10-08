@@ -27,19 +27,15 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: LLM 统一对话接口，通过 platform 参数路由到对应平台实现。
+ * LLM 统一对话接口，通过 platform 参数路由到对应平台实现。
  *
  *               POST /api/llm/chat              同步对话（文本和图文输入）
  *               POST /api/llm/chat/stream        流式对话（文本和图文输入）
  *               POST /api/llm/responses          Responses API 调用
  *               POST /api/llm/models             模型列表
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: LlmChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/7/16
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-16
  */
 @Slf4j
 @Validated

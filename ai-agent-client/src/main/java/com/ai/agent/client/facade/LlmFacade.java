@@ -42,6 +42,9 @@ import org.apache.dubbo.common.stream.StreamObserver;
  * }</pre>
  *
  * <p>⚠️ 流式接口需使用 Triple 协议（{@code protocol: tri}），Dubbo 2.x 不支持。</p>
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public interface LlmFacade {
 

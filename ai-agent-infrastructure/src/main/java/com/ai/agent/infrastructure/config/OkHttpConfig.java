@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * @Description: OkHttp 客户端动态配置中心。
+ * OkHttp 客户端动态配置中心。
  *
  * <p>设计要点：
  * <ul>
@@ -56,12 +56,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config
- * @ClassName: OkHttpConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/7/8
- * @Version: 2.0
+ * @author HUANGcong
+ * @since 2026-07-08
  */
 @Slf4j
 @Component

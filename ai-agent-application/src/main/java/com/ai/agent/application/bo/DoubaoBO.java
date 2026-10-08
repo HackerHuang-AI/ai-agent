@@ -3,7 +3,7 @@ package com.ai.agent.application.bo;
 import lombok.Data;
 
 /**
- * @Description: 豆包平台默认凭证配置 BO，从 Nacos ai-agent-doubao.json 中读取。
+ * 豆包平台默认凭证配置 BO，从 Nacos ai-agent-doubao.json 中读取。
  *               调用方若未传 apiKey / endpoint / model，Service 层从此处兜底。
  *
  * <p>Nacos 配置示例（ai-agent-doubao.json）：
@@ -22,12 +22,8 @@ import lombok.Data;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: DoubaoConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Data
 public class DoubaoBO {

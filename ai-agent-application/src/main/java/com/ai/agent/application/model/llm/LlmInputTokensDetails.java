@@ -6,14 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: 输入 token 明细，对应豆包 usage.prompt_tokens_details（chat）/ usage.input_tokens_details（多模态）。
+ * 输入 token 明细，对应豆包 usage.prompt_tokens_details（chat）/ usage.input_tokens_details（多模态）。
  *               平台有此字段则填值（含 0），平台无此字段则整个对象为 null。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmInputTokensDetails
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 @Builder

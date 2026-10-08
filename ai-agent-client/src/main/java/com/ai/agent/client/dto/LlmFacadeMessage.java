@@ -14,6 +14,9 @@ import java.util.List;
  *
  * <h3>优先级规则</h3>
  * {@code contents} 非空时优先使用；{@code contents} 为空则回退到 {@code content} 纯文本。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public class LlmFacadeMessage implements Serializable {
 

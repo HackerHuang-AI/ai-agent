@@ -6,13 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
- * @Description: 对话消息中单条内容单元的 VO
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: ChatMessageVO
- * @Author: HUANGcong
- * @Date: Created in 2026/6/2
- * @Version: 1.0
+ * 对话消息中单条内容单元的 VO
+ * @author HUANGcong
+ * @since 2026-06-02
  */
 @Data
 public class ChatMessageVO {

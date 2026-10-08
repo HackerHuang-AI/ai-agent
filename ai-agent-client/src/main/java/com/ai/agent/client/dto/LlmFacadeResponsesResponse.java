@@ -4,7 +4,12 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-/** LlmFacade Dubbo Responses API 响应 DTO。 */
+/**
+ * LlmFacade Dubbo Responses API 响应 DTO。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 public class LlmFacadeResponsesResponse implements Serializable {
 
     private static final long serialVersionUID = 1L;

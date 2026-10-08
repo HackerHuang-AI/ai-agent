@@ -8,17 +8,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @Description: LLM 统一调用入参 VO，所有平台共用。
+ * LLM 统一调用入参 VO，所有平台共用。
  *               公共参数直接填写，平台私有参数放入 extraParams。
  *               凭证字段（apiKey / endpoint / modelCode）可选，为空时从 Nacos 兜底（仅豆包支持）。
  *               豆包：modelCode 填 endpoint_id，如 ep-20240101-xxxxx
  *               Deepseek：modelCode 填模型名，如 deepseek-chat / deepseek-reasoner
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: LlmRequestVO
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Data
 public class LlmRequestVO {

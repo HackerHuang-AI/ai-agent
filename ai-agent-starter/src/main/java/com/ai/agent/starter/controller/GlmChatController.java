@@ -27,18 +27,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: 智谱 GLM 平台对话接口
+ * 智谱 GLM 平台对话接口
  *               注意：apiKey 格式为 id.secret，服务层内部自动生成 JWT Token。
  *
  *               POST /api/glm/chat        同步对话
  *               POST /api/glm/chat/stream  流式对话，SSE 实时推送 chunk
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: GlmChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Slf4j
 @Validated

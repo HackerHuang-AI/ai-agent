@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @Description: LLM 平台模型信息，统一封装各平台 GET /models 返回的模型元数据。
+ * LLM 平台模型信息，统一封装各平台 GET /models 返回的模型元数据。
  *               各平台字段丰富程度不同，不支持的字段返回 null。
  *
  * <p>字段支持情况：
@@ -16,12 +16,8 @@ import java.util.Map;
  *   <li>Moonshot / DeepSeek / Qwen（兼容模式）：仅 id / ownedBy / created，其余 null</li>
  * </ul>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmModelInfo
- * @Author: HUANGcong
- * @Date: Created in 2026/7/12
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-12
  */
 @Data
 @Builder

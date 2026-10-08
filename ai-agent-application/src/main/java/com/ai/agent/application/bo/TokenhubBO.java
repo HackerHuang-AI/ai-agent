@@ -3,7 +3,7 @@ package com.ai.agent.application.bo;
 import lombok.Data;
 
 /**
- * @Description: 腾讯 TokenHub 平台默认凭证配置 BO，从 Nacos ai-agent-tokenhub.json 中读取。
+ * 腾讯 TokenHub 平台默认凭证配置 BO，从 Nacos ai-agent-tokenhub.json 中读取。
  *
  * <p>Nacos 配置示例（ai-agent-tokenhub.json）：
  * <pre>{@code
@@ -16,12 +16,8 @@ import lombok.Data;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: TokenHubBO
- * @Author: HUANGcong
- * @Date: Created in 2026/7/13
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-13
  */
 @Data
 public class TokenHubBO {

@@ -8,15 +8,11 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * @Description: JSON 工具类，封装 Jackson 常用反序列化操作，作为 OkHttpUtil 的配套解析工具。
+ * JSON 工具类，封装 Jackson 常用反序列化操作，作为 OkHttpUtil 的配套解析工具。
  *               使用方式：在 Spring 容器启动后通过 {@link #init(ObjectMapper)} 注入 Spring Boot 默认 ObjectMapper，
  *               之后所有地方均可通过静态方法调用，避免到处注入 ObjectMapper。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.utils
- * @ClassName: JsonUtil
- * @Author: HUANGcong
- * @Date: Created in 2026/4/14
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-04-14
  */
 public class JsonUtil {
 

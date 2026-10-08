@@ -2,7 +2,12 @@ package com.ai.agent.client.dto;
 
 import java.io.Serializable;
 
-/** Responses API 输入内容块。 */
+/**
+ * Responses API 输入内容块。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 public class LlmFacadeResponsesContent implements Serializable {
 
     private static final long serialVersionUID = 1L;

@@ -4,13 +4,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * @Description: 统一响应状态码枚举，配合 Result<T> 使用。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.enums
- * @ClassName: ResultCodeEnum
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * 统一响应状态码枚举，配合 Result<T> 使用。
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public enum ResultCodeEnum {
 

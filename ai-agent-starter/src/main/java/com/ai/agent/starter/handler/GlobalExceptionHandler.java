@@ -27,13 +27,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * @Description: 全局异常处理器，统一处理 Controller 层的参数校验失败和运行时异常。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.handler
- * @ClassName: GlobalExceptionHandler
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * 全局异常处理器，统一处理 Controller 层的参数校验失败和运行时异常。
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Slf4j
 @RestControllerAdvice

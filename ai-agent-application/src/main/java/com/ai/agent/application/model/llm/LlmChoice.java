@@ -8,14 +8,10 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * @Description: Chat Completions 协议单个候选回复（对应 choices[i]）
+ * Chat Completions 协议单个候选回复（对应 choices[i]）
  *               同一次请求如果 n>1，则有多个候选，全部透传不截断。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmChoice
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 @Builder

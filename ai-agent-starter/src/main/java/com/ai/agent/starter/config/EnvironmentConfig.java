@@ -5,13 +5,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * @Description: 环境配置类
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.config
- * @ClassName: EnvironmentConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * 环境配置类
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Configuration
 public class EnvironmentConfig {

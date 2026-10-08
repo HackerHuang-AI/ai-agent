@@ -8,7 +8,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * @Description: LLM 统一对话消息 VO，所有平台共用，支持纯文本和多模态两种使用模式。
+ * LLM 统一对话消息 VO，所有平台共用，支持纯文本和多模态两种使用模式。
  *
  * <p>模式一：纯文本（type + value）
  * <pre>{@code
@@ -26,12 +26,8 @@ import java.util.List;
  * <p>两种模式互斥，contents 非空时优先使用 contents，忽略 type/value。
  * type/value/contents 均非必填，由 Service 层根据接口类型做具体校验。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: LlmMessageVO
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Data
 public class LlmMessageVO {

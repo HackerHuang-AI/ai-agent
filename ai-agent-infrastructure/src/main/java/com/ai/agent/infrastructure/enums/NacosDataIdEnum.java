@@ -1,7 +1,7 @@
 package com.ai.agent.infrastructure.enums;
 
 /**
- * @Description: Nacos 配置文件 DataId 枚举，统一管理本服务在 Nacos 上注册的所有配置文件。
+ * Nacos 配置文件 DataId 枚举，统一管理本服务在 Nacos 上注册的所有配置文件。
  *
  * <p>使用规范：
  * <ul>
@@ -11,12 +11,8 @@ package com.ai.agent.infrastructure.enums;
  *       如 ai-agent-retry.json → AI_AGENT_RETRY</li>
  * </ul>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.enums
- * @ClassName: NacosDataIdEnum
- * @Author: HUANGcong
- * @Date: Created in 2026/6/26
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-26
  */
 public enum NacosDataIdEnum {
 

@@ -6,17 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: 多模态输出内容块，对应豆包 Responses API output[i].summary[j] / output[i].content[j]。
+ * 多模态输出内容块，对应豆包 Responses API output[i].summary[j] / output[i].content[j]。
  *               type 取值：
  *                 summary_text  - reasoning 节点下的思考摘要文本
  *                 output_text   - message 节点下的正文文本
  *                 image         - 图片（未来扩展）
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmContentBlock
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 @Builder

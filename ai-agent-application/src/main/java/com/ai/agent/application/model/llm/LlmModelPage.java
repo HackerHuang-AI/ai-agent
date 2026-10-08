@@ -7,7 +7,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * @Description: LLM 模型列表统一分页结果。
+ * LLM 模型列表统一分页结果。
  */
 @Data
 @Builder

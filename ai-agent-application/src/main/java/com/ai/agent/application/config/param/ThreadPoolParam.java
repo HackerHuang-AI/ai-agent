@@ -3,14 +3,10 @@ package com.ai.agent.application.config.param;
 import lombok.Data;
 
 /**
- * @Description: 线程池参数配置实体，对应 Nacos ai-agent-thread-pool.json 中每个线程池的参数块。
+ * 线程池参数配置实体，对应 Nacos ai-agent-thread-pool.json 中每个线程池的参数块。
  *               字段缺失时由 LlmThreadPoolConfig 兜底使用默认值，无需在此设置默认值。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: ThreadPoolParam
- * @Author: HUANGcong
- * @Date: Created in 2026/6/26
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-26
  */
 @Data
 public class ThreadPoolParam {

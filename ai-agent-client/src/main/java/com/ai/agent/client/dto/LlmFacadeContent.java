@@ -19,6 +19,9 @@ import java.io.Serializable;
  *   <li>{@code file}  — 文档文件，{@link #value} 为 data URI，{@link #detail} 为原始文件名</li>
  *   <li>{@code video} — 视频，{@link #value} 为 URL 或 data URI</li>
  * </ul>
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public class LlmFacadeContent implements Serializable {
 

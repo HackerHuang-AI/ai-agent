@@ -6,14 +6,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * @Description: 重试参数配置实体，对应 Nacos ai-agent-retry.json 中各平台配置块。
+ * 重试参数配置实体，对应 Nacos ai-agent-retry.json 中各平台配置块。
  *               字段缺失时由 RetryConfig 兜底使用默认值。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config.param
- * @ClassName: RetryParam
- * @Author: HUANGcong
- * @Date: Created in 2026/7/8
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-08
  */
 @Data
 public class RetryParam {

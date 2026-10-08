@@ -4,15 +4,11 @@ import com.ai.agent.application.enums.ContentTypeEnum;
 import lombok.Data;
 
 /**
- * @Description: 多模态消息内容块 VO，用于 LlmMessageVO.contents 字段。
+ * 多模态消息内容块 VO，用于 LlmMessageVO.contents 字段。
  *               一条消息可包含多个内容块（如图片 + 文字混合），每个块对应一个 ContentVO。
  *               字段均非必填，由 Service 层根据业务场景校验。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: MessageContentVO
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 public class MessageContentVO {

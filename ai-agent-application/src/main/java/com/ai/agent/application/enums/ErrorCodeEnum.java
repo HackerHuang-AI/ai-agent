@@ -5,7 +5,7 @@ import lombok.Getter;
 import java.util.Arrays;
 
 /**
- * @Description: 业务异常码枚举。
+ * 业务异常码枚举。
  *
  *               编码规则：[系统编码 2位][模块编码 2位][错误序号 3位]
  *               - 系统编码：20 = ai-agent
@@ -14,12 +14,8 @@ import java.util.Arrays;
  *
  *               示例：2001001 → ai-agent · 通用 · 参数非法
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.enums
- * @ClassName: ErrorCodeEnum
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Getter
 public enum ErrorCodeEnum {

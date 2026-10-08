@@ -32,17 +32,13 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
- * @Description: Deepseek 平台 LLM 服务实现
+ * Deepseek 平台 LLM 服务实现
  *               支持模型：deepseek-chat / deepseek-reasoner
  *               差异点：
  *               1. deepseek-reasoner 不支持 temperature 参数，自动跳过
  *               2. 响应额外包含 reasoning_content（思维链）和 prompt_cache_hit_tokens
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service.impl
- * @ClassName: DeepseekServiceImpl
- * @Author: HUANGcong
- * @Date: Created in 2026/6/24
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-24
  */
 @Slf4j
 @Service

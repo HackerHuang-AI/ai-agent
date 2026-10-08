@@ -27,18 +27,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @Description: Deepseek 平台对话接口
+ * Deepseek 平台对话接口
  *               凭证（apiKey / endpoint）由调用方通过请求体传入
  *
  *               POST /api/deepseek/chat        同步对话，等待完整响应后返回
  *               POST /api/deepseek/chat/stream  流式对话，SSE 实时推送 chunk
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller
- * @ClassName: DeepseekChatController
- * @Author: HUANGcong
- * @Date: Created in 2026/6/4
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-04
  */
 @Slf4j
 @Validated

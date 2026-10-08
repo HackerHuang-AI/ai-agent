@@ -1,14 +1,20 @@
 package com.ai.agent.starter.filter;
 
+import com.ai.agent.application.common.TraceContextSupport;
 import com.ai.agent.application.model.request.RequestContext;
 import com.ai.agent.application.model.request.RequestContextHolder;
-import com.ai.agent.application.common.TraceContextSupport;
 import org.apache.dubbo.common.extension.Activate;
 import org.apache.dubbo.rpc.Filter;
 import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.Result;
 
+/**
+ * Dubbo 消费端上下文过滤器，将当前请求的链路与身份信息透传至下游服务。
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
+ */
 @Activate(group = "consumer")
 public class DubboContextConsumerFilter implements Filter {
     static final String TRACEPARENT = "traceparent";

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @Description: LLM token 消耗统计，结构对齐豆包 usage 响应。
+ * LLM token 消耗统计，结构对齐豆包 usage 响应。
  *               各平台字段映射关系：
  *                 inputTokens          ← chat: prompt_tokens          / 多模态: input_tokens      / Anthropic: input_tokens
  *                 outputTokens         ← chat: completion_tokens       / 多模态: output_tokens     / Anthropic: output_tokens
@@ -15,12 +15,8 @@ import lombok.NoArgsConstructor;
  *                 outputTokensDetails  ← chat: completion_tokens_details / 多模态: output_tokens_details / 无此字段时为 null
  *
  *               规则：平台有此字段则填值（含 0），平台无此字段则为 null。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmUsage
- * @Author: HUANGcong
- * @Date: Created in 2026/7/10
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-10
  */
 @Data
 @Builder

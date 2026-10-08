@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * @Description: 重试策略动态配置中心，独立于 OkHttp 连接配置。
+ * 重试策略动态配置中心，独立于 OkHttp 连接配置。
  *
  * <p>设计要点：
  * <ul>
@@ -35,12 +35,8 @@ import org.springframework.stereotype.Component;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config
- * @ClassName: RetryConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/7/9
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-09
  */
 @Slf4j
 @Component

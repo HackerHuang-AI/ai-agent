@@ -8,14 +8,10 @@ import com.ai.agent.application.model.llm.LlmResponsesRequest;
 import java.util.function.Consumer;
 
 /**
- * @Description: LLM 统一调用服务接口
+ * LLM 统一调用服务接口
  *               职责：根据 modelCode 查询模型配置，路由到对应平台 Adapter，完成调用并持久化记录
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.service
- * @ClassName: LlmService
- * @Author: HUANGcong
- * @Date: Created in 2026/6/1
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-01
  */
 public interface LlmService {
 

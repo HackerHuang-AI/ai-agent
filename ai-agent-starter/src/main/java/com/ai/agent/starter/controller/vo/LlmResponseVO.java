@@ -10,14 +10,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @Description: LLM 统一调用响应 VO，所有平台共用。
+ * LLM 统一调用响应 VO，所有平台共用。
  *               Chat 场景填 choices + usage；Responses API 场景填 output + status + maxOutputTokens + usage。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: LlmResponseVO
- * @Author: HUANGcong
- * @Date: Created in 2026/6/28
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-28
  */
 @Data
 @Builder

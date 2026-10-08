@@ -6,13 +6,9 @@ import lombok.Getter;
 import java.util.List;
 
 /**
- * @Description: 业务异常，携带结构化错误码，用于 Service 层主动抛出可预期的业务错误。
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.common
- * @ClassName: BizException
- * @Author: HUANGcong
- * @Date: Created in 2026/5/29
- * @Version: 1.0
+ * 业务异常，携带结构化错误码，用于 Service 层主动抛出可预期的业务错误。
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Getter
 public class BizException extends RuntimeException {

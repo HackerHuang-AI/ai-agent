@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * @Description: LLM 对话消息，支持纯文本和多模态内容（图片/文件/视频）
+ * LLM 对话消息，支持纯文本和多模态内容（图片/文件/视频）
  *               role 枚举：system / user / assistant / tool
  *
  *               纯文本场景（兼容旧用法）：
@@ -25,12 +25,8 @@ import java.util.List;
  *                   assistant 消息携带 toolCalls：LlmMessage.ofToolCalls(toolCalls)
  *                   tool 消息回传执行结果：LlmMessage.ofToolResult(toolCallId, resultText)
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmMessage
- * @Author: HUANGcong
- * @Date: Created in 2026/6/1
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-06-01
  */
 @Data
 @Builder

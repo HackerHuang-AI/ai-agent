@@ -9,13 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @Description: LLM 统一调用入参，屏蔽各平台差异，调用方只需构造此对象
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.model.llm
- * @ClassName: LlmRequest
- * @Author: HUANGcong
- * @Date: Created in 2026/6/1
- * @Version: 1.0
+ * LLM 统一调用入参，屏蔽各平台差异，调用方只需构造此对象
+ * @author HUANGcong
+ * @since 2026-06-01
  */
 @Data
 @Builder

@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.concurrent.Callable;
 
 /**
- * @Description: 应用层重试工具类，在基础重试能力之上感知业务异常（BizException）。
+ * 应用层重试工具类，在基础重试能力之上感知业务异常（BizException）。
  *
  * <p>与基础层 {@code RetryUtil} 的区别：
  * <ul>
@@ -46,12 +46,8 @@ import java.util.concurrent.Callable;
  *   "2002010" → LLM_INSUFFICIENT_BALANCE（余额不足，重试无意义）
  * </pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.common
- * @ClassName: AppRetryUtil
- * @Author: HUANGcong
- * @Date: Created in 2026/7/16
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-16
  */
 @Slf4j
 public class AppRetryUtil {

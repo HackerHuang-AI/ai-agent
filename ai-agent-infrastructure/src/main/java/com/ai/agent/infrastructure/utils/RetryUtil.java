@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.Callable;
 
 /**
- * @Description: 基础重试工具类，采用指数退避策略（参考 open-code-review 设计 + jitter 优化）。
+ * 基础重试工具类，采用指数退避策略（参考 open-code-review 设计 + jitter 优化）。
  *
  * <p>本类为纯技术层工具，不感知任何业务语义。
  * 若需要按业务错误码（BizException）决定是否重试，请使用应用层的
@@ -31,12 +31,8 @@ import java.util.concurrent.Callable;
  *
  * <p>重试参数通过 {@link RetryParam} 传入，调用方从 RetryConfig 实时读取 Nacos 值，保证热更新生效。
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.utils
- * @ClassName: RetryUtil
- * @Author: HUANGcong
- * @Date: Created in 2026/5/13
- * @Version: 2.0
+ * @author HUANGcong
+ * @since 2026-05-13
  */
 @Slf4j
 public class RetryUtil {

@@ -4,13 +4,9 @@ import lombok.Builder;
 import lombok.Data;
 
 /**
- * @Description: LLM 对话接口响应 VO
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.starter.controller.vo
- * @ClassName: ChatResponse
- * @Author: HUANGcong
- * @Date: Created in 2026/6/2
- * @Version: 1.0
+ * LLM 对话接口响应 VO
+ * @author HUANGcong
+ * @since 2026-06-02
  */
 @Data
 @Builder

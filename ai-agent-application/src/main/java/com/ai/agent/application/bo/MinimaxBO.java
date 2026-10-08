@@ -3,7 +3,7 @@ package com.ai.agent.application.bo;
 import lombok.Data;
 
 /**
- * @Description: MiniMax 平台默认凭证配置 BO，从 Nacos ai-agent-minimax.json 中读取。
+ * MiniMax 平台默认凭证配置 BO，从 Nacos ai-agent-minimax.json 中读取。
  *               调用方若未传 apiKey / endpoint / modelCode，Service 层从此处兜底。
  *
  * <p>Nacos 配置示例（ai-agent-minimax.json）：
@@ -17,12 +17,8 @@ import lombok.Data;
  * }
  * }</pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.application.bo
- * @ClassName: MiniMaxBO
- * @Author: HUANGcong
- * @Date: Created in 2026/7/12
- * @Version: 1.0
+ * @author HUANGcong
+ * @since 2026-07-12
  */
 @Data
 public class MiniMaxBO {

@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 /**
- * @Description: Nacos 配置中心，支持索引 DataId 机制动态管理多配置文件热更新。
+ * Nacos 配置中心，支持索引 DataId 机制动态管理多配置文件热更新。
  *
  * <pre>
  * 设计模式（类比 Lion ZooKeeper Watch 父节点）：
@@ -33,12 +33,8 @@ import java.util.concurrent.Executor;
  *   5. 业务 DataId 变更时全量替换对应分桶缓存（保证 key 删除不残留）
  * </pre>
  *
- * @ProjectName: ai-agent
- * @Package: com.ai.agent.infrastructure.config
- * @ClassName: NacosConfig
- * @Author: HUANGcong
- * @Date: Created in 2026/5/13
- * @Version: 2.0
+ * @author HUANGcong
+ * @since 2026-05-13
  */
 @Slf4j
 @Component

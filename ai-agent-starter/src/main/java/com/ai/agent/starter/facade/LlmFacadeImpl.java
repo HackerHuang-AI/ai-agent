@@ -22,6 +22,9 @@ import java.util.Map;
  * 供 ai-knowledge、ai-analysis 等 Consumer 通过 {@code @DubboReference} 调用。</p>
  *
  * <p>职责：DTO ↔ 领域模型转换 + 委托 {@link LlmRouter} 路由到对应平台 Service 执行。</p>
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 @Slf4j
 @DubboService(group = "ai-agent", version = "1.0.0")

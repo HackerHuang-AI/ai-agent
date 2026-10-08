@@ -10,6 +10,9 @@ import java.io.Serializable;
  *   <li>响应侧：{@link LlmFacadeResponse#getToolCalls()}，模型要求调用的工具列表</li>
  *   <li>请求侧：{@link LlmFacadeMessage#getToolCalls()}，回填 assistant 历史消息用于多轮对话</li>
  * </ul>
+ *
+ * @author HUANGcong
+ * @since 2026-05-29
  */
 public class LlmToolCallDto implements Serializable {
 
