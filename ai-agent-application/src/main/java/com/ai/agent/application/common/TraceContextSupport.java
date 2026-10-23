@@ -39,7 +39,16 @@ public final class TraceContextSupport {
         return "00-" + context.traceId() + "-" + newSpanId() + "-" + context.traceFlags();
     }
 
-    public static boolean violatesCallChainPolicy(String callChain) {
+    public static String displayCallChain(String callChain) {
+if (callChain == null || callChain.isBlank()) {
+return callChain;
+}
+int separatorIndex = callChain.indexOf(';');
+return separatorIndex > 0 && callChain.startsWith(CALL_CHAIN_LIMIT_PREFIX)
+? callChain.substring(separatorIndex + 1) : callChain;
+}
+
+public static boolean violatesCallChainPolicy(String callChain) {
         if (callChain == null || callChain.isBlank()) {
             return false;
         }
