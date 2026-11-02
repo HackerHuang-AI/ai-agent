@@ -50,11 +50,11 @@ public class LlmChatController {
     }
 
     @PostMapping("/models")
-    public Result<LlmModelPage> listModels(@RequestBody LlmCredentialVO req) {
+    public Result<LlmModelPage> listModels(@Valid @RequestBody LlmCredentialVO req) {
         checkPlatform(req.getPlatform());
         return Result.success(llmRouter.listModels(req.getPlatform(), req.getApiKey(),
                 req.getPageNo() != null ? req.getPageNo() : 1,
-                req.getPageSize() != null ? req.getPageSize() : 20));
+                req.getPageSize() != null ? req.getPageSize() : 10));
     }
 
     @PostMapping("/chat")

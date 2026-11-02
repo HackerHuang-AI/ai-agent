@@ -21,7 +21,7 @@ public class LlmModelPage {
 
     public static LlmModelPage of(List<LlmModelInfo> models, int pageNo, int pageSize) {
         int effectivePageNo = Math.max(pageNo, 1);
-        int effectivePageSize = Math.min(Math.max(pageSize, 1), 20);
+        int effectivePageSize = Math.min(Math.max(pageSize, 1), 100);
         List<LlmModelInfo> all = models == null ? Collections.emptyList() : models;
         long total = all.size();
         long offset = (long) (effectivePageNo - 1) * effectivePageSize;

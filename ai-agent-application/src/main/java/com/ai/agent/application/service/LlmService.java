@@ -56,11 +56,11 @@ public interface LlmService {
      *
      * <p>各平台必须显式实现本方法：有官方模型列表接口时仅调用本平台接口；
      * 未确认或暂不支持时返回空分页结果并记录原因日志，禁止通过聚合平台查询其他厂商模型。
-     * pageSize 最大为 20；天然全量返回的平台由各实现内部切片组装分页结果。
+     * pageSize 最大为 100；天然全量返回的平台由各实现内部切片组装分页结果。
      *
      * @param apiKey API Key；为空时从 Nacos 兜底
      * @param pageNo 页码，从 1 开始
-     * @param pageSize 每页数量，最大 20
+     * @param pageSize 每页数量，最大 100
      * @return 统一模型分页结果
      */
     LlmModelPage listModels(String apiKey, int pageNo, int pageSize);

@@ -47,10 +47,10 @@ public class OllamaChatController {
     }
 
     @PostMapping("/models")
-    public Result<LlmModelPage> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+    public Result<LlmModelPage> listModels(@Valid @RequestBody(required = false) LlmCredentialVO req) {
         String apiKey = req != null ? req.getApiKey() : null;
         int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
-        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 20;
+        int pageSize = req != null ? req.getPageSize() : 10;
         return Result.success(ollamaService.listModels(apiKey, pageNo, pageSize));
     }
 

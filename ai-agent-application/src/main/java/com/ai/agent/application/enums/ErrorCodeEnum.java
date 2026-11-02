@@ -30,6 +30,8 @@ public enum ErrorCodeEnum {
     PARAMETER_FORMAT_INVALID("2001007", "error.2001007", "参数格式不合法"),
     PARAMETER_OUT_OF_RANGE("2001008", "error.2001008", "参数超出允许范围"),
     PARAMETER_VALUE_INVALID("2001009", "error.2001009", "参数值不合法"),
+    PAGE_NUMBER_OUT_OF_RANGE("2001010", "error.2001010", "页码超出允许范围"),
+    PAGE_SIZE_OUT_OF_RANGE("2001011", "error.2001011", "每页条数超出允许范围"),
 
     // ==================== LLM 调用（2002xxx）====================
     LLM_PLATFORM_NOT_SUPPORTED("2002001", "error.2002001", "不支持的 LLM 平台"),

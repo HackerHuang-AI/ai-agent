@@ -132,6 +132,8 @@ public class GlobalExceptionHandler {
 
     private ErrorCodeEnum validationErrorCode(String constraint) {
         return switch (constraint) {
+            case "2001010" -> ErrorCodeEnum.PAGE_NUMBER_OUT_OF_RANGE;
+            case "2001011" -> ErrorCodeEnum.PAGE_SIZE_OUT_OF_RANGE;
             case "NotBlank", "NotEmpty", "NotNull" -> ErrorCodeEnum.PARAMETER_REQUIRED;
             case "Pattern", "Email" -> ErrorCodeEnum.PARAMETER_FORMAT_INVALID;
             case "Min", "Max", "DecimalMin", "DecimalMax", "Positive", "PositiveOrZero", "Negative", "NegativeOrZero" ->

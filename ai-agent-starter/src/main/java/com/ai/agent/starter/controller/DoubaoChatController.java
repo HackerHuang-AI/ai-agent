@@ -55,10 +55,10 @@ public class DoubaoChatController {
      * 若传入则使用调用方自定义凭证，适用于多租户场景。
      */
     @PostMapping("/models")
-    public Result<LlmModelPage> listModels(@RequestBody(required = false) LlmCredentialVO req) {
+    public Result<LlmModelPage> listModels(@Valid @RequestBody(required = false) LlmCredentialVO req) {
         String apiKey = req != null ? req.getApiKey() : null;
         int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
-        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 20;
+        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 10;
         log.info("[Doubao-models] 开始查询模型列表, pageNo={}, pageSize={}, apiKey={}", pageNo, pageSize, apiKey != null ? "已传" : "Nacos兜底");
         try {
             LlmModelPage models = doubaoService.listModels(apiKey, pageNo, pageSize);
