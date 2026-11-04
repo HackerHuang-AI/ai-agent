@@ -5,10 +5,13 @@ import com.ai.agent.application.enums.ErrorCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmRouter;
 import com.ai.agent.application.service.LlmService;
+import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.application.service.impl.OpenAIServiceImpl;
 import com.ai.agent.application.utils.ResponsesStreamUtil.CancellableConsumer;
 import com.ai.agent.client.dto.*;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.dubbo.common.stream.StreamObserver;
 import org.apache.dubbo.rpc.CancellationContext;
@@ -32,7 +35,8 @@ class LlmFacadeProtocolTest {
 
     private final LlmRouter router = mock(LlmRouter.class);
     private final LlmFacadeImpl facade = new LlmFacadeImpl(router);
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
     @Test
     void chatPreservesReasoningThinkingBlocksAndToolSignaturesInBothDirections() throws Exception {
@@ -61,7 +65,6 @@ class LlmFacadeProtocolTest {
         facade.chat(request);
         ArgumentCaptor<LlmRequest> captured = ArgumentCaptor.forClass(LlmRequest.class);
         verify(router, times(2)).chat(eq("OpenAI"), captured.capture());
-        assertNull(captured.getValue().getNativeMessages());
         LlmMessage message = captured.getValue().getMessages().get(0);
         assertEquals("answer", message.getTextContent());
         assertEquals("think", message.getReasoningContent());
@@ -219,8 +222,6 @@ class LlmFacadeProtocolTest {
         verify(router, times(2)).responses(eq("OpenAI"), sync.capture());
         verify(router).responsesStream(eq("OpenAI"), stream.capture(), any());
         assertEquals(sync.getValue(), stream.getValue());
-        assertNull(sync.getValue().getNativeInput());
-        assertNull(stream.getValue().getNativeInput());
         LlmResponsesInput input = stream.getValue().getInput().get(0);
         assertEquals("rs-1", input.getId());
         assertEquals("completed", input.getStatus());
@@ -350,12 +351,20 @@ class LlmFacadeProtocolTest {
     }
 
     @Test
-    void nativeMessagesArePreservedForChatSyncAndStream() throws Exception {
+    void typedMessagesMapToOpenAIWireBodyForChatSyncAndStream() throws Exception {
         LlmFacadeRequest request = mapper.readValue("""
-                {"platform":"OpenAI","modelCode":"model","temperature":0.5,"extraParams":{"vendor_config":true},
-                 "nativeMessages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"audio","format":"wav"}}],
-                                    "vendor":{"unknown":[1,2]}}]}
+                {"platform":"OpenAI","modelCode":"model","temperature":0.5,"extraParams":{"store":false},
+                 "messages":[{"role":"user","contents":[
+                   {"type":"input_audio","inputAudio":{"data":"YXVkaW8=","format":"wav"}},
+                   {"type":"file","file":{"fileId":"file-1"}},
+                   {"type":"file","file":{"fileData":"data:application/pdf;base64,cGRm","filename":"report.pdf"}}]}]}
                 """, LlmFacadeRequest.class);
+        JsonNode expected = mapper.readTree("""
+                [{"role":"user","content":[
+                  {"type":"input_audio","input_audio":{"data":"YXVkaW8=","format":"wav"}},
+                  {"type":"file","file":{"file_id":"file-1"}},
+                  {"type":"file","file":{"file_data":"data:application/pdf;base64,cGRm","filename":"report.pdf"}}]}]
+                """);
         when(router.chat(eq("OpenAI"), any())).thenReturn(LlmResponse.builder().build());
         facade.chat(request);
         facade.chatStream(request, observer());
@@ -364,42 +373,82 @@ class LlmFacadeProtocolTest {
         verify(router).chatStream(eq("OpenAI"), captured.capture(), any());
         assertFalse(captured.getAllValues().get(0).isStream());
         assertTrue(captured.getAllValues().get(1).isStream());
+        assertEquals(captured.getAllValues().get(0).getMessages(), captured.getAllValues().get(1).getMessages());
         for (LlmRequest value : captured.getAllValues()) {
-            assertNull(value.getMessages());
-            assertSame(request.getNativeMessages(), value.getNativeMessages());
+            List<MessageContent> contents = value.getMessages().get(0).getContents();
+            assertEquals("YXVkaW8=", contents.get(0).getInputAudio().getData());
+            assertEquals("wav", contents.get(0).getInputAudio().getFormat());
+            assertEquals("file-1", contents.get(1).getFile().getFileId());
+            assertEquals("data:application/pdf;base64,cGRm", contents.get(2).getFile().getFileData());
+            assertEquals("report.pdf", contents.get(2).getFile().getFilename());
             assertEquals("model", value.getModelCode());
             assertEquals(0.5, value.getTemperature());
             assertEquals(request.getExtraParams(), value.getExtraParams());
+            String body = ReflectionTestUtils.invokeMethod(mock(OpenAIServiceImpl.class, CALLS_REAL_METHODS),
+                    "buildRequestBody", value, value.isStream());
+            JsonNode wire = mapper.readTree(body);
+            assertEquals(expected, wire.path("messages"));
+            assertEquals("model", wire.path("model").asText());
+            assertEquals(0.5, wire.path("temperature").asDouble());
+            assertEquals(mapper.valueToTree(false), wire.path("store"));
+            assertEquals(value.isStream(), wire.path("stream").asBoolean());
         }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\"hello\"", "[{\"role\":\"user\",\"content\":[{\"type\":\"input_video\",\"video_url\":\"video\",\"unknown\":true}]}]",
-            "{\"type\":\"vendor_input\",\"unknown\":{\"kept\":true}}"})
-    void nativeInputIsPreservedForResponsesSyncAndStream(String nativeInput) throws Exception {
-        LlmFacadeResponsesRequest request = mapper.readValue("{\"platform\":\"OpenAI\",\"model\":\"model\","
-                + "\"instructions\":\"instructions\",\"extraParams\":{\"store\":false},\"nativeInput\":" + nativeInput + "}",
+    @ValueSource(strings = {"OpenAI", "Doubao"})
+    void typedMultimodalInputMapsToResponsesWireBodyForSyncAndStream(String platform) throws Exception {
+        String content = "Doubao".equals(platform) ? """
+                [{"type":"input_video","video_url":"https://example.com/video.mp4","fps":2.0},
+                 {"type":"input_audio","audio_url":"https://example.com/audio.wav"},
+                 {"type":"input_file","file_id":"file-1"}]
+                """ : """
+                [{"type":"input_image","image_url":"https://example.com/image.png","detail":"high"},
+                 {"type":"input_file","file_url":"https://example.com/report.pdf"},
+                 {"type":"input_file","file_data":"data:application/pdf;base64,cGRm","filename":"report.pdf"}]
+                """;
+        String input = "[{\"type\":\"message\",\"role\":\"user\",\"content\":" + content + "}]";
+        LlmFacadeResponsesRequest request = mapper.readValue("{\"platform\":\"" + platform + "\",\"model\":\"model\","
+                + "\"instructions\":\"instructions\",\"extraParams\":{\"store\":false},\"input\":" + input + "}",
                 LlmFacadeResponsesRequest.class);
-        when(router.responses(eq("OpenAI"), any())).thenReturn(LlmResponse.builder().build());
+        when(router.responses(eq(platform), any())).thenReturn(LlmResponse.builder().build());
         facade.responses(request);
         facade.responsesStream(request, observer());
         ArgumentCaptor<LlmResponsesRequest> captured = ArgumentCaptor.forClass(LlmResponsesRequest.class);
-        verify(router).responses(eq("OpenAI"), captured.capture());
-        verify(router).responsesStream(eq("OpenAI"), captured.capture(), any());
-        for (LlmResponsesRequest value : captured.getAllValues()) {
-            assertNull(value.getInput());
-            assertSame(request.getNativeInput(), value.getNativeInput());
+        verify(router).responses(eq(platform), captured.capture());
+        verify(router).responsesStream(eq(platform), captured.capture(), any());
+        assertEquals(captured.getAllValues().get(0), captured.getAllValues().get(1));
+        for (int i = 0; i < captured.getAllValues().size(); i++) {
+            LlmResponsesRequest value = captured.getAllValues().get(i);
+            assertEquals(mapper.readTree(input), mapper.valueToTree(value.getInput()));
             assertEquals("model", value.getModel());
             assertEquals("instructions", value.getInstructions());
             assertEquals(request.getExtraParams(), value.getExtraParams());
+            Object adapter = "Doubao".equals(platform) ? mock(DoubaoServiceImpl.class, CALLS_REAL_METHODS)
+                    : mock(OpenAIServiceImpl.class, CALLS_REAL_METHODS);
+            String body = ReflectionTestUtils.invokeMethod(adapter, "buildResponsesRequestBody", value, i == 1);
+            JsonNode wire = mapper.readTree(body);
+            assertEquals(mapper.readTree(input), wire.path("input"));
+            assertEquals("model", wire.path("model").asText());
+            assertEquals("instructions", wire.path("instructions").asText());
+            assertEquals(mapper.valueToTree(false), wire.path("store"));
+            assertEquals(i == 1, wire.path("stream").asBoolean());
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"nativeMessages", "nativeInput"})
+    void removedNativeBodiesAreRejectedByStrictClientDtoDeserialization(String field) {
+        Class<?> dto = "nativeMessages".equals(field) ? LlmFacadeRequest.class : LlmFacadeResponsesRequest.class;
+        UnrecognizedPropertyException error = assertThrows(UnrecognizedPropertyException.class,
+                () -> mapper.readValue("{\"platform\":\"OpenAI\",\"" + field + "\":[{}]}", dto));
+        assertEquals(field, error.getPropertyName());
+        verifyNoInteractions(router);
+    }
+
     @Test
-    void chatRejectsMissingEmptyAndConflictingBodiesForSyncAndStream() throws Exception {
-        for (String fields : List.of("", ",\"messages\":null,\"nativeMessages\":null", ",\"messages\":[]",
-                ",\"nativeMessages\":[]", ",\"messages\":[{}],\"nativeMessages\":[{}]",
-                ",\"messages\":[],\"nativeMessages\":[{}]", ",\"messages\":[{}],\"nativeMessages\":[]")) {
+    void chatRejectsMissingAndEmptyBodiesForSyncAndStream() throws Exception {
+        for (String fields : List.of("", ",\"messages\":null", ",\"messages\":[]")) {
             LlmFacadeRequest request = mapper.readValue("{\"platform\":\"OpenAI\"" + fields + "}", LlmFacadeRequest.class);
             assertThrows(IllegalArgumentException.class, () -> facade.chat(request));
             StreamObserver<String> observer = observer();
@@ -411,11 +460,8 @@ class LlmFacadeProtocolTest {
     }
 
     @Test
-    void responsesRejectMissingEmptyAndConflictingBodiesForSyncAndStream() throws Exception {
-        for (String fields : List.of("", ",\"input\":null,\"nativeInput\":null", ",\"input\":[]", ",\"nativeInput\":[]",
-                ",\"nativeInput\":{}", ",\"nativeInput\":\"\"", ",\"nativeInput\":\"  \"",
-                ",\"input\":[{}],\"nativeInput\":[{}]", ",\"input\":[],\"nativeInput\":\"hello\"",
-                ",\"input\":[{}],\"nativeInput\":[]")) {
+    void responsesRejectMissingAndEmptyBodiesForSyncAndStream() throws Exception {
+        for (String fields : List.of("", ",\"input\":null", ",\"input\":[]")) {
             LlmFacadeResponsesRequest request = mapper.readValue("{\"platform\":\"OpenAI\"" + fields + "}", LlmFacadeResponsesRequest.class);
             assertThrows(IllegalArgumentException.class, () -> facade.responses(request));
             StreamObserver<String> observer = observer();

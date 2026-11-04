@@ -142,7 +142,7 @@ public final class NativeInputUtil {
     public static List<Map<String, Object>> responsesInput(LlmResponsesRequest request, String platform) {
         require(request.getInput() != null && !request.getInput().isEmpty());
         String provider = platform.toLowerCase(Locale.ROOT);
-        if (!List.of("openai", "doubao", "qwen", "deepseek", "mimo", "moonshot", "text").contains(provider)) unsupported();
+        if (!List.of("openai", "doubao", "qwen", "deepseek", "glm", "qianfan", "minimax", "mimo", "moonshot", "tokenhub", "ollama", "text").contains(provider)) unsupported();
         List<Map<String, Object>> input = new ArrayList<>();
         for (LlmResponsesInput source : request.getInput()) {
             require(source != null);
