@@ -1,9 +1,6 @@
 package com.ai.agent.application.service;
 
-import com.ai.agent.application.model.llm.LlmModelPage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.LlmResponsesRequest;
+import com.ai.agent.application.model.llm.*;
 
 import java.util.function.Consumer;
 
@@ -14,6 +11,11 @@ import java.util.function.Consumer;
  * @since 2026-06-01
  */
 public interface LlmService {
+
+    static String escapeText(String text) {
+        return text.startsWith("[REASONING]") || text.startsWith("[THINKING_BLOCKS]") || text.startsWith("[TEXT]")
+                ? "[TEXT]" + text : text;
+    }
 
     /**
      * 同步调用 LLM，等待完整响应后返回
@@ -49,6 +51,18 @@ public interface LlmService {
      */
     default LlmResponse responses(LlmResponsesRequest request) {
         throw new UnsupportedOperationException("当前平台未接入 Responses API");
+    }
+
+    default void responsesStream(LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        throw new UnsupportedOperationException("当前平台未接入 Responses API");
+    }
+
+    default LlmInteractionsResponse interactions(LlmRequest request) {
+        throw new UnsupportedOperationException("当前平台未接入 Interactions API");
+    }
+
+    default void interactionsStream(LlmRequest request, Consumer<String> chunkConsumer) {
+        throw new UnsupportedOperationException("当前平台未接入 Interactions API");
     }
 
     /**

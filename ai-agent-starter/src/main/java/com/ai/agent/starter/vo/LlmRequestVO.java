@@ -1,7 +1,9 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
+import com.ai.agent.application.model.llm.LlmInteractionStep;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.groups.Default;
 import lombok.Data;
 
 import java.util.List;
@@ -19,6 +21,8 @@ import java.util.Map;
 @Data
 public class LlmRequestVO {
 
+    public interface Chat extends Default {}
+
     /** 平台编码，统一接口必传，平台专属接口不需要传。支持：Doubao / OpenAI / Deepseek / Anthropic / Glm / Qwen / Moonshot / MiniMax / Gemini / Ollama / Qianfan / TokenHub / Mimo */
     private String platform;
 
@@ -29,15 +33,43 @@ public class LlmRequestVO {
     private String endpoint;
 
     /**
-     * 模型标识，可选（支持 Nacos 兜底的平台可不传）
+     * 各平台 Chat 模型标识，可选（支持 Nacos 兜底的平台可不传）；Gemini Interactions 使用 model。
      * 豆包填 endpoint_id（如 ep-20240101-xxxxx），Deepseek 填模型名（如 deepseek-chat）
      */
     private String modelCode;
 
-    /** 对话消息列表，按时间顺序，首条可为 system 角色 */
-    @NotEmpty(message = "messages 不能为空")
+    /** 各平台 Chat 对话消息，首条可为 system；Gemini Interactions 仅接受 user/assistant 并映射为输入步骤。 */
     @Valid
+    @NotEmpty(message = "messages 不能为空", groups = Chat.class)
     private List<LlmMessageVO> messages;
+
+    /** Gemini Interactions 专用模型名称；Chat 使用 modelCode，两者不互相兜底。 */
+    private String model;
+
+    /** Gemini Interactions 专用系统指令，对应 system_instruction；Chat 使用 system 消息。 */
+    private String instructions;
+
+    /** Gemini Interactions 专用 generation_config，保留协议原始参数。 */
+    private Map<String, Object> generationConfig;
+
+    /** Gemini Interactions 专用上一轮交互标识，对应 previous_interaction_id。 */
+    private String previousInteractionId;
+
+    /** Gemini Interactions 专用续写令牌，对应 continuation_token。 */
+    private String continuationToken;
+
+    /** Gemini Interactions 专用：是否存储交互，对应 store。 */
+    private Boolean store;
+
+    /** Gemini Interactions 专用：是否后台执行，对应 background。 */
+    private Boolean background;
+
+    /** Gemini Interactions 专用最大输出 token 数；Chat 使用 maxTokens，两者不互相兜底。 */
+    private Integer maxOutputTokens;
+
+    /** Gemini Interactions 专用工具或思考回放步骤；与 messages 的互斥规则由 Gemini 实现校验。 */
+    @Valid
+    private List<LlmInteractionStep> interactionSteps;
 
     /** 温度参数，范围因平台而异，null 时使用平台默认值 */
     private Double temperature;
@@ -63,12 +95,13 @@ public class LlmRequestVO {
     /**
      * 可用工具定义列表，格式与 OpenAI function calling 一致：
      * {@code [{"type":"function","function":{"name":..,"description":..,"parameters":{JSON Schema}}}]}
+     * Gemini Interactions 使用原生平铺 function 定义：{"type":"function","name":...,"parameters":...}。
      * 为空/null 时不注入 tools 参数，即普通对话模式。
      */
     private List<Map<String, Object>> tools;
 
     /**
-     * 工具选择策略，对应 tool_choice：
+     * Chat 工具选择策略，对应 tool_choice；Gemini Interactions 使用 generationConfig.tool_choice：
      * "auto"（默认）/ "none"（禁止调用）/ 指定工具名（强制调用该工具）
      * null 时不传，由平台使用默认行为。
      */

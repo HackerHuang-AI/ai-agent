@@ -1,5 +1,7 @@
 package com.ai.agent.client.dto;
 
+import jakarta.validation.constraints.NotEmpty;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,8 @@ public class LlmFacadeResponsesRequest implements Serializable {
     private String model;
     private String apiKey;
     private String endpoint;
+    /** Responses API 类型化输入项列表 */
+    @NotEmpty
     private List<LlmFacadeResponsesInput> input;
     private String instructions;
     private Double temperature;

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * LLM 统一调用入参，屏蔽各平台差异，调用方只需构造此对象
+ * LLM 统一调用入参，调用方只需构造此对象；字段平台及协议标注以当前代码使用范围为准。
  * @author HUANGcong
  * @since 2026-06-01
  */
@@ -32,10 +32,37 @@ public class LlmRequest {
     private String modelCode;
 
     /**
-     * 对话历史，按时间顺序排列
-     * 首条可为 system 角色，后续为 user/assistant 交替
+     * 普通 Chat 公共对话历史，按时间顺序排列；首条可为 system，后续为 user/assistant 交替。
+     * Gemini 原生 Interactions 也接收此字段，仅允许 user/assistant，分别映射为 user_input/model_output 步骤。
      */
     private List<LlmMessage> messages;
+
+    /** Gemini 原生 Interactions 专用：模型名称，与 modelCode 独立，不相互归一；Chat 不使用。 */
+    private String model;
+
+    /** Gemini 原生 Interactions 专用：系统指令，映射为 system_instruction；Chat 不使用。 */
+    private String instructions;
+
+    /** Gemini 原生 Interactions 专用：生成配置，保留协议原始参数；Chat 不使用。 */
+    private Map<String, Object> generationConfig;
+
+    /** Gemini 原生 Interactions 专用：上一轮交互标识；Chat 不使用。 */
+    private String previousInteractionId;
+
+    /** Gemini 原生 Interactions 专用：续传令牌；Chat 不使用。 */
+    private String continuationToken;
+
+    /** Gemini 原生 Interactions 专用：是否存储交互；Chat 不使用。 */
+    private Boolean store;
+
+    /** Gemini 原生 Interactions 专用：是否在后台执行交互；Chat 不使用。 */
+    private Boolean background;
+
+    /** Gemini 原生 Interactions 专用：最大输出 token 数，与 maxTokens 独立；Chat 不使用。 */
+    private Integer maxOutputTokens;
+
+    /** Gemini 原生 Interactions 专用：消息、工具或思考回放步骤，与 messages 互斥；Chat 不使用。 */
+    private List<LlmInteractionStep> interactionSteps;
 
     /**
      * 多样性参数，范围 [0.0, 2.0]，越高越随机；默认 null 由各平台使用其默认值

@@ -2,10 +2,7 @@ package com.ai.agent.application.service;
 
 import com.ai.agent.application.common.BizException;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmModelPage;
-import com.ai.agent.application.model.llm.LlmRequest;
-import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.LlmResponsesRequest;
+import com.ai.agent.application.model.llm.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -75,10 +72,47 @@ public class LlmRouter {
         LlmService service = resolve(platform);
         log.info("[LlmRouter] responses platform={}, model={}", platform, request.getModel());
         try {
-            return service.responses(request);
+            LlmResponse result = service.responses(request);
+            if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+            return result;
         } catch (UnsupportedOperationException e) {
             log.warn("[LlmRouter] platform={} 未接入 Responses API", platform);
-            return LlmResponse.builder().modelCode(request.getModel()).output(java.util.List.of()).build();
+            throw new BizException(ErrorCodeEnum.LLM_PROTOCOL_NOT_SUPPORTED, new Object[]{platform, "Responses"});
+        }
+    }
+
+    public LlmInteractionsResponse interactions(String platform, LlmRequest request) {
+        LlmService service = resolve(platform);
+        try {
+            if (!"Gemini".equals(platform)) throw new UnsupportedOperationException();
+            LlmInteractionsResponse result = service.interactions(request);
+            if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+            return result;
+        } catch (UnsupportedOperationException e) {
+            log.warn("[LlmRouter] platform={} 未接入 Interactions API", platform);
+            throw new BizException(ErrorCodeEnum.LLM_PROTOCOL_NOT_SUPPORTED, new Object[]{platform, "Interactions"});
+        }
+    }
+
+    public void interactionsStream(String platform, LlmRequest request, Consumer<String> chunkConsumer) {
+        LlmService service = resolve(platform);
+        try {
+            if (!"Gemini".equals(platform)) throw new UnsupportedOperationException();
+            service.interactionsStream(request, chunkConsumer);
+        } catch (UnsupportedOperationException e) {
+            log.warn("[LlmRouter] platform={} 未接入 Interactions API", platform);
+            throw new BizException(ErrorCodeEnum.LLM_PROTOCOL_NOT_SUPPORTED, new Object[]{platform, "Interactions"});
+        }
+    }
+
+    public void responsesStream(String platform, LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        LlmService service = resolve(platform);
+        log.info("[LlmRouter] responses stream platform={}, model={}", platform, request.getModel());
+        try {
+            service.responsesStream(request, chunkConsumer);
+        } catch (UnsupportedOperationException e) {
+            log.warn("[LlmRouter] platform={} 未接入 Responses API", platform);
+            throw new BizException(ErrorCodeEnum.LLM_PROTOCOL_NOT_SUPPORTED, new Object[]{platform, "Responses"});
         }
     }
 

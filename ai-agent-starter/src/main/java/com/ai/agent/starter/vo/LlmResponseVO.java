@@ -1,4 +1,4 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
 import com.ai.agent.application.model.llm.LlmChoice;
 import com.ai.agent.application.model.llm.LlmOutputItem;

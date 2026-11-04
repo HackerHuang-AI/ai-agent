@@ -1,4 +1,4 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
 import com.ai.agent.application.enums.ContentTypeEnum;
 import jakarta.validation.constraints.NotBlank;

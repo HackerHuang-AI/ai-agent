@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Chat Completions 协议单个候选回复（对应 choices[i]）
@@ -27,6 +28,9 @@ public class LlmChoice {
      * 仅 Deepseek-reasoner / 豆包 Thinking 模型有值，其他平台为 null。
      */
     private String reasoningContent;
+
+    /** 原始 Claude thinking / redacted_thinking 块，包含签名，回放时保持完整。 */
+    private List<Map<String, Object>> thinkingBlocks;
 
     /**
      * 结束原因，统一值域：stop / length / content_filter / tool_calls。

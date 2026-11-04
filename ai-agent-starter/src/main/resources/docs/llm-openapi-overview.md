@@ -1,6 +1,6 @@
 # LLM 平台 OpenAPI 协议对比总览
 
-> 版本: v4 | 更新时间: 2026-09-09
+> 版本: v5 | 接入状态更新时间: 2026-11-03（已核对项目代码及 Claude / Gemini 相关官方资料，未重新核验其他厂商全部协议）
 
 ---
 
@@ -29,7 +29,13 @@
 
 下表和各平台详情页中的“已接入”仅指本项目已经实现的能力；厂商官方能力不等同于网关能力。图文请求统一使用 `POST /api/llm/chat`，各适配器将 `IMAGE` 内容转换为厂商图像块格式；`IMAGE` 的值可为图片 URL 或 `data:image/...;base64,...` data URI，请求应选择对应厂商端点实际支持的视觉模型。`POST /api/llm/chat/stream` 同样支持流式图文对话。`FILE` 和 `VIDEO` 为预留内容类型，当前通用 Chat 适配器未实现支持，且网关不提供 multipart 文件上传接口。
 
-Responses API 是与 Chat Completions / Messages 独立的协议，统一入口为 `POST /api/llm/responses`。网关使用 OpenAI Responses API 兼容的固定 `input` 项结构，由适配器映射为厂商请求。当前已完成网关适配的是 **OpenAI**（`POST /v1/responses`）、**DeepSeek**（`POST /responses`）和**豆包火山方舟**（`POST /api/v3/responses`）。厂商公开文档还确认 **Qwen/百炼**、**Moonshot/Kimi** 与 **Ollama**（后两者为 `POST /v1/responses`，Ollama 为 OpenAI 兼容层）提供该协议，但本项目尚未适配，调用时返回空 `output` 并记录警告日志。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，但实际可用性同样取决于所选模型。
+此处 Responses API 特指 OpenAI Responses 及其兼容协议，与 Chat Completions / Messages 独立，统一入口为 `POST /api/llm/responses` 和 `POST /api/llm/responses/stream`，同时支持 Dubbo Facade 同步与流式调用。网关使用 OpenAI Responses API 兼容的固定 `input` 项结构，由适配器映射为厂商请求。当前已实现 **OpenAI、DeepSeek、豆包、Qwen、GLM、千帆、Moonshot、MiniMax、MiMo、TokenHub、Ollama 共 11 家**的同步与流式适配；**Anthropic / Gemini 的 OpenAI 兼容 Responses 未实现**，调用时明确返回 `LLM_PROTOCOL_NOT_SUPPORTED`，不再返回空 `output`。工具调用通过统一的 `tools`、`toolChoice`、`toolCalls` 字段处理，实际可用性取决于适配器、所选模型与端点。
+
+Qwen、GLM、千帆、Moonshot、MiniMax、MiMo、TokenHub、Ollama 的 Responses 当前只开放文本类内容块、思考历史和函数工具调用，不支持图像或文件内容块，工具仅支持 `function`；Moonshot、MiniMax、MiMo、TokenHub、Ollama 仅开放无状态调用，拒绝 `previous_response_id`、`conversation`、`store=true`、`background=true`。`tool_choice` 按平台限制校验：Qwen 支持 `auto/none/required` 与指定函数（`required` 限单工具，指定函数映射为 `allowed_tools`）；TokenHub 支持 `auto/none/required` 与指定函数；GLM 支持 `auto/none`；千帆、Moonshot、MiniMax、MiMo、Ollama 仅支持 `auto`。Qwen 不支持后台调用。OpenAI / DeepSeek / 豆包可透传现有 DTO 表达的图像字段，但不代表完整文件、音频或视频输入已建设。统一入口与协议原生输入结构的多模态扩展方向已讨论，尚未实施。
+
+Claude 当前通过原生 `POST /v1/messages` 调用；[Anthropic 官方 SDK API 索引](https://github.com/anthropics/anthropic-sdk-python/blob/main/api.md)未查到直接兼容 `/responses` 的接口，官方文档站本次受区域限制，不能据此断言厂商绝不支持。Gemini 官方已提供 [Interactions API](https://ai.google.dev/gemini-api/docs/interactions)，文档说明已于 2026 年 6 月正式可用，支持服务端续接、后台执行与多模态，但项目尚未实现其协议适配；[OpenAI 兼容说明](https://ai.google.dev/gemini-api/docs/openai)本次未查到 `/responses` 支持。因此“未实现”指当前项目的特定协议缺口，不表示两家模型缺少对应能力，也不表示无法接入。
+
+以上是代码实现状态，本地回归不等于真实上游验收；凭证、端点和模型配置需按目标账号核实。完整能力矩阵与协议说明见 [项目定位：LLM 平台能力建设状态](project/project-positioning.md#四llm-平台能力建设状态)。
 
 ---
 

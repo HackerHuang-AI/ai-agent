@@ -17,6 +17,11 @@ public class LlmFacadeResponse implements Serializable {
     /** 模型回复的文本内容 */
     private String content;
 
+    private String reasoningContent;
+
+    /** 原始 Claude thinking / redacted_thinking 块，包含签名，回放时保持完整。 */
+    private List<Map<String, Object>> thinkingBlocks;
+
     /** 实际使用的模型标识 */
     private String modelCode;
 
@@ -43,6 +48,11 @@ public class LlmFacadeResponse implements Serializable {
     private List<LlmToolCallDto> toolCalls;
 
     public LlmFacadeResponse() {}
+
+    public String getReasoningContent() { return reasoningContent; }
+    public void setReasoningContent(String reasoningContent) { this.reasoningContent = reasoningContent; }
+    public List<Map<String, Object>> getThinkingBlocks() { return thinkingBlocks; }
+    public void setThinkingBlocks(List<Map<String, Object>> thinkingBlocks) { this.thinkingBlocks = thinkingBlocks; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }

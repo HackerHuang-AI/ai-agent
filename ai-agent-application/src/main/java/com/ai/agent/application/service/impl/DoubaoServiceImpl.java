@@ -8,6 +8,8 @@ import com.ai.agent.application.enums.http.DoubaoHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
+import com.ai.agent.application.utils.ResponsesStreamUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -145,59 +147,12 @@ public class DoubaoServiceImpl implements LlmService {
 
     @Override
     public LlmResponse responses(LlmResponsesRequest request) {
-        return responses(request.getModel(), request.getInput(), request.getApiKey(), request.getEndpoint());
-    }
-
-    /**
-     * Responses API 调用。
-     */
-    public LlmResponse responses(String model, List<LlmResponsesInput> input, String apiKey, String endpoint) {
-        // 第一步：只在有字段为空时才读 Nacos
-        DoubaoBO cfg = null;
-        if (StringUtils.isBlank(apiKey) || StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) {
-            cfg = getResponsesConfig();
-        }
-        // 第二步：入参为空时用 Nacos 补
-        if (StringUtils.isBlank(apiKey))   apiKey   = cfg != null ? cfg.getApiKey()   : null;
-        if (StringUtils.isBlank(endpoint)) endpoint = cfg != null ? cfg.getEndpoint() : null;
-        if (StringUtils.isBlank(model))    model    = cfg != null ? cfg.getModel()    : null;
-        // 第三步：补完后校验必填项
-        if (StringUtils.isBlank(apiKey)) {
-            log.error("[Doubao-responses] apiKey 未配置，入参和 Nacos 均为空");
-            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
-        }
-        if (StringUtils.isBlank(endpoint)) {
-            log.error("[Doubao-responses] endpoint 未配置，入参和 Nacos 均为空");
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
-        if (StringUtils.isBlank(model)) {
-            log.error("[Doubao-responses] model 未配置，入参和 Nacos 均为空");
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
-        // ⚠️ 豆包 Responses API（/v3/responses）与 Chat Completions（/v3/chat/completions）是两套不同协议：
-        //   - Chat Completions 支持 temperature / top_p / top_k / max_tokens / frequency_penalty / presence_penalty
-        //   - Responses API 仅支持 model + input，不接受生成参数，如需控制生成行为，请改用 /chat 接口
-        Map<String, Object> bodyMap = new LinkedHashMap<>();
-        bodyMap.put("model", model);
-        bodyMap.put("input", input);
-
-        log.info("[Doubao-responses] 开始调用, model={}, endpoint={}", model, endpoint);
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, false);
+        log.info("[Doubao-responses] 开始调用, model={}, endpoint={}", request.getModel(), request.getEndpoint());
         long start = System.currentTimeMillis();
-        String requestBody;
-        try {
-            requestBody = MAPPER.writeValueAsString(bodyMap);
-        } catch (IOException e) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
-        final String finalEndpoint = endpoint;
-        final String finalApiKey = apiKey;
-        final String finalModel = model;
         LlmResponse result = AppRetryUtil.retry(() -> {
-            Request okRequest = new Request.Builder()
-                    .url(finalEndpoint)
-                    .post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(finalApiKey)))
-                    .build();
+            Request okRequest = buildResponsesOkRequest(request, requestBody);
             try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Doubao).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
@@ -209,7 +164,7 @@ public class DoubaoServiceImpl implements LlmService {
                     log.error("[Doubao-responses] 响应体为空");
                     throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
                 }
-                return parseResponsesResponse(responseBody, finalModel);
+                return parseResponsesResponse(responseBody, request.getModel());
             }
         }, retryConfig.getRetryParam(RetryConfigEnum.Doubao));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
@@ -217,6 +172,112 @@ public class DoubaoServiceImpl implements LlmService {
                 result.getUsage().getInputTokens(), result.getUsage().getOutputTokens(),
                 System.currentTimeMillis() - start);
         return result;
+    }
+
+    /**
+     * Responses API 调用。
+     */
+    public LlmResponse responses(String model, List<LlmResponsesInput> input, String apiKey, String endpoint) {
+        return responses(LlmResponsesRequest.builder().model(model).input(input).apiKey(apiKey).endpoint(endpoint).build());
+    }
+
+    @Override
+    public void responsesStream(LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, true);
+        var consumer = ResponsesStreamUtil.cancellable(chunkConsumer);
+        if (consumer.isCancelled()) return;
+        try {
+            consumer.setTask(streamExecutor.submit(TraceContextSupport.wrap(() -> {
+                try {
+                    Request okRequest = buildResponsesOkRequest(request, requestBody);
+                    try (Response response = AppRetryUtil.retryForStream(() -> {
+                        consumer.checkCancelled();
+                        Call call = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Doubao).newCall(okRequest);
+                        consumer.setCall(call);
+                        consumer.checkCancelled();
+                        Response resp = call.execute();
+                        if (!resp.isSuccessful()) {
+                            try (Response failedResponse = resp) {
+                                String errBody = failedResponse.body() != null ? failedResponse.body().string() : "";
+                                String platformMsg = extractErrorMessage(errBody);
+                                log.error("[Doubao-responses-stream] HTTP {} 失败, platformError={}", failedResponse.code(), platformMsg);
+                                throwByHttpCode(failedResponse.code(), platformMsg);
+                            }
+                        }
+                        return resp;
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Doubao), consumer::isCancelled)) {
+                        if (response == null || response.body() == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                        consumer.checkCancelled();
+                        ResponsesStreamUtil.parse(response.body(), consumer);
+                    }
+                } catch (Exception e) {
+                    if (!consumer.isCancelled()) {
+                        log.error("[Doubao-responses-stream] 调用失败", e);
+                        consumer.accept("[ERROR]");
+                    }
+                } finally {
+                    consumer.release();
+                }
+            })));
+        } catch (RejectedExecutionException e) {
+            log.error("[Doubao-responses-stream] 线程池已满，拒绝请求", e);
+            consumer.accept("[ERROR]");
+        }
+    }
+
+    private void fillResponsesDefaults(LlmResponsesRequest request) {
+        DoubaoBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
+            cfg = getResponsesConfig();
+        }
+        if (StringUtils.isBlank(request.getApiKey())) request.setApiKey(cfg != null ? cfg.getApiKey() : null);
+        if (StringUtils.isBlank(request.getEndpoint())) request.setEndpoint(cfg != null ? cfg.getEndpoint() : null);
+        if (StringUtils.isBlank(request.getModel())) request.setModel(cfg != null ? cfg.getModel() : null);
+        if (StringUtils.isBlank(request.getApiKey())) {
+            log.error("[Doubao-responses] apiKey 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        }
+        if (StringUtils.isBlank(request.getEndpoint())) {
+            log.error("[Doubao-responses] endpoint 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+        if (StringUtils.isBlank(request.getModel())) {
+            log.error("[Doubao-responses] model 未配置，入参和 Nacos 均为空");
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+    }
+
+    private Request buildResponsesOkRequest(LlmResponsesRequest request, String requestBody) {
+        return new Request.Builder().url(request.getEndpoint()).post(RequestBody.create(requestBody, JSON))
+                .headers(Headers.of(buildHeaders(request.getApiKey()))).build();
+    }
+
+    private String buildResponsesRequestBody(LlmResponsesRequest request, boolean stream) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", request.getModel());
+        body.put("input", NativeInputUtil.responsesInput(request, "Doubao"));
+        if (request.getInstructions() != null) body.put("instructions", request.getInstructions());
+        if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
+        if (request.getTopP() != null) body.put("top_p", request.getTopP());
+        if (request.getMaxOutputTokens() != null) body.put("max_output_tokens", request.getMaxOutputTokens());
+        if (request.getTools() != null && !request.getTools().isEmpty()) body.put("tools", request.getTools());
+        if (request.getToolChoice() != null) {
+            String choice = request.getToolChoice();
+            body.put("tool_choice", "auto".equals(choice) || "none".equals(choice) || "required".equals(choice)
+                    ? choice : Map.of("type", "function", "name", choice));
+        }
+        if (request.getExtraParams() != null) {
+            request.getExtraParams().forEach((key, value) -> {
+                NativeInputUtil.putExtraParam(body, key, value);
+            });
+        }
+        body.put("stream", stream);
+        try {
+            return MAPPER.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
     }
 
     // ==================== 私有方法 ====================
@@ -228,7 +289,7 @@ public class DoubaoServiceImpl implements LlmService {
         if (stream) {
             body.put("stream_options", Map.of("include_usage", true));
         }
-        body.put("messages", buildMessages(request));
+        body.put("messages", NativeInputUtil.chatMessages(request, "Doubao", () -> buildMessages(request)));
         if (request.getTemperature() != null) {
             body.put("temperature", request.getTemperature());
         }
@@ -257,7 +318,7 @@ public class DoubaoServiceImpl implements LlmService {
         //   presence_penalty  - 存在惩罚，只要出现过就施加固定惩罚，鼓励话题多样性；范围 [-2, 2]
         if (request.getExtraParams() != null) {
             request.getExtraParams().forEach((k, v) -> {
-                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+                NativeInputUtil.putExtraParam(body, k, v);
             });
         }
         try {
@@ -286,16 +347,19 @@ public class DoubaoServiceImpl implements LlmService {
                 // assistant 携带工具调用请求：content 与 tool_calls 协议上可同时存在，
                 // 有正文文本（如"好的，我来查一下"）就带上，无正文则传 null
                 String text = msg.getTextContent();
-                m.put("content", text.isEmpty() ? null : text);
+                m.put("content", msg.isTextOnly() ? (text.isEmpty() ? null : text) : buildContentArray(msg));
                 m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
             } else if (msg.getToolCallId() != null) {
                 // tool 角色消息：回传工具执行结果
                 m.put("tool_call_id", msg.getToolCallId());
-                m.put("content", msg.getTextContent());
+                m.put("content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg));
             } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
+            }
+            if ("assistant".equals(msg.getRole()) && msg.getReasoningContent() != null) {
+                m.put("reasoning_content", msg.getReasoningContent());
             }
             messages.add(m);
         }
@@ -326,7 +390,7 @@ public class DoubaoServiceImpl implements LlmService {
                 case TEXT -> {
                     Map<String, Object> part = new HashMap<>();
                     part.put("type", "text");
-                    part.put("text", c.getValue());
+                    part.put("text", NativeInputUtil.textContent(c));
                     parts.add(part);
                 }
                 case IMAGE -> {
@@ -338,6 +402,8 @@ public class DoubaoServiceImpl implements LlmService {
                     part.put("image_url", imageUrl);
                     parts.add(part);
                 }
+                case IMAGE_URL, INPUT_AUDIO, VIDEO_URL, FILE_URL, FILE, VIDEO, DOCUMENT ->
+                        parts.add(NativeInputUtil.buildContent(c, "Doubao"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -522,17 +588,23 @@ public class DoubaoServiceImpl implements LlmService {
                                 .text(s.path("text").asText(""))
                                 .build());
                     }
+                    List<LlmContentBlock> contentBlocks = new ArrayList<>();
+                    for (JsonNode c : item.path("content")) {
+                        contentBlocks.add(LlmContentBlock.builder().type(c.path("type").asText(""))
+                                .text(c.path("text").asText("")).build());
+                    }
                     outputItems.add(LlmOutputItem.builder()
                             .id(id).type(type).status(status)
-                            .summary(summaryBlocks)
+                            .summary(summaryBlocks).content(contentBlocks)
+                            .encryptedContent(item.path("encrypted_content").asText(null))
                             .build());
                 } else if ("message".equals(type)) {
                     List<LlmContentBlock> contentBlocks = new ArrayList<>();
                     for (JsonNode c : item.path("content")) {
-                        contentBlocks.add(LlmContentBlock.builder()
-                                .type(c.path("type").asText(""))
-                                .text(c.path("text").asText(""))
-                                .build());
+                        contentBlocks.add("refusal".equals(c.path("type").asText())
+                                ? LlmContentBlock.builder().type("refusal").refusal(c.path("refusal").asText("")).build()
+                                : LlmContentBlock.builder().type(c.path("type").asText(""))
+                                        .text(c.path("text").asText("")).build());
                     }
                     outputItems.add(LlmOutputItem.builder()
                             .id(id).type(type).status(status)
@@ -595,9 +667,13 @@ public class DoubaoServiceImpl implements LlmService {
                     return;
                 }
                 JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
+                String reasoningChunk = delta.path("reasoning_content").asText("");
+                if (!reasoningChunk.isEmpty()) {
+                    chunkConsumer.accept("[REASONING]" + reasoningChunk);
+                }
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
-                    chunkConsumer.accept(chunk);
+                    chunkConsumer.accept(LlmService.escapeText(chunk));
                 }
                 JsonNode toolCallsNode = delta.path("tool_calls");
                 if (toolCallsNode.isArray()) {

@@ -1,7 +1,13 @@
 package com.ai.agent.client.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Dubbo 接口传输用的消息对象（轻量，不依赖 application 层）。
@@ -25,11 +31,34 @@ public class LlmFacadeMessage implements Serializable {
     /** 消息角色：system / user / assistant */
     private String role;
 
+    /** 消息发送者名称 */
+    private String name;
+
+    /** 音频引用 */
+    private AudioReference audio;
+
+    /** 音频引用节点 */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class AudioReference implements Serializable {
+        /** 序列化版本标识 */
+        private static final long serialVersionUID = 1L;
+        /** 音频标识 */
+        private String id;
+    }
+
     /**
      * 纯文本内容（向后兼容）。
      * 多模态场景请使用 {@link #contents}，两者同时存在时 {@code contents} 优先。
      */
     private String content;
+
+    private String reasoningContent;
+
+    /** 原始 Claude thinking / redacted_thinking 块，包含签名，回放时保持完整。 */
+    private List<Map<String, Object>> thinkingBlocks;
 
     /**
      * 多模态内容块列表，支持文本、图片、文件、视频混合。
@@ -107,6 +136,18 @@ public class LlmFacadeMessage implements Serializable {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+    /** 获取消息发送者名称 */
+    public String getName() { return name; }
+    /** 设置消息发送者名称 */
+    public void setName(String name) { this.name = name; }
+    /** 获取音频引用 */
+    public AudioReference getAudio() { return audio; }
+    /** 设置音频引用 */
+    public void setAudio(AudioReference audio) { this.audio = audio; }
+    public String getReasoningContent() { return reasoningContent; }
+    public void setReasoningContent(String reasoningContent) { this.reasoningContent = reasoningContent; }
+    public List<Map<String, Object>> getThinkingBlocks() { return thinkingBlocks; }
+    public void setThinkingBlocks(List<Map<String, Object>> thinkingBlocks) { this.thinkingBlocks = thinkingBlocks; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
     public List<LlmFacadeContent> getContents() { return contents; }

@@ -1,9 +1,6 @@
 package com.ai.agent.client.facade;
 
-import com.ai.agent.client.dto.LlmFacadeRequest;
-import com.ai.agent.client.dto.LlmFacadeResponse;
-import com.ai.agent.client.dto.LlmFacadeResponsesRequest;
-import com.ai.agent.client.dto.LlmFacadeResponsesResponse;
+import com.ai.agent.client.dto.*;
 import org.apache.dubbo.common.stream.StreamObserver;
 
 /**
@@ -57,8 +54,20 @@ public interface LlmFacade {
      */
     LlmFacadeResponse chat(LlmFacadeRequest request);
 
-    /** 调用平台的 Responses API；未支持的平台返回 output 为空的响应。 */
+    /** 调用平台的 Responses API；未支持的平台抛出异常。 */
     LlmFacadeResponsesResponse responses(LlmFacadeResponsesRequest request);
+
+    LlmFacadeInteractionsResponse interactions(LlmFacadeRequest request);
+
+    /** 原生 JSON 事件透传；失败事件先 onNext 再 onError，null 仅表示正常完成。 */
+    void interactionsStream(LlmFacadeRequest request, StreamObserver<String> responseObserver);
+
+    /**
+     * Responses API Triple 流式调用，每个 onNext 为完整 JSON 语义事件。
+     * error / response.failed 事件先 onNext 再 onError；底层 null 结束信号触发 onCompleted。
+     * 未支持的平台或调用失败通过 onError 终止，不再触发 onCompleted。
+     */
+    void responsesStream(LlmFacadeResponsesRequest request, StreamObserver<String> responseObserver);
 
     /**
      * 流式调用指定平台的 LLM（Triple Server Streaming），逐 token 推送给 Consumer。
@@ -66,7 +75,9 @@ public interface LlmFacade {
      * <p>底层通过 HTTP/2 Server Streaming 实现，Consumer 无需等待完整响应，
      * 每收到一个 chunk 即触发 {@link StreamObserver#onNext(Object)}。</p>
      *
-     * <p>chunk 格式：模型增量文本（delta content），空字符串表示该 chunk 无文本内容（如纯 reasoning）。</p>
+     * <p>chunk 格式：模型增量文本或 [TOOL_CALLS] / [REASONING] / [THINKING_BLOCKS] 控制事件。
+     * 正文以 [REASONING]、[THINKING_BLOCKS] 或 [TEXT] 开头时带一层 [TEXT] 转义；
+     * Consumer 必须先识别 [TEXT]，仅去掉首个前缀后作为正文，不再进行控制事件分类。</p>
      *
      * @param request          请求参数，与 {@link #chat} 相同
      * @param responseObserver Consumer 端实现的回调：

@@ -1,17 +1,12 @@
 package com.ai.agent.starter.controller;
 
 import com.ai.agent.application.common.BizException;
-import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.LlmMessage;
-import com.ai.agent.application.model.llm.LlmRequest;
 import com.ai.agent.application.model.llm.LlmResponse;
-import com.ai.agent.application.model.llm.MessageContent;
 import com.ai.agent.application.service.impl.MimoServiceImpl;
 import com.ai.agent.starter.common.Result;
-import com.ai.agent.starter.controller.vo.LlmRequestVO;
-import com.ai.agent.starter.controller.vo.LlmResponseVO;
-import jakarta.validation.Valid;
+import com.ai.agent.starter.vo.LlmRequestVO;
+import com.ai.agent.starter.vo.LlmResponseVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -22,10 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 /**
  * 小米 MiMo 平台对话接口
  *
@@ -48,10 +40,10 @@ public class MimoChatController {
     }
 
     @PostMapping("/chat")
-    public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
+    public Result<LlmResponseVO> chat(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[MiMo-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = mimoService.chat(toServiceRequest(req));
+            LlmResponse response = mimoService.chat(LlmChatController.toServiceRequest(req));
             log.info("[MiMo-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -63,10 +55,10 @@ public class MimoChatController {
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
+    public SseEmitter chatStream(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[MiMo-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        mimoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        mimoService.chatStream(LlmChatController.toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -81,49 +73,25 @@ public class MimoChatController {
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
                 emitter.completeWithError(new RuntimeException("LLM stream error"));
-            } else if (!chunk.startsWith("[TOOL_CALLS]")) {
+            } else {
                 try {
-                    emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    if (chunk.startsWith("[TEXT]")) {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk.substring("[TEXT]".length())));
+                    } else if (chunk.startsWith("[TOOL_CALLS]")) {
+                        emitter.send(SseEmitter.event().name("tool_calls").data(chunk.substring("[TOOL_CALLS]".length())));
+                    } else if (chunk.startsWith("[REASONING]")) {
+                        emitter.send(SseEmitter.event().name("reasoning").data(chunk.substring("[REASONING]".length())));
+                    } else if (chunk.startsWith("[THINKING_BLOCKS]")) {
+                        emitter.send(SseEmitter.event().name("thinking_blocks").data(chunk.substring("[THINKING_BLOCKS]".length())));
+                    } else {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    }
                 } catch (IOException e) {
                     log.warn("[MiMo-stream] 客户端已断开, model={}", tag);
                     emitter.completeWithError(e);
                 }
             }
         };
-    }
-
-    private LlmRequest toServiceRequest(LlmRequestVO vo) {
-        List<LlmMessage> messages = vo.getMessages().stream()
-                .map(m -> {
-                    if (m.getToolCalls() != null && !m.getToolCalls().isEmpty()) {
-                        return LlmMessage.ofToolCalls(m.getToolCalls(), m.getValue());
-                    }
-                    if (m.getToolCallId() != null) {
-                        return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
-                    }
-                    return LlmMessage.builder()
-                            .role(m.getRole())
-                            .contents(List.of(new MessageContent(
-                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
-                                    m.getValue(),
-                                    m.getDetail())))
-                            .build();
-                })
-                .collect(Collectors.toList());
-        return LlmRequest.builder()
-                .apiKey(vo.getApiKey())
-                .endpoint(vo.getEndpoint())
-                .modelCode(vo.getModelCode())
-                .messages(messages)
-                .temperature(vo.getTemperature())
-                .topP(vo.getTopP())
-                .topK(vo.getTopK())
-                .frequencyPenalty(vo.getFrequencyPenalty())
-                .maxTokens(vo.getMaxTokens())
-                .tools(vo.getTools())
-                .toolChoice(vo.getToolChoice())
-                .extraParams(vo.getExtraParams())
-                .build();
     }
 
     private LlmResponseVO toVO(LlmResponse response) {

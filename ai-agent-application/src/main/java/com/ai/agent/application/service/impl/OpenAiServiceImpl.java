@@ -8,6 +8,8 @@ import com.ai.agent.application.enums.http.OpenAIHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
+import com.ai.agent.application.utils.ResponsesStreamUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -140,35 +142,74 @@ public class OpenAIServiceImpl implements LlmService {
 
     @Override
     public LlmResponse responses(LlmResponsesRequest request) {
-        OpenAIBO cfg = null;
-        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "responses", OpenAIBO.class);
-        }
-        String apiKey = StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null);
-        String endpoint = StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null);
-        String model = StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null);
-        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
-        if (StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-
-        String requestBody;
-        try {
-            Map<String, Object> body = buildResponsesRequestBody(request, model);
-            requestBody = MAPPER.writeValueAsString(body);
-        } catch (IOException e) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
-        final String finalModel = model;
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, false);
         LlmResponse result = AppRetryUtil.retry(() -> {
-            Request okRequest = buildOkRequest(endpoint, apiKey, requestBody);
+            Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
             try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(responseBody));
                 if (responseBody.isEmpty()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                return parseResponsesResponse(responseBody, finalModel);
+                return parseResponsesResponse(responseBody, request.getModel());
             }
         }, retryConfig.getRetryParam(RetryConfigEnum.OpenAI));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         return result;
+    }
+
+    @Override
+    public void responsesStream(LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, true);
+        var consumer = ResponsesStreamUtil.cancellable(chunkConsumer);
+        if (consumer.isCancelled()) return;
+        try {
+            consumer.setTask(streamExecutor.submit(TraceContextSupport.wrap(() -> {
+                try {
+                    Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
+                    try (Response response = AppRetryUtil.retryForStream(() -> {
+                        consumer.checkCancelled();
+                        Call call = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.OpenAI).newCall(okRequest);
+                        consumer.setCall(call);
+                        consumer.checkCancelled();
+                        Response resp = call.execute();
+                        if (!resp.isSuccessful()) {
+                            try (Response failedResponse = resp) {
+                                String errBody = failedResponse.body() != null ? failedResponse.body().string() : "";
+                                throwByHttpCode(failedResponse.code(), extractErrorMessage(errBody));
+                            }
+                        }
+                        return resp;
+                    }, retryConfig.getRetryParam(RetryConfigEnum.OpenAI), consumer::isCancelled)) {
+                        if (response == null || response.body() == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                        consumer.checkCancelled();
+                        ResponsesStreamUtil.parse(response.body(), consumer);
+                    }
+                } catch (Exception e) {
+                    if (!consumer.isCancelled()) {
+                        log.error("[OpenAI-responses-stream] 调用失败", e);
+                        consumer.accept("[ERROR]");
+                    }
+                } finally {
+                    consumer.release();
+                }
+            })));
+        } catch (RejectedExecutionException e) {
+            log.error("[OpenAI-responses-stream] 线程池已满，拒绝请求", e);
+            consumer.accept("[ERROR]");
+        }
+    }
+
+    private void fillResponsesDefaults(LlmResponsesRequest request) {
+        OpenAIBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_OPENAI, "responses", OpenAIBO.class);
+        }
+        request.setApiKey(StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null));
+        request.setEndpoint(StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null));
+        request.setModel(StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null));
+        if (StringUtils.isBlank(request.getApiKey())) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        if (StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
     }
 
     @Override
@@ -245,7 +286,7 @@ public class OpenAIServiceImpl implements LlmService {
         if (stream) {
             body.put("stream_options", Map.of("include_usage", true));
         }
-        body.put("messages", buildMessages(request));
+        body.put("messages", NativeInputUtil.chatMessages(request, "OpenAI", () -> buildMessages(request)));
         if (request.getTemperature() != null) {
             body.put("temperature", request.getTemperature());
         }
@@ -266,7 +307,7 @@ public class OpenAIServiceImpl implements LlmService {
         }
         if (request.getExtraParams() != null) {
             request.getExtraParams().forEach((k, v) -> {
-                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+                NativeInputUtil.putExtraParam(body, k, v);
             });
         }
         try {
@@ -293,15 +334,18 @@ public class OpenAIServiceImpl implements LlmService {
             m.put("role", msg.getRole());
             if (msg.getToolCalls() != null) {
                 String text = msg.getTextContent();
-                m.put("content", text.isEmpty() ? null : text);
+                m.put("content", msg.isTextOnly() ? (text.isEmpty() ? null : text) : buildContentArray(msg));
                 m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
             } else if (msg.getToolCallId() != null) {
                 m.put("tool_call_id", msg.getToolCallId());
-                m.put("content", msg.getTextContent());
+                m.put("content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg));
             } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
+            }
+            if ("assistant".equals(msg.getRole()) && msg.getReasoningContent() != null) {
+                m.put("reasoning_content", msg.getReasoningContent());
             }
             messages.add(m);
         }
@@ -330,7 +374,7 @@ public class OpenAIServiceImpl implements LlmService {
                 case TEXT -> {
                     Map<String, Object> part = new HashMap<>();
                     part.put("type", "text");
-                    part.put("text", c.getValue());
+                    part.put("text", NativeInputUtil.textContent(c));
                     parts.add(part);
                 }
                 case IMAGE -> {
@@ -342,6 +386,8 @@ public class OpenAIServiceImpl implements LlmService {
                     part.put("image_url", imageUrl);
                     parts.add(part);
                 }
+                case IMAGE_URL, INPUT_AUDIO, VIDEO_URL, FILE_URL, FILE, VIDEO, DOCUMENT ->
+                        parts.add(NativeInputUtil.buildContent(c, "OpenAI"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -429,10 +475,10 @@ public class OpenAIServiceImpl implements LlmService {
         return result;
     }
 
-    private Map<String, Object> buildResponsesRequestBody(LlmResponsesRequest request, String model) {
+    private String buildResponsesRequestBody(LlmResponsesRequest request, boolean stream) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model);
-        body.put("input", request.getInput());
+        body.put("model", request.getModel());
+        body.put("input", NativeInputUtil.responsesInput(request, "OpenAI"));
         if (request.getInstructions() != null) body.put("instructions", request.getInstructions());
         if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
         if (request.getTopP() != null) body.put("top_p", request.getTopP());
@@ -441,10 +487,15 @@ public class OpenAIServiceImpl implements LlmService {
         if (request.getToolChoice() != null) body.put("tool_choice", buildResponsesToolChoice(request.getToolChoice()));
         if (request.getExtraParams() != null) {
             request.getExtraParams().forEach((key, value) -> {
-                if (!body.containsKey(key)) body.put(key, value);
+                NativeInputUtil.putExtraParam(body, key, value);
             });
         }
-        return body;
+        body.put("stream", stream);
+        try {
+            return MAPPER.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
     }
 
     private Object buildResponsesToolChoice(String toolChoice) {
@@ -464,8 +515,10 @@ public class OpenAIServiceImpl implements LlmService {
                 if ("message".equals(type)) {
                     List<LlmContentBlock> content = new ArrayList<>();
                     for (JsonNode block : item.path("content")) {
-                        content.add(LlmContentBlock.builder().type(block.path("type").asText(""))
-                                .text(block.path("text").asText("")).build());
+                        content.add("refusal".equals(block.path("type").asText())
+                                ? LlmContentBlock.builder().type("refusal").refusal(block.path("refusal").asText("")).build()
+                                : LlmContentBlock.builder().type(block.path("type").asText(""))
+                                        .text(block.path("text").asText("")).build());
                     }
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
                             .status(item.path("status").asText(null)).role(item.path("role").asText(null)).content(content).build());
@@ -475,8 +528,14 @@ public class OpenAIServiceImpl implements LlmService {
                         summary.add(LlmContentBlock.builder().type(block.path("type").asText(""))
                                 .text(block.path("text").asText("")).build());
                     }
+                    List<LlmContentBlock> content = new ArrayList<>();
+                    for (JsonNode block : item.path("content")) {
+                        content.add(LlmContentBlock.builder().type(block.path("type").asText(""))
+                                .text(block.path("text").asText("")).build());
+                    }
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
-                            .status(item.path("status").asText(null)).summary(summary).build());
+                            .status(item.path("status").asText(null)).summary(summary).content(content)
+                            .encryptedContent(item.path("encrypted_content").asText(null)).build());
                 } else if ("function_call".equals(type)) {
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
                             .status(item.path("status").asText(null)).callId(item.path("call_id").asText(null))
@@ -511,10 +570,14 @@ public class OpenAIServiceImpl implements LlmService {
                     return;
                 }
                 JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
+                String reasoningChunk = delta.path("reasoning_content").asText("");
+                if (!reasoningChunk.isEmpty()) {
+                    chunkConsumer.accept("[REASONING]" + reasoningChunk);
+                }
                 // 文本 chunk 实时推
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
-                    chunkConsumer.accept(chunk);
+                    chunkConsumer.accept(LlmService.escapeText(chunk));
                 }
                 // tool_calls 碎片聚合
                 JsonNode toolCallsNode = delta.path("tool_calls");

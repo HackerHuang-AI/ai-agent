@@ -7,6 +7,8 @@ import okhttp3.Response;
 
 import java.util.Collection;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.function.BooleanSupplier;
 
 /**
  * 应用层重试工具类，在基础重试能力之上感知业务异常（BizException）。
@@ -105,14 +107,26 @@ public class AppRetryUtil {
                 param.getBackoffMultiplier(), param.getMaxWaitMs(), effectiveCodes);
     }
 
+    public static Response retryForStream(Callable<Response> callable, RetryParam param, BooleanSupplier cancelled) {
+        return doRetry(callable, param.getMaxRetries(), param.getIntervalMs(),
+                param.getBackoffMultiplier(), param.getMaxWaitMs(), param.getNonRetryableCodes(), cancelled);
+    }
+
     // ==================== 核心实现 ====================
 
     private static <T> T doRetry(Callable<T> callable, int maxRetries, long intervalMs,
                                   double multiplier, long maxWaitMs,
                                   Collection<String> nonRetryableCodes) {
+        return doRetry(callable, maxRetries, intervalMs, multiplier, maxWaitMs, nonRetryableCodes, () -> false);
+    }
+
+    private static <T> T doRetry(Callable<T> callable, int maxRetries, long intervalMs,
+                                  double multiplier, long maxWaitMs,
+                                  Collection<String> nonRetryableCodes, BooleanSupplier cancelled) {
         Exception lastException = null;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (cancelled.getAsBoolean()) throw new CancellationException();
             try {
                 T result = callable.call();
                 if (result != null) {
@@ -122,6 +136,8 @@ public class AppRetryUtil {
                     return result;
                 }
                 log.warn("[AppRetryUtil] 执行返回为空，第 {}/{} 次", attempt + 1, maxRetries + 1);
+            } catch (CancellationException e) {
+                throw e;
             } catch (BizException e) {
                 // 命中不可重试错误码 → 直接抛出
                 if (nonRetryableCodes != null
@@ -142,6 +158,7 @@ public class AppRetryUtil {
                         attempt + 1, maxRetries + 1, e.getMessage());
             }
 
+            if (cancelled.getAsBoolean()) throw new CancellationException();
             if (attempt < maxRetries) {
                 long wait = computeWait(attempt, intervalMs, multiplier, maxWaitMs);
                 log.info("[AppRetryUtil] 等待 {}ms 后发起第 {} 次重试", wait, attempt + 1);

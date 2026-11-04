@@ -1,5 +1,6 @@
 package com.ai.agent.application.model.llm;
 
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,7 @@ import java.util.Map;
 
 /**
  * Responses API 统一请求。
- * input 保持厂商 Responses API 的原始结构，由对应平台适配器直接透传。
+ * input 使用类型字段树，由对应平台适配器构建并校验线级结构。
  */
 @Data
 @Builder
@@ -27,7 +28,8 @@ public class LlmResponsesRequest {
     /** Responses API 的模型标识 */
     private String model;
 
-    /** OpenAI Responses API 兼容的固定 input 项列表 */
+    /** Responses API 类型化输入项列表 */
+    @NotEmpty
     private List<LlmResponsesInput> input;
 
     /** Responses API 的系统指令 */

@@ -1,15 +1,14 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
 import com.ai.agent.application.model.llm.LlmResponsesInput;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
-
 import java.util.List;
 import java.util.Map;
 
 /**
  * 统一 Responses API 请求。
- * input 保持厂商 Responses API 的原始结构。
+ * input 使用类型字段树，由各平台独立校验。
  */
 @Data
 public class LlmResponsesRequestVO {
@@ -26,8 +25,8 @@ public class LlmResponsesRequestVO {
     /** Responses API 的模型标识 */
     private String model;
 
-    /** OpenAI Responses API 兼容的固定 input 项列表 */
-    @NotNull(message = "input 不能为空")
+    /** Responses API 类型化输入项列表 */
+    @NotEmpty(message = "input 不能为空")
     private List<LlmResponsesInput> input;
 
     /** Responses API 的系统指令 */

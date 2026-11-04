@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * LLM 对话消息，支持纯文本和多模态内容（图片/文件/视频）
@@ -37,6 +38,22 @@ public class LlmMessage {
     /** 消息角色：system / user / assistant / tool */
     private String role;
 
+    /** 消息发送者名称 */
+    private String name;
+
+    /** OpenAI Chat 专用历史音频引用，对应 assistant 消息的 audio.id。 */
+    private AudioReference audio;
+
+    /** OpenAI Chat 专用历史音频引用节点。 */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class AudioReference {
+        /** OpenAI Chat 上一轮音频回复标识。 */
+        private String id;
+    }
+
     /**
      * 多模态内容列表。
      * 纯文本消息：列表中只有一个 ContentType.TEXT 元素。
@@ -44,6 +61,11 @@ public class LlmMessage {
      * assistant 携带 toolCalls 且无正文回复时可为空。
      */
     private List<MessageContent> contents;
+
+    private String reasoningContent;
+
+    /** Anthropic（Claude）Messages 专用 thinking / redacted_thinking 回放块，保留原始签名。 */
+    private List<Map<String, Object>> thinkingBlocks;
 
     /**
      * assistant 消息携带的工具调用请求列表，对应 message.tool_calls。
@@ -108,13 +130,14 @@ public class LlmMessage {
     }
 
     /**
-     * 纯文本消息时的快捷取值，返回第一个 TEXT content 的 value
+     * 纯文本消息时的快捷取值，返回第一个 TEXT 内容块的 value，为空时取 text
      */
     public String getTextContent() {
         if (contents == null || contents.isEmpty()) return "";
         return contents.stream()
                 .filter(c -> c.getType() == ContentTypeEnum.TEXT)
-                .map(MessageContent::getValue)
+                .map(c -> c.getValue() != null && !c.getValue().isEmpty()
+                        ? c.getValue() : c.getText() == null ? "" : c.getText())
                 .findFirst()
                 .orElse("");
     }

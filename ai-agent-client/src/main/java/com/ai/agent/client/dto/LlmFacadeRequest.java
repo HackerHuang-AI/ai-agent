@@ -52,6 +52,33 @@ public class LlmFacadeRequest implements Serializable {
     /** 对话消息列表（按时间顺序，首条可为 system） */
     private List<LlmFacadeMessage> messages;
 
+    /** Interactions 模型名称，与 modelCode 独立 */
+    private String model;
+
+    /** Interactions 系统指令 */
+    private String instructions;
+
+    /** Interactions 生成配置，保留协议原始参数 */
+    private Map<String, Object> generationConfig;
+
+    /** Interactions 上一轮交互标识 */
+    private String previousInteractionId;
+
+    /** Interactions 续传令牌 */
+    private String continuationToken;
+
+    /** 是否存储 Interactions 交互 */
+    private Boolean store;
+
+    /** 是否在后台执行 Interactions 交互 */
+    private Boolean background;
+
+    /** Interactions 最大输出 token 数，与 maxTokens 独立 */
+    private Integer maxOutputTokens;
+
+    /** Interactions 工具或思考回放步骤，与 messages 互斥 */
+    private List<LlmFacadeInteractionStep> interactionSteps;
+
     /** 采样温度 [0.0, 2.0]，null 时使用平台默认值 */
     private Double temperature;
 
@@ -104,6 +131,24 @@ public class LlmFacadeRequest implements Serializable {
     public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
     public List<LlmFacadeMessage> getMessages() { return messages; }
     public void setMessages(List<LlmFacadeMessage> messages) { this.messages = messages; }
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
+    public String getInstructions() { return instructions; }
+    public void setInstructions(String instructions) { this.instructions = instructions; }
+    public Map<String, Object> getGenerationConfig() { return generationConfig; }
+    public void setGenerationConfig(Map<String, Object> generationConfig) { this.generationConfig = generationConfig; }
+    public String getPreviousInteractionId() { return previousInteractionId; }
+    public void setPreviousInteractionId(String previousInteractionId) { this.previousInteractionId = previousInteractionId; }
+    public String getContinuationToken() { return continuationToken; }
+    public void setContinuationToken(String continuationToken) { this.continuationToken = continuationToken; }
+    public Boolean getStore() { return store; }
+    public void setStore(Boolean store) { this.store = store; }
+    public Boolean getBackground() { return background; }
+    public void setBackground(Boolean background) { this.background = background; }
+    public Integer getMaxOutputTokens() { return maxOutputTokens; }
+    public void setMaxOutputTokens(Integer maxOutputTokens) { this.maxOutputTokens = maxOutputTokens; }
+    public List<LlmFacadeInteractionStep> getInteractionSteps() { return interactionSteps; }
+    public void setInteractionSteps(List<LlmFacadeInteractionStep> interactionSteps) { this.interactionSteps = interactionSteps; }
     public Double getTemperature() { return temperature; }
     public void setTemperature(Double temperature) { this.temperature = temperature; }
     public Double getTopP() { return topP; }

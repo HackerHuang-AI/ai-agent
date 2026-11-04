@@ -1,14 +1,16 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
 import com.ai.agent.application.enums.ContentTypeEnum;
+import com.ai.agent.application.model.llm.LlmMessage;
 import com.ai.agent.application.model.llm.LlmToolCall;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * LLM 统一对话消息 VO，所有平台共用，支持纯文本和多模态两种使用模式。
+ * LLM 统一对话消息 VO，支持纯文本和多模态两种使用模式；字段平台及协议标注以当前代码使用范围为准。
  *
  * <p>模式一：纯文本（type + value）
  * <pre>{@code
@@ -32,9 +34,17 @@ import java.util.List;
 @Data
 public class LlmMessageVO {
 
-    /** 消息角色：system / user / assistant / tool */
+    /** Chat 消息角色：system / user / assistant / tool 等；
+     * Gemini 原生 Interactions 仅接收 user/assistant，映射为 user_input/model_output。
+     * */
     @NotBlank(message = "role 不能为空")
     private String role;
+
+    /** 消息发送者名称 */
+    private String name;
+
+    /** OpenAI Chat 专用：assistant 历史音频引用，通过 audio.id 回填。 */
+    private LlmMessage.AudioReference audio;
 
     /** 内容类型：TEXT / IMAGE / FILE / VIDEO，纯文本模式使用，Service 层校验 */
     private ContentTypeEnum type;
@@ -47,6 +57,12 @@ public class LlmMessageVO {
 
     /** 多模态内容块列表，多模态模式使用；非空时优先于 type/value，Service 层校验各块内容 */
     private List<MessageContentVO> contents;
+
+    /** 多平台兼容 Chat 的 assistant 历史 reasoning_content 透传字段，不代表各平台或模型均支持。 */
+    private String reasoningContent;
+
+    /** Anthropic Messages 专用：原始 thinking / redacted_thinking 块，包含签名，回放时保持完整。 */
+    private List<Map<String, Object>> thinkingBlocks;
 
     /**
      * assistant 消息携带的工具调用列表，role=assistant 且模型要求调用工具时传入。

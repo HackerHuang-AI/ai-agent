@@ -8,12 +8,16 @@ import com.ai.agent.application.enums.http.GeminiHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.GeminiInteractionsUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
+import com.ai.agent.application.utils.ResponsesStreamUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -139,6 +143,96 @@ public class GeminiServiceImpl implements LlmService {
     }
 
     @Override
+    public LlmInteractionsResponse interactions(LlmRequest request) {
+        fillInteractionsDefaults(request);
+        String requestBody = GeminiInteractionsUtil.buildRequestBody(request, false);
+        String body = AppRetryUtil.retry(() -> {
+            Request okRequest = buildInteractionsRequest(request, requestBody, false);
+            try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Gemini).newCall(okRequest).execute()) {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) throwByHttpCode(response.code(), extractErrorMessage(responseBody));
+                if (responseBody.isBlank()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                return responseBody;
+            }
+        }, retryConfig.getRetryParam(RetryConfigEnum.Gemini));
+        if (body == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+        return GeminiInteractionsUtil.parseResponse(body);
+    }
+
+    @Override
+    public void interactionsStream(LlmRequest request, Consumer<String> chunkConsumer) {
+        fillInteractionsDefaults(request);
+        String requestBody = GeminiInteractionsUtil.buildRequestBody(request, true);
+        var consumer = ResponsesStreamUtil.cancellable(chunkConsumer);
+        if (consumer.isCancelled()) return;
+        try {
+            consumer.setTask(streamExecutor.submit(TraceContextSupport.wrap(() -> {
+                try {
+                    Request okRequest = buildInteractionsRequest(request, requestBody, true);
+                    try (Response response = AppRetryUtil.retryForStream(() -> {
+                        consumer.checkCancelled();
+                        Call call = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Gemini).newCall(okRequest);
+                        consumer.setCall(call);
+                        consumer.checkCancelled();
+                        Response resp = call.execute();
+                        if (resp != null && !resp.isSuccessful()) {
+                            try (Response failedResponse = resp) {
+                                String errBody = failedResponse.body() != null ? failedResponse.body().string() : "";
+                                throwByHttpCode(failedResponse.code(), extractErrorMessage(errBody));
+                            }
+                        }
+                        return resp;
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Gemini), consumer::isCancelled)) {
+                        if (response == null || response.body() == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                        consumer.checkCancelled();
+                        GeminiInteractionsUtil.parseStream(response.body(), consumer);
+                    }
+                } catch (Exception e) {
+                    if (!consumer.isCancelled()) {
+                        log.error("[Gemini-interactions-stream] 调用失败", e);
+                        consumer.accept("[ERROR]");
+                    }
+                } finally {
+                    consumer.release();
+                }
+            })));
+        } catch (RejectedExecutionException e) {
+            try {
+                consumer.accept("[ERROR]");
+            } finally {
+                consumer.release();
+            }
+        }
+    }
+
+    private void fillInteractionsDefaults(LlmRequest request) {
+        if (request == null) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        GeminiBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint())
+                || StringUtils.isBlank(request.getModel())) {
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_GEMINI, "interactions", GeminiBO.class);
+        }
+        request.setApiKey(StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null));
+        if (StringUtils.isBlank(request.getApiKey())) {
+            GeminiBO chat = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_GEMINI, "chat", GeminiBO.class);
+            request.setApiKey(chat != null ? chat.getApiKey() : null);
+        }
+        request.setEndpoint(StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null));
+        if (StringUtils.isBlank(request.getEndpoint())) {
+            request.setEndpoint("https://generativelanguage.googleapis.com/v1beta/interactions");
+        }
+        request.setModel(StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null));
+        if (StringUtils.isBlank(request.getApiKey())) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        if (StringUtils.isBlank(request.getModel())) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+    }
+
+    private Request buildInteractionsRequest(LlmRequest request, String body, boolean stream) {
+        return new Request.Builder().url(request.getEndpoint()).header("x-goog-api-key", request.getApiKey())
+                .header("Accept", stream ? "text/event-stream" : "application/json")
+                .post(RequestBody.create(body, JSON)).build();
+    }
+
+    @Override
     public LlmModelPage listModels(String apiKey, int pageNo, int pageSize) {
         return LlmModelPage.of(fetchModels(apiKey), pageNo, pageSize);
     }
@@ -230,7 +324,7 @@ public class GeminiServiceImpl implements LlmService {
         if (stream) {
             body.put("stream_options", Map.of("include_usage", true));
         }
-        body.put("messages", buildMessages(request));
+        body.put("messages", NativeInputUtil.chatMessages(request, "Gemini", () -> buildMessages(request)));
         if (request.getTemperature() != null) {
             body.put("temperature", request.getTemperature());
         }
@@ -254,7 +348,7 @@ public class GeminiServiceImpl implements LlmService {
         }
         if (request.getExtraParams() != null) {
             request.getExtraParams().forEach((k, v) -> {
-                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+                if (!"tools".equals(k) && !"tool_choice".equals(k)) NativeInputUtil.putExtraParam(body, k, v);
             });
         }
         try {
@@ -279,13 +373,16 @@ public class GeminiServiceImpl implements LlmService {
         for (LlmMessage msg : request.getMessages()) {
             Map<String, Object> m = new HashMap<>();
             m.put("role", msg.getRole());
+            if ("assistant".equalsIgnoreCase(msg.getRole()) && msg.getReasoningContent() != null) {
+                m.put("reasoning_content", msg.getReasoningContent());
+            }
             if (msg.getToolCalls() != null) {
                 String text = msg.getTextContent();
-                m.put("content", text.isEmpty() ? null : text);
+                m.put("content", msg.isTextOnly() ? (text.isEmpty() ? null : text) : buildContentArray(msg));
                 m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
             } else if (msg.getToolCallId() != null) {
                 m.put("tool_call_id", msg.getToolCallId());
-                m.put("content", msg.getTextContent());
+                m.put("content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg));
             } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
@@ -306,6 +403,7 @@ public class GeminiServiceImpl implements LlmService {
             toolCall.put("id", tc.getId());
             toolCall.put("type", "function");
             toolCall.put("function", function);
+            if (tc.getExtraContent() != null) toolCall.put("extra_content", tc.getExtraContent());
             result.add(toolCall);
         }
         return result;
@@ -318,7 +416,7 @@ public class GeminiServiceImpl implements LlmService {
                 case TEXT -> {
                     Map<String, Object> part = new HashMap<>();
                     part.put("type", "text");
-                    part.put("text", c.getValue());
+                    part.put("text", NativeInputUtil.textContent(c));
                     parts.add(part);
                 }
                 case IMAGE -> {
@@ -330,6 +428,8 @@ public class GeminiServiceImpl implements LlmService {
                     part.put("image_url", imageUrl);
                     parts.add(part);
                 }
+                case IMAGE_URL, INPUT_AUDIO, VIDEO_URL, FILE_URL, FILE, VIDEO, DOCUMENT ->
+                        parts.add(NativeInputUtil.buildContent(c, "Gemini"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -412,13 +512,16 @@ public class GeminiServiceImpl implements LlmService {
                     .id(tc.path("id").asText(null))
                     .name(function.path("name").asText(null))
                     .arguments(function.path("arguments").asText(null))
+                    .extraContent(tc.path("extra_content").isObject()
+                            ? MAPPER.convertValue(tc.path("extra_content"), new TypeReference<Map<String, Object>>() {})
+                            : null)
                     .build());
         }
         return result;
     }
 
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {
-        Map<Integer, String[]> toolCallsMap = new LinkedHashMap<>();
+        Map<Integer, Map<String, Object>> toolCallsMap = new LinkedHashMap<>();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -431,19 +534,31 @@ public class GeminiServiceImpl implements LlmService {
                     return;
                 }
                 JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
+                String reasoning = delta.path("reasoning_content").asText("");
+                if (!reasoning.isEmpty()) chunkConsumer.accept("[REASONING]" + reasoning);
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
-                    chunkConsumer.accept(chunk);
+                    chunkConsumer.accept(LlmService.escapeText(chunk));
                 }
                 JsonNode toolCallsNode = delta.path("tool_calls");
                 if (toolCallsNode.isArray()) {
                     for (JsonNode tc : toolCallsNode) {
                         int index = tc.path("index").asInt(0);
-                        String[] entry = toolCallsMap.computeIfAbsent(index, k -> new String[]{"", "", ""});
-                        if (!tc.path("id").asText("").isEmpty()) entry[0] = tc.path("id").asText("");
+                        Map<String, Object> entry = toolCallsMap.computeIfAbsent(index, k -> {
+                            Map<String, Object> item = new LinkedHashMap<>();
+                            item.put("id", "");
+                            item.put("name", "");
+                            item.put("arguments", "");
+                            return item;
+                        });
+                        if (!tc.path("id").asText("").isEmpty()) entry.put("id", tc.path("id").asText(""));
                         JsonNode fn = tc.path("function");
-                        if (!fn.path("name").asText("").isEmpty()) entry[1] = fn.path("name").asText("");
-                        entry[2] += fn.path("arguments").asText("");
+                        if (!fn.path("name").asText("").isEmpty()) entry.put("name", fn.path("name").asText(""));
+                        entry.put("arguments", entry.get("arguments") + fn.path("arguments").asText(""));
+                        if (tc.path("extra_content").isObject()) {
+                            mergeExtraContent(entry, Map.of("extra_content", MAPPER.convertValue(
+                                    tc.path("extra_content"), new TypeReference<Map<String, Object>>() {})));
+                        }
                     }
                 }
             }
@@ -456,18 +571,24 @@ public class GeminiServiceImpl implements LlmService {
         }
     }
 
-    private void flushToolCalls(Map<Integer, String[]> toolCallsMap, String modelCode, Consumer<String> chunkConsumer) {
+    @SuppressWarnings("unchecked")
+    private void mergeExtraContent(Map<String, Object> target, Map<String, Object> delta) {
+        delta.forEach((key, value) -> {
+            Object existing = target.get(key);
+            if (existing instanceof Map && value instanceof Map) {
+                mergeExtraContent((Map<String, Object>) existing, (Map<String, Object>) value);
+            } else if ("thought_signature".equals(key) && existing instanceof String && value instanceof String) {
+                target.put(key, existing.toString() + value);
+            } else {
+                target.put(key, value);
+            }
+        });
+    }
+
+    private void flushToolCalls(Map<Integer, Map<String, Object>> toolCallsMap, String modelCode, Consumer<String> chunkConsumer) {
         if (toolCallsMap.isEmpty()) return;
         try {
-            List<Map<String, String>> list = new ArrayList<>();
-            for (String[] entry : toolCallsMap.values()) {
-                Map<String, String> item = new LinkedHashMap<>();
-                item.put("id", entry[0]);
-                item.put("name", entry[1]);
-                item.put("arguments", entry[2]);
-                list.add(item);
-            }
-            chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(list));
+            chunkConsumer.accept("[TOOL_CALLS]" + MAPPER.writeValueAsString(toolCallsMap.values()));
         } catch (IOException e) {
             log.warn("[Gemini-stream] tool_calls 序列化失败，跳过, model={}", modelCode, e);
         }

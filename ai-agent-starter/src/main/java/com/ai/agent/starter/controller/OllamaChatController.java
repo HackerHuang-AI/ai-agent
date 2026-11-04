@@ -1,14 +1,14 @@
 package com.ai.agent.starter.controller;
 
 import com.ai.agent.application.common.BizException;
-import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.*;
+import com.ai.agent.application.model.llm.LlmModelPage;
+import com.ai.agent.application.model.llm.LlmResponse;
 import com.ai.agent.application.service.impl.OllamaServiceImpl;
 import com.ai.agent.starter.common.Result;
-import com.ai.agent.starter.controller.vo.LlmCredentialVO;
-import com.ai.agent.starter.controller.vo.LlmRequestVO;
-import com.ai.agent.starter.controller.vo.LlmResponseVO;
+import com.ai.agent.starter.vo.LlmCredentialVO;
+import com.ai.agent.starter.vo.LlmRequestVO;
+import com.ai.agent.starter.vo.LlmResponseVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -20,9 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * Ollama 本地模型平台对话接口
@@ -48,17 +46,15 @@ public class OllamaChatController {
 
     @PostMapping("/models")
     public Result<LlmModelPage> listModels(@Valid @RequestBody(required = false) LlmCredentialVO req) {
-        String apiKey = req != null ? req.getApiKey() : null;
-        int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
-        int pageSize = req != null ? req.getPageSize() : 10;
-        return Result.success(ollamaService.listModels(apiKey, pageNo, pageSize));
+        if (req == null) req = new LlmCredentialVO();
+        return Result.success(ollamaService.listModels(req.getApiKey(), req.getPageNo(), req.getPageSize()));
     }
 
     @PostMapping("/chat")
-    public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
+    public Result<LlmResponseVO> chat(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[Ollama-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = ollamaService.chat(toServiceRequest(req));
+            LlmResponse response = ollamaService.chat(LlmChatController.toServiceRequest(req));
             log.info("[Ollama-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -70,10 +66,10 @@ public class OllamaChatController {
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
+    public SseEmitter chatStream(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[Ollama-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        ollamaService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        ollamaService.chatStream(LlmChatController.toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -88,49 +84,25 @@ public class OllamaChatController {
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
                 emitter.completeWithError(new RuntimeException("LLM stream error"));
-            } else if (!chunk.startsWith("[TOOL_CALLS]")) {
+            } else {
                 try {
-                    emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    if (chunk.startsWith("[TEXT]")) {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk.substring("[TEXT]".length())));
+                    } else if (chunk.startsWith("[TOOL_CALLS]")) {
+                        emitter.send(SseEmitter.event().name("tool_calls").data(chunk.substring("[TOOL_CALLS]".length())));
+                    } else if (chunk.startsWith("[REASONING]")) {
+                        emitter.send(SseEmitter.event().name("reasoning").data(chunk.substring("[REASONING]".length())));
+                    } else if (chunk.startsWith("[THINKING_BLOCKS]")) {
+                        emitter.send(SseEmitter.event().name("thinking_blocks").data(chunk.substring("[THINKING_BLOCKS]".length())));
+                    } else {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    }
                 } catch (IOException e) {
                     log.warn("[Ollama-stream] 客户端已断开, model={}", tag);
                     emitter.completeWithError(e);
                 }
             }
         };
-    }
-
-    private LlmRequest toServiceRequest(LlmRequestVO vo) {
-        List<LlmMessage> messages = vo.getMessages().stream()
-                .map(m -> {
-                    if (m.getToolCalls() != null && !m.getToolCalls().isEmpty()) {
-                        return LlmMessage.ofToolCalls(m.getToolCalls(), m.getValue());
-                    }
-                    if (m.getToolCallId() != null) {
-                        return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
-                    }
-                    return LlmMessage.builder()
-                            .role(m.getRole())
-                            .contents(List.of(new MessageContent(
-                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
-                                    m.getValue(),
-                                    m.getDetail())))
-                            .build();
-                })
-                .collect(Collectors.toList());
-        return LlmRequest.builder()
-                .apiKey(vo.getApiKey())
-                .endpoint(vo.getEndpoint())
-                .modelCode(vo.getModelCode())
-                .messages(messages)
-                .temperature(vo.getTemperature())
-                .topP(vo.getTopP())
-                .topK(vo.getTopK())
-                .frequencyPenalty(vo.getFrequencyPenalty())
-                .maxTokens(vo.getMaxTokens())
-                .tools(vo.getTools())
-                .toolChoice(vo.getToolChoice())
-                .extraParams(vo.getExtraParams())
-                .build();
     }
 
     private LlmResponseVO toVO(LlmResponse response) {

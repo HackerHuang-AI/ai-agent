@@ -1,4 +1,4 @@
-package com.ai.agent.starter.controller.vo;
+package com.ai.agent.starter.vo;
 
 import lombok.Builder;
 import lombok.Data;

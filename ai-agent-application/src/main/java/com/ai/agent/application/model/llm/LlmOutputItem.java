@@ -1,5 +1,6 @@
 package com.ai.agent.application.model.llm;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class LlmOutputItem {
 
     /** 节点 ID */
@@ -51,9 +53,11 @@ public class LlmOutputItem {
     private String role;
 
     /**
-     * 输出内容块列表，type=message 时有值，对应 output[i].content[]。
-     * type=reasoning 时为 null。
+     * 输出内容块列表，type=message / reasoning 时可有值，对应 output[i].content[]。
      */
     private List<LlmContentBlock> content;
+
+    /** reasoning 节点的加密思考内容，回放时原样传回。 */
+    private String encryptedContent;
 }
 

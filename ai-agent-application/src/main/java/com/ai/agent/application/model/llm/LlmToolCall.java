@@ -1,9 +1,12 @@
 package com.ai.agent.application.model.llm;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Map;
 
 /**
  * 工具调用请求，对应 OpenAI/豆包协议 message.tool_calls[] 中的单个元素。
@@ -27,5 +30,9 @@ public class LlmToolCall {
 
     /** 工具入参，JSON 字符串形式，对应 function.arguments（未解析，由调用方自行 parse） */
     private String arguments;
+
+    /** 原始 tool_calls.extra_content，包含 google.thought_signature。 */
+    @JsonAlias("extra_content")
+    private Map<String, Object> extraContent;
 }
 

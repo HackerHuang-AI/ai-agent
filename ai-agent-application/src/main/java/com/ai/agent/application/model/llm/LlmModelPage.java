@@ -1,7 +1,6 @@
 package com.ai.agent.application.model.llm;
 
-import lombok.Builder;
-import lombok.Data;
+import com.ai.agent.application.bo.BasePageOutBO;
 
 import java.util.Collections;
 import java.util.List;
@@ -9,15 +8,7 @@ import java.util.List;
 /**
  * LLM 模型列表统一分页结果。
  */
-@Data
-@Builder
-public class LlmModelPage {
-
-    private int pageNo;
-    private int pageSize;
-    private long total;
-    private boolean hasNext;
-    private List<LlmModelInfo> records;
+public class LlmModelPage extends BasePageOutBO<LlmModelInfo> {
 
     public static LlmModelPage of(List<LlmModelInfo> models, int pageNo, int pageSize) {
         int effectivePageNo = Math.max(pageNo, 1);
@@ -27,13 +18,13 @@ public class LlmModelPage {
         long offset = (long) (effectivePageNo - 1) * effectivePageSize;
         int fromIndex = (int) Math.min(offset, all.size());
         int toIndex = Math.min(fromIndex + effectivePageSize, all.size());
-        return LlmModelPage.builder()
-                .pageNo(effectivePageNo)
-                .pageSize(effectivePageSize)
-                .total(total)
-                .hasNext(toIndex < total)
-                .records(all.subList(fromIndex, toIndex))
-                .build();
+        LlmModelPage page = new LlmModelPage();
+        page.setPageNo(effectivePageNo);
+        page.setPageSize(effectivePageSize);
+        page.setTotal(total);
+        page.setHasNext(toIndex < total);
+        page.setRecords(all.subList(fromIndex, toIndex));
+        return page;
     }
 }
 

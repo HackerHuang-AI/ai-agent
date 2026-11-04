@@ -44,7 +44,8 @@ public enum ErrorCodeEnum {
     LLM_CONTENT_TYPE_NOT_SUPPORTED("2002008", "error.2002008", "该平台不支持此内容类型"),
     LLM_AUTH_FAILED("2002009", "error.2002009", "API Key 认证失败，请检查密钥是否正确"),
     LLM_INSUFFICIENT_BALANCE("2002010", "error.2002010", "账号余额不足，请前往平台充值"),
-    LLM_RATE_LIMIT("2002011", "error.2002011", "请求速率超限，请降低调用频率后重试");
+    LLM_RATE_LIMIT("2002011", "error.2002011", "请求速率超限，请降低调用频率后重试"),
+    LLM_PROTOCOL_NOT_SUPPORTED("2002012", "error.2002012", "该平台未接入所请求的 LLM 协议");
 
     /** 错误码，格式：系统编码(2) + 模块编码(2) + 错误序号(3) */
     private final String code;

@@ -1,15 +1,16 @@
 package com.ai.agent.starter.controller;
 
 import com.ai.agent.application.common.BizException;
-import com.ai.agent.application.enums.ContentTypeEnum;
 import com.ai.agent.application.enums.ErrorCodeEnum;
-import com.ai.agent.application.model.llm.*;
+import com.ai.agent.application.model.llm.LlmModelPage;
+import com.ai.agent.application.model.llm.LlmResponse;
+import com.ai.agent.application.model.llm.LlmResponsesRequest;
 import com.ai.agent.application.service.impl.DoubaoServiceImpl;
 import com.ai.agent.starter.common.Result;
-import com.ai.agent.starter.controller.vo.LlmCredentialVO;
-import com.ai.agent.starter.controller.vo.LlmRequestVO;
-import com.ai.agent.starter.controller.vo.LlmResponseVO;
-import com.ai.agent.starter.controller.vo.LlmResponsesRequestVO;
+import com.ai.agent.starter.vo.LlmCredentialVO;
+import com.ai.agent.starter.vo.LlmRequestVO;
+import com.ai.agent.starter.vo.LlmResponseVO;
+import com.ai.agent.starter.vo.LlmResponsesRequestVO;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -21,9 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * 豆包（火山方舟）平台对话接口
@@ -56,9 +55,10 @@ public class DoubaoChatController {
      */
     @PostMapping("/models")
     public Result<LlmModelPage> listModels(@Valid @RequestBody(required = false) LlmCredentialVO req) {
-        String apiKey = req != null ? req.getApiKey() : null;
-        int pageNo = req != null && req.getPageNo() != null ? req.getPageNo() : 1;
-        int pageSize = req != null && req.getPageSize() != null ? req.getPageSize() : 10;
+        if (req == null) req = new LlmCredentialVO();
+        String apiKey = req.getApiKey();
+        int pageNo = req.getPageNo();
+        int pageSize = req.getPageSize();
         log.info("[Doubao-models] 开始查询模型列表, pageNo={}, pageSize={}, apiKey={}", pageNo, pageSize, apiKey != null ? "已传" : "Nacos兜底");
         try {
             LlmModelPage models = doubaoService.listModels(apiKey, pageNo, pageSize);
@@ -77,10 +77,10 @@ public class DoubaoChatController {
      * POST /api/doubao/chat
      */
     @PostMapping("/chat")
-    public Result<LlmResponseVO> chat(@Valid @RequestBody LlmRequestVO req) {
+    public Result<LlmResponseVO> chat(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[Doubao-chat] 开始处理, req={}", req);
         try {
-            LlmResponse response = doubaoService.chat(toServiceRequest(req));
+            LlmResponse response = doubaoService.chat(LlmChatController.toServiceRequest(req));
             log.info("[Doubao-chat] 处理完成, response={}", response);
             return Result.success(toVO(response));
         } catch (BizException e) {
@@ -96,10 +96,10 @@ public class DoubaoChatController {
      * POST /api/doubao/chat/stream
      */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chatStream(@Valid @RequestBody LlmRequestVO req) {
+    public SseEmitter chatStream(@Validated(LlmRequestVO.Chat.class) @RequestBody LlmRequestVO req) {
         log.info("[Doubao-stream] 开始处理, req={}", req);
         SseEmitter emitter = new SseEmitter(0L);
-        doubaoService.chatStream(toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
+        doubaoService.chatStream(LlmChatController.toServiceRequest(req), buildSseConsumer(emitter, req.getModelCode()));
         return emitter;
     }
 
@@ -124,9 +124,19 @@ public class DoubaoChatController {
                 emitter.complete();
             } else if ("[ERROR]".equals(chunk)) {
                 emitter.completeWithError(new RuntimeException("LLM stream error"));
-            } else if (!chunk.startsWith("[TOOL_CALLS]")) {
+            } else {
                 try {
-                    emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    if (chunk.startsWith("[TEXT]")) {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk.substring("[TEXT]".length())));
+                    } else if (chunk.startsWith("[TOOL_CALLS]")) {
+                        emitter.send(SseEmitter.event().name("tool_calls").data(chunk.substring("[TOOL_CALLS]".length())));
+                    } else if (chunk.startsWith("[REASONING]")) {
+                        emitter.send(SseEmitter.event().name("reasoning").data(chunk.substring("[REASONING]".length())));
+                    } else if (chunk.startsWith("[THINKING_BLOCKS]")) {
+                        emitter.send(SseEmitter.event().name("thinking_blocks").data(chunk.substring("[THINKING_BLOCKS]".length())));
+                    } else {
+                        emitter.send(SseEmitter.event().name("chunk").data(chunk));
+                    }
                 } catch (IOException e) {
                     log.warn("[Doubao-stream] 客户端已断开, modelCode={}", tag);
                     emitter.completeWithError(e);
@@ -136,45 +146,6 @@ public class DoubaoChatController {
     }
 
     // ==================== 私有方法 ====================
-
-    /** LlmRequestVO → LlmRequest，支持 type/value 或 contents 图文内容块。 */
-    private LlmRequest toServiceRequest(LlmRequestVO vo) {
-        List<LlmMessage> messages = vo.getMessages().stream()
-                .map(m -> {
-                    if (m.getToolCalls() != null && !m.getToolCalls().isEmpty()) {
-                        return LlmMessage.ofToolCalls(m.getToolCalls(), m.getValue());
-                    }
-                    if (m.getToolCallId() != null) {
-                        return LlmMessage.ofToolResult(m.getToolCallId(), m.getValue());
-                    }
-                    List<MessageContent> contents = m.getContents() != null && !m.getContents().isEmpty()
-                            ? m.getContents().stream()
-                                    .map(content -> new MessageContent(content.getType(), content.getValue(), content.getDetail()))
-                                    .collect(Collectors.toList())
-                            : List.of(new MessageContent(
-                                    m.getType() != null ? m.getType() : ContentTypeEnum.TEXT,
-                                    m.getValue(), m.getDetail()));
-                    return LlmMessage.builder()
-                            .role(m.getRole())
-                            .contents(contents)
-                            .build();
-                })
-                .collect(Collectors.toList());
-        return LlmRequest.builder()
-                .apiKey(vo.getApiKey())
-                .endpoint(vo.getEndpoint())
-                .modelCode(vo.getModelCode())
-                .messages(messages)
-                .temperature(vo.getTemperature())
-                .topP(vo.getTopP())
-                .topK(vo.getTopK())
-                .frequencyPenalty(vo.getFrequencyPenalty())
-                .maxTokens(vo.getMaxTokens())
-                .tools(vo.getTools())
-                .toolChoice(vo.getToolChoice())
-                .extraParams(vo.getExtraParams())
-                .build();
-    }
 
     private LlmResponseVO toVO(LlmResponse response) {
         return LlmResponseVO.builder()

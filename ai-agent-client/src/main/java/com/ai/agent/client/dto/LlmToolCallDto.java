@@ -1,6 +1,9 @@
 package com.ai.agent.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * 工具调用 DTO，对应 message.tool_calls[] 中的单个元素。
@@ -27,6 +30,10 @@ public class LlmToolCallDto implements Serializable {
     /** 工具入参，JSON 字符串形式，对应 function.arguments（未解析，由调用方自行 parse） */
     private String arguments;
 
+    /** 原始 tool_calls.extra_content，包含 google.thought_signature。 */
+    @JsonAlias("extra_content")
+    private Map<String, Object> extraContent;
+
     public LlmToolCallDto() {}
 
     public LlmToolCallDto(String id, String name, String arguments) {
@@ -39,6 +46,8 @@ public class LlmToolCallDto implements Serializable {
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public Map<String, Object> getExtraContent() { return extraContent; }
+    public void setExtraContent(Map<String, Object> extraContent) { this.extraContent = extraContent; }
     public String getArguments() { return arguments; }
     public void setArguments(String arguments) { this.arguments = arguments; }
 }

@@ -8,6 +8,8 @@ import com.ai.agent.application.enums.http.DeepseekHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
+import com.ai.agent.application.utils.ResponsesStreamUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -50,11 +52,11 @@ public class DeepseekServiceImpl implements LlmService {
     private static final String SKIP_TEMPERATURE_KEY = "skip_temperature";
     /** extraParams 专属 key：思考模式类型，值为 "enabled" 或 "disabled"，组装为 thinking.type */
     private static final String THINKING_TYPE_KEY = "thinking_type";
-    /** extraParams 专属 key：推理强度，值为 "high" 或 "max"，组装为 thinking.reasoning_effort */
+    /** extraParams 专属 key：Chat 顶层 reasoning_effort，Responses reasoning.effort */
     private static final String REASONING_EFFORT_KEY = "reasoning_effort";
     /** extraParams 透传时需要过滤的框架内部 key，以及已由专属字段处理、避免被覆盖的 key */
     private static final Set<String> INTERNAL_KEYS = Set.of(
-            SKIP_TEMPERATURE_KEY, THINKING_TYPE_KEY, REASONING_EFFORT_KEY, "tools", "tool_choice");
+            SKIP_TEMPERATURE_KEY, THINKING_TYPE_KEY, REASONING_EFFORT_KEY);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -155,36 +157,76 @@ public class DeepseekServiceImpl implements LlmService {
 
     @Override
     public LlmResponse responses(LlmResponsesRequest request) {
-        DeepseekBO cfg = null;
-        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
-            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DEEPSEEK, "responses", DeepseekBO.class);
-        }
-        String apiKey = StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null);
-        String endpoint = StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null);
-        String model = StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null);
-        if (StringUtils.isBlank(apiKey)) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
-        if (StringUtils.isBlank(endpoint) || StringUtils.isBlank(model)) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-
-        String requestBody;
-        try {
-            Map<String, Object> body = buildResponsesRequestBody(request, model);
-            requestBody = MAPPER.writeValueAsString(body);
-        } catch (IOException e) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
-        final String finalModel = model;
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, false);
         LlmResponse result = AppRetryUtil.retry(() -> {
-            Request okRequest = new Request.Builder().url(endpoint).post(RequestBody.create(requestBody, JSON))
-                    .headers(Headers.of(buildHeaders(apiKey))).build();
+            Request okRequest = new Request.Builder().url(request.getEndpoint()).post(RequestBody.create(requestBody, JSON))
+                    .headers(Headers.of(buildHeaders(request.getApiKey()))).build();
             try (Response response = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(okRequest).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) throwByHttpCode(response.code(), responseBody);
                 if (responseBody.isEmpty()) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
-                return parseResponsesResponse(responseBody, finalModel);
+                return parseResponsesResponse(responseBody, request.getModel());
             }
         }, retryConfig.getRetryParam(RetryConfigEnum.Deepseek));
         if (result == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         return result;
+    }
+
+    @Override
+    public void responsesStream(LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, true);
+        var consumer = ResponsesStreamUtil.cancellable(chunkConsumer);
+        if (consumer.isCancelled()) return;
+        try {
+            consumer.setTask(streamExecutor.submit(TraceContextSupport.wrap(() -> {
+                try {
+                    Request okRequest = new Request.Builder().url(request.getEndpoint()).post(RequestBody.create(requestBody, JSON))
+                            .headers(Headers.of(buildHeaders(request.getApiKey()))).build();
+                    try (Response response = AppRetryUtil.retryForStream(() -> {
+                        consumer.checkCancelled();
+                        Call call = okHttpConfig.getClientByPlatform(OkHttpConfigEnum.Deepseek).newCall(okRequest);
+                        consumer.setCall(call);
+                        consumer.checkCancelled();
+                        Response resp = call.execute();
+                        if (!resp.isSuccessful()) {
+                            try (Response failedResponse = resp) {
+                                String errBody = failedResponse.body() != null ? failedResponse.body().string() : "";
+                                throwByHttpCode(failedResponse.code(), errBody);
+                            }
+                        }
+                        return resp;
+                    }, retryConfig.getRetryParam(RetryConfigEnum.Deepseek), consumer::isCancelled)) {
+                        if (response == null || response.body() == null) throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
+                        consumer.checkCancelled();
+                        ResponsesStreamUtil.parse(response.body(), consumer);
+                    }
+                } catch (Exception e) {
+                    if (!consumer.isCancelled()) {
+                        log.error("[Deepseek-responses-stream] 调用失败", e);
+                        consumer.accept("[ERROR]");
+                    }
+                } finally {
+                    consumer.release();
+                }
+            })));
+        } catch (RejectedExecutionException e) {
+            log.error("[Deepseek-responses-stream] 线程池已满，拒绝请求", e);
+            consumer.accept("[ERROR]");
+        }
+    }
+
+    private void fillResponsesDefaults(LlmResponsesRequest request) {
+        DeepseekBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey()) || StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) {
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_DEEPSEEK, "responses", DeepseekBO.class);
+        }
+        request.setApiKey(StringUtils.defaultIfBlank(request.getApiKey(), cfg != null ? cfg.getApiKey() : null));
+        request.setEndpoint(StringUtils.defaultIfBlank(request.getEndpoint(), cfg != null ? cfg.getEndpoint() : null));
+        request.setModel(StringUtils.defaultIfBlank(request.getModel(), cfg != null ? cfg.getModelCode() : null));
+        if (StringUtils.isBlank(request.getApiKey())) throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        if (StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel())) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
     }
 
     @Override
@@ -259,7 +301,7 @@ public class DeepseekServiceImpl implements LlmService {
         if (stream) {
             body.put("stream_options", Map.of("include_usage", true));
         }
-        body.put("messages", buildMessages(request));
+        body.put("messages", NativeInputUtil.chatMessages(request, "Deepseek", () -> buildMessages(request)));
 
         // skip_temperature：deepseek-reasoner 不支持 temperature
         boolean skipTemperature = extra != null && Boolean.TRUE.equals(extra.get(SKIP_TEMPERATURE_KEY));
@@ -274,16 +316,11 @@ public class DeepseekServiceImpl implements LlmService {
         }
         // Deepseek frequency_penalty 已标记为 deprecated（官方文档：传入该参数不会产生任何效果），不再注入
 
-        // thinking：从 extraParams 中提取 thinking_type / reasoning_effort，组装为平台所需对象结构
-        // 示例：extraParams.thinking_type="enabled", extraParams.reasoning_effort="high"
-        //       → 请求体：{"thinking": {"type": "enabled", "reasoning_effort": "high"}}
         if (extra != null && extra.containsKey(THINKING_TYPE_KEY)) {
-            Map<String, Object> thinking = new LinkedHashMap<>();
-            thinking.put("type", extra.get(THINKING_TYPE_KEY));
-            if (extra.containsKey(REASONING_EFFORT_KEY)) {
-                thinking.put("reasoning_effort", extra.get(REASONING_EFFORT_KEY));
-            }
-            body.put("thinking", thinking);
+            body.put("thinking", Map.of("type", extra.get(THINKING_TYPE_KEY)));
+        }
+        if (extra != null && extra.containsKey(REASONING_EFFORT_KEY)) {
+            body.put("reasoning_effort", extra.get(REASONING_EFFORT_KEY));
         }
 
         if (request.getTools() != null && !request.getTools().isEmpty()) {
@@ -298,7 +335,7 @@ public class DeepseekServiceImpl implements LlmService {
         if (extra != null) {
             extra.forEach((k, v) -> {
                 if (!INTERNAL_KEYS.contains(k)) {
-                    body.put(k, v);
+                    NativeInputUtil.putExtraParam(body, k, v);
                 }
             });
         }
@@ -326,15 +363,18 @@ public class DeepseekServiceImpl implements LlmService {
             m.put("role", msg.getRole());
             if (msg.getToolCalls() != null) {
                 String text = msg.getTextContent();
-                m.put("content", text.isEmpty() ? null : text);
+                m.put("content", msg.isTextOnly() ? (text.isEmpty() ? null : text) : buildContentArray(msg));
                 m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
             } else if (msg.getToolCallId() != null) {
                 m.put("tool_call_id", msg.getToolCallId());
-                m.put("content", msg.getTextContent());
+                m.put("content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg));
             } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
+            }
+            if ("assistant".equals(msg.getRole()) && msg.getReasoningContent() != null) {
+                m.put("reasoning_content", msg.getReasoningContent());
             }
             messages.add(m);
         }
@@ -363,7 +403,7 @@ public class DeepseekServiceImpl implements LlmService {
                 case TEXT -> {
                     Map<String, Object> part = new HashMap<>();
                     part.put("type", "text");
-                    part.put("text", c.getValue());
+                    part.put("text", NativeInputUtil.textContent(c));
                     parts.add(part);
                 }
                 case IMAGE -> {
@@ -375,6 +415,8 @@ public class DeepseekServiceImpl implements LlmService {
                     part.put("image_url", imageUrl);
                     parts.add(part);
                 }
+                case IMAGE_URL, INPUT_AUDIO, VIDEO_URL, FILE_URL, FILE, VIDEO, DOCUMENT ->
+                        parts.add(NativeInputUtil.buildContent(c, "Deepseek"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -500,22 +542,39 @@ public class DeepseekServiceImpl implements LlmService {
         return result;
     }
 
-    private Map<String, Object> buildResponsesRequestBody(LlmResponsesRequest request, String model) {
+    private String buildResponsesRequestBody(LlmResponsesRequest request, boolean stream) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model);
-        body.put("input", request.getInput());
+        body.put("model", request.getModel());
+        body.put("input", NativeInputUtil.responsesInput(request, "Deepseek"));
         if (request.getInstructions() != null) body.put("instructions", request.getInstructions());
         if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
         if (request.getTopP() != null) body.put("top_p", request.getTopP());
         if (request.getMaxOutputTokens() != null) body.put("max_output_tokens", request.getMaxOutputTokens());
         if (request.getTools() != null && !request.getTools().isEmpty()) body.put("tools", request.getTools());
         if (request.getToolChoice() != null) body.put("tool_choice", buildResponsesToolChoice(request.getToolChoice()));
-        if (request.getExtraParams() != null) {
-            request.getExtraParams().forEach((key, value) -> {
-                if (!body.containsKey(key)) body.put(key, value);
+        Map<String, Object> extra = request.getExtraParams();
+        if (extra != null) {
+            extra.forEach((key, value) -> {
+                if (!SKIP_TEMPERATURE_KEY.equals(key) && !THINKING_TYPE_KEY.equals(key)
+                        && !REASONING_EFFORT_KEY.equals(key)) NativeInputUtil.putExtraParam(body, key, value);
             });
+            if (extra.containsKey(REASONING_EFFORT_KEY)) {
+                Object existing = body.get("reasoning");
+                if (existing != null && !(existing instanceof Map)) throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+                Map<String, Object> reasoning = new LinkedHashMap<>();
+                if (existing instanceof Map<?, ?> values) {
+                    values.forEach((key, value) -> reasoning.put((String) key, value));
+                }
+                reasoning.putIfAbsent("effort", extra.get(REASONING_EFFORT_KEY));
+                body.put("reasoning", reasoning);
+            }
         }
-        return body;
+        body.put("stream", stream);
+        try {
+            return MAPPER.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
     }
 
     private Object buildResponsesToolChoice(String toolChoice) {
@@ -535,8 +594,10 @@ public class DeepseekServiceImpl implements LlmService {
                 if ("message".equals(type)) {
                     List<LlmContentBlock> content = new ArrayList<>();
                     for (JsonNode block : item.path("content")) {
-                        content.add(LlmContentBlock.builder().type(block.path("type").asText(""))
-                                .text(block.path("text").asText("")).build());
+                        content.add("refusal".equals(block.path("type").asText())
+                                ? LlmContentBlock.builder().type("refusal").refusal(block.path("refusal").asText("")).build()
+                                : LlmContentBlock.builder().type(block.path("type").asText(""))
+                                        .text(block.path("text").asText("")).build());
                     }
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
                             .status(item.path("status").asText(null)).role(item.path("role").asText(null)).content(content).build());
@@ -546,8 +607,14 @@ public class DeepseekServiceImpl implements LlmService {
                         summary.add(LlmContentBlock.builder().type(block.path("type").asText(""))
                                 .text(block.path("text").asText("")).build());
                     }
+                    List<LlmContentBlock> content = new ArrayList<>();
+                    for (JsonNode block : item.path("content")) {
+                        content.add(LlmContentBlock.builder().type(block.path("type").asText(""))
+                                .text(block.path("text").asText("")).build());
+                    }
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
-                            .status(item.path("status").asText(null)).summary(summary).build());
+                            .status(item.path("status").asText(null)).summary(summary).content(content)
+                            .encryptedContent(item.path("encrypted_content").asText(null)).build());
                 } else if ("function_call".equals(type)) {
                     outputItems.add(LlmOutputItem.builder().id(item.path("id").asText(null)).type(type)
                             .status(item.path("status").asText(null)).callId(item.path("call_id").asText(null))
@@ -583,11 +650,11 @@ public class DeepseekServiceImpl implements LlmService {
                 JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
                 String reasoningChunk = delta.path("reasoning_content").asText("");
                 if (!reasoningChunk.isEmpty()) {
-                    chunkConsumer.accept(reasoningChunk);
+                    chunkConsumer.accept("[REASONING]" + reasoningChunk);
                 }
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
-                    chunkConsumer.accept(chunk);
+                    chunkConsumer.accept(LlmService.escapeText(chunk));
                 }
                 JsonNode toolCallsNode = delta.path("tool_calls");
                 if (toolCallsNode.isArray()) {

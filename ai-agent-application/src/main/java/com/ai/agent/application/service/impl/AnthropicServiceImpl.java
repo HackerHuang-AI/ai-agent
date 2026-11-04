@@ -8,12 +8,14 @@ import com.ai.agent.application.enums.http.AnthropicHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
 import com.ai.agent.infrastructure.enums.NacosDataIdEnum;
 import com.ai.agent.infrastructure.enums.OkHttpConfigEnum;
 import com.ai.agent.infrastructure.enums.RetryConfigEnum;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -241,12 +243,39 @@ public class AnthropicServiceImpl implements LlmService {
         body.put("max_tokens", request.getMaxTokens() != null ? request.getMaxTokens() : DEFAULT_MAX_TOKENS);
 
         // 提取 system 消息为顶层字段；messages 只保留 user/assistant（tool 角色映射为 user 携带 tool_result 块）
+        body.put("messages", NativeInputUtil.chatMessages(request, "Anthropic", () -> buildMessages(request, body)));
+
+        if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
+        if (request.getTopP() != null) body.put("top_p", request.getTopP());
+        // Anthropic 支持 top_k；不支持 frequency_penalty（该平台无此参数）
+        if (request.getTopK() != null) body.put("top_k", request.getTopK());
+        if (request.getTools() != null && !request.getTools().isEmpty()) {
+            body.put("tools", buildAnthropicTools(request.getTools()));
+        }
+        if (request.getToolChoice() != null) {
+            body.put("tool_choice", buildToolChoice(request.getToolChoice()));
+        }
+        if (request.getExtraParams() != null) {
+            request.getExtraParams().forEach((k, v) -> {
+                NativeInputUtil.putExtraParam(body, k, v);
+            });
+        }
+
+        try {
+            return MAPPER.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+        }
+    }
+
+    private List<Object> buildMessages(LlmRequest request, Map<String, Object> body) {
         String systemPrompt = null;
         List<Object> messages = new ArrayList<>();
         for (LlmMessage msg : request.getMessages()) {
             if ("system".equalsIgnoreCase(msg.getRole())) {
                 systemPrompt = msg.isTextOnly() ? msg.getTextContent() : "";
-            } else if (msg.getToolCalls() != null) {
+            } else if (msg.getToolCalls() != null || ("assistant".equalsIgnoreCase(msg.getRole())
+                    && msg.getThinkingBlocks() != null && !msg.getThinkingBlocks().isEmpty())) {
                 // assistant 携带工具调用：content 数组中可同时包含文本块与 tool_use 块
                 Map<String, Object> m = new HashMap<>();
                 m.put("role", "assistant");
@@ -259,7 +288,7 @@ public class AnthropicServiceImpl implements LlmService {
                 Map<String, Object> toolResult = Map.of(
                         "type", "tool_result",
                         "tool_use_id", msg.getToolCallId(),
-                        "content", msg.getTextContent()
+                        "content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg)
                 );
                 int lastIndex = messages.size() - 1;
                 if (lastIndex >= 0 && isMergeableToolResultMessage(messages.get(lastIndex))) {
@@ -286,29 +315,7 @@ public class AnthropicServiceImpl implements LlmService {
             }
         }
         if (systemPrompt != null) body.put("system", systemPrompt);
-        body.put("messages", messages);
-
-        if (request.getTemperature() != null) body.put("temperature", request.getTemperature());
-        if (request.getTopP() != null) body.put("top_p", request.getTopP());
-        // Anthropic 支持 top_k；不支持 frequency_penalty（该平台无此参数）
-        if (request.getTopK() != null) body.put("top_k", request.getTopK());
-        if (request.getTools() != null && !request.getTools().isEmpty()) {
-            body.put("tools", buildAnthropicTools(request.getTools()));
-        }
-        if (request.getToolChoice() != null) {
-            body.put("tool_choice", buildToolChoice(request.getToolChoice()));
-        }
-        if (request.getExtraParams() != null) {
-            request.getExtraParams().forEach((k, v) -> {
-                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
-            });
-        }
-
-        try {
-            return MAPPER.writeValueAsString(body);
-        } catch (IOException e) {
-            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
-        }
+        return messages;
     }
 
     /**
@@ -362,10 +369,9 @@ public class AnthropicServiceImpl implements LlmService {
      */
     private List<Map<String, Object>> buildAssistantToolUseContent(LlmMessage msg) {
         List<Map<String, Object>> parts = new ArrayList<>();
-        String text = msg.getTextContent();
-        if (StringUtils.isNotBlank(text)) {
-            parts.add(Map.of("type", "text", "text", text));
-        }
+        if (msg.getThinkingBlocks() != null) parts.addAll(msg.getThinkingBlocks());
+        if (msg.getContents() != null) parts.addAll(buildContentArray(msg));
+        if (msg.getToolCalls() == null) return parts;
         for (LlmToolCall tc : msg.getToolCalls()) {
             Map<String, Object> input;
             try {
@@ -390,8 +396,14 @@ public class AnthropicServiceImpl implements LlmService {
         List<Map<String, Object>> parts = new ArrayList<>();
         for (MessageContent c : msg.getContents()) {
             switch (c.getType()) {
-                case TEXT -> parts.add(Map.of("type", "text", "text", c.getValue()));
+                case TEXT -> {
+                    parts.add(Map.of("type", "text", "text", NativeInputUtil.textContent(c)));
+                }
                 case IMAGE -> {
+                    if (c.getSource() != null) {
+                        parts.add(NativeInputUtil.buildContent(c, "Anthropic"));
+                        break;
+                    }
                     String value = c.getValue();
                     Map<String, Object> source = new HashMap<>();
                     if (value.startsWith("data:")) {
@@ -409,6 +421,7 @@ public class AnthropicServiceImpl implements LlmService {
                     part.put("source", source);
                     parts.add(part);
                 }
+                case DOCUMENT -> parts.add(NativeInputUtil.buildContent(c, "Anthropic"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -444,11 +457,16 @@ public class AnthropicServiceImpl implements LlmService {
                     : stopReason;
 
             StringBuilder textBuilder = new StringBuilder();
+            StringBuilder reasoningBuilder = new StringBuilder();
+            List<Map<String, Object>> thinkingBlocks = new ArrayList<>();
             List<LlmToolCall> toolCalls = null;
             for (JsonNode block : root.path("content")) {
                 String type = block.path("type").asText("");
                 if ("text".equals(type)) {
                     textBuilder.append(block.path("text").asText(""));
+                } else if ("thinking".equals(type) || "redacted_thinking".equals(type)) {
+                    thinkingBlocks.add(MAPPER.convertValue(block, new TypeReference<Map<String, Object>>() {}));
+                    if ("thinking".equals(type)) reasoningBuilder.append(block.path("thinking").asText(""));
                 } else if ("tool_use".equals(type)) {
                     if (toolCalls == null) toolCalls = new ArrayList<>();
                     String arguments;
@@ -474,6 +492,8 @@ public class AnthropicServiceImpl implements LlmService {
                     .createdAt(System.currentTimeMillis() / 1000)
                     .choices(List.of(LlmChoice.builder()
                             .content(textBuilder.toString())
+                            .reasoningContent(reasoningBuilder.length() == 0 ? null : reasoningBuilder.toString())
+                            .thinkingBlocks(thinkingBlocks.isEmpty() ? null : thinkingBlocks)
                             .finishReason(finish)
                             .toolCalls(toolCalls)
                             .build()))
@@ -500,6 +520,7 @@ public class AnthropicServiceImpl implements LlmService {
     private void parseStreamResponse(ResponseBody responseBody, String modelCode, Consumer<String> chunkConsumer) {
         // key=block_index, value=[id, name, arguments累积]
         Map<Integer, String[]> toolCallsMap = new LinkedHashMap<>();
+        Map<Integer, Map<String, Object>> thinkingBlocks = new LinkedHashMap<>();
         int currentBlockIndex = -1;
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
@@ -508,15 +529,25 @@ public class AnthropicServiceImpl implements LlmService {
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("event: ")) {
                     currentEvent = line.substring(7).trim();
-                    if (EVENT_MESSAGE_STOP.equals(currentEvent)) {
-                        flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
-                        chunkConsumer.accept(null);
+                    if ("error".equals(currentEvent)) {
+                        chunkConsumer.accept("[ERROR]");
                         return;
                     }
                 } else if (line.startsWith("data: ")) {
                     try {
                         JsonNode dataNode = MAPPER.readTree(line.substring(6));
-                        if (EVENT_CONTENT_START.equals(currentEvent)) {
+                        String event = dataNode.path("type").asText(currentEvent);
+                        if ("error".equals(event)) {
+                            chunkConsumer.accept("[ERROR]");
+                            return;
+                        }
+                        if (EVENT_MESSAGE_STOP.equals(event)) {
+                            flushThinkingBlocks(thinkingBlocks, chunkConsumer);
+                            flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
+                            chunkConsumer.accept(null);
+                            return;
+                        }
+                        if (EVENT_CONTENT_START.equals(event)) {
                             // 检查是否是 tool_use block
                             JsonNode block = dataNode.path("content_block");
                             if ("tool_use".equals(block.path("type").asText(""))) {
@@ -528,14 +559,34 @@ public class AnthropicServiceImpl implements LlmService {
                                 }
                             } else {
                                 currentBlockIndex = -1;
+                                String type = block.path("type").asText("");
+                                if ("thinking".equals(type) || "redacted_thinking".equals(type)) {
+                                    thinkingBlocks.put(dataNode.path("index").asInt(),
+                                            MAPPER.convertValue(block, new TypeReference<Map<String, Object>>() {}));
+                                    String thinking = block.path("thinking").asText("");
+                                    if (!thinking.isEmpty()) chunkConsumer.accept("[REASONING]" + thinking);
+                                }
                             }
-                        } else if (EVENT_CONTENT_DELTA.equals(currentEvent)) {
+                        } else if ("content_block_stop".equals(event)) {
+                            Map<String, Object> block = thinkingBlocks.remove(dataNode.path("index").asInt());
+                            if (block != null) {
+                                chunkConsumer.accept("[THINKING_BLOCKS]" + MAPPER.writeValueAsString(List.of(block)));
+                            }
+                        } else if (EVENT_CONTENT_DELTA.equals(event)) {
                             JsonNode delta = dataNode.path("delta");
                             String deltaType = delta.path("type").asText("");
                             if ("text_delta".equals(deltaType)) {
                                 // 文本 chunk 实时推
                                 String chunk = delta.path("text").asText("");
-                                if (!chunk.isEmpty()) chunkConsumer.accept(chunk);
+                                if (!chunk.isEmpty()) chunkConsumer.accept(LlmService.escapeText(chunk));
+                            } else if ("thinking_delta".equals(deltaType) || "signature_delta".equals(deltaType)) {
+                                Map<String, Object> block = thinkingBlocks.get(dataNode.path("index").asInt());
+                                String field = "thinking_delta".equals(deltaType) ? "thinking" : "signature";
+                                String fragment = delta.path(field).asText("");
+                                if (block != null) block.put(field, Objects.toString(block.get(field), "") + fragment);
+                                if ("thinking".equals(field) && !fragment.isEmpty()) {
+                                    chunkConsumer.accept("[REASONING]" + fragment);
+                                }
                             } else if ("input_json_delta".equals(deltaType)) {
                                 // tool_use arguments 碎片聚合
                                 int blockIndex = dataNode.path("index").asInt(currentBlockIndex);
@@ -545,17 +596,23 @@ public class AnthropicServiceImpl implements LlmService {
                             }
                         }
                     } catch (IOException e) {
-                        log.warn("[Anthropic-stream] chunk 解析失败，跳过");
+                        log.error("[Anthropic-stream] chunk 解析失败, model={}", modelCode, e);
+                        throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
                     }
                 }
             }
-            // 读完未收到 message_stop，主动结束
-            flushToolCalls(toolCallsMap, modelCode, chunkConsumer);
-            chunkConsumer.accept(null);
+            throw new BizException(ErrorCodeEnum.LLM_CALL_FAILED);
         } catch (IOException e) {
             log.error("[Anthropic-stream] 流式响应解析失败, model={}", modelCode, e);
             throw new BizException(ErrorCodeEnum.LLM_RESPONSE_PARSE_FAILED);
         }
+    }
+
+    private void flushThinkingBlocks(Map<Integer, Map<String, Object>> thinkingBlocks, Consumer<String> chunkConsumer)
+            throws IOException {
+        if (thinkingBlocks.isEmpty()) return;
+        chunkConsumer.accept("[THINKING_BLOCKS]" + MAPPER.writeValueAsString(thinkingBlocks.values()));
+        thinkingBlocks.clear();
     }
 
     private void flushToolCalls(Map<Integer, String[]> toolCallsMap, String modelCode, Consumer<String> chunkConsumer) {

@@ -8,6 +8,8 @@ import com.ai.agent.application.enums.http.MiniMaxHttpCodeEnum;
 import com.ai.agent.application.model.llm.*;
 import com.ai.agent.application.service.LlmService;
 import com.ai.agent.application.utils.AppRetryUtil;
+import com.ai.agent.application.utils.NativeInputUtil;
+import com.ai.agent.application.utils.ResponsesApiUtil;
 import com.ai.agent.infrastructure.config.NacosConfig;
 import com.ai.agent.infrastructure.config.OkHttpConfig;
 import com.ai.agent.infrastructure.config.RetryConfig;
@@ -65,6 +67,53 @@ public class MiniMaxServiceImpl implements LlmService {
         this.okHttpConfig = okHttpConfig;
         this.retryConfig = retryConfig;
         this.nacosConfig = nacosConfig;
+    }
+
+    @Override
+    public LlmResponse responses(LlmResponsesRequest request) {
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, false);
+        Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
+        return ResponsesApiUtil.call(okRequest, request.getModel(),
+                okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MiniMax),
+                retryConfig.getRetryParam(RetryConfigEnum.MiniMax),
+                (code, body) -> throwByHttpCode(code, extractErrorMessage(body)));
+    }
+
+    @Override
+    public void responsesStream(LlmResponsesRequest request, Consumer<String> chunkConsumer) {
+        fillResponsesDefaults(request);
+        String requestBody = buildResponsesRequestBody(request, true);
+        Request okRequest = buildOkRequest(request.getEndpoint(), request.getApiKey(), requestBody);
+        ResponsesApiUtil.stream(okRequest, streamExecutor,
+                () -> okHttpConfig.getClientByPlatform(OkHttpConfigEnum.MiniMax),
+                () -> retryConfig.getRetryParam(RetryConfigEnum.MiniMax), chunkConsumer,
+                (code, body) -> throwByHttpCode(code, extractErrorMessage(body)));
+    }
+
+    private void fillResponsesDefaults(LlmResponsesRequest request) {
+        MiniMaxBO cfg = null;
+        if (StringUtils.isBlank(request.getApiKey())
+                || StringUtils.isBlank(request.getEndpoint())
+                || StringUtils.isBlank(request.getModel())) {
+            cfg = nacosConfig.getObject(NacosDataIdEnum.AI_AGENT_MINIMAX, "responses", MiniMaxBO.class);
+        }
+        if (StringUtils.isBlank(request.getApiKey()))
+            request.setApiKey(cfg != null ? cfg.getApiKey() : null);
+        if (StringUtils.isBlank(request.getEndpoint()))
+            request.setEndpoint(cfg != null ? cfg.getEndpoint() : null);
+        if (StringUtils.isBlank(request.getModel()))
+            request.setModel(cfg != null ? cfg.getModelCode() : null);
+        if (StringUtils.isBlank(request.getApiKey()))
+            throw new BizException(ErrorCodeEnum.LLM_API_KEY_NOT_FOUND);
+        if (StringUtils.isBlank(request.getEndpoint()) || StringUtils.isBlank(request.getModel()))
+            throw new BizException(ErrorCodeEnum.PARAM_ILLEGAL);
+    }
+
+    private String buildResponsesRequestBody(LlmResponsesRequest request, boolean stream) {
+        ResponsesApiUtil.validateStateless(request);
+        ResponsesApiUtil.validateTools(request, List.of("auto"));
+        return ResponsesApiUtil.buildRequestBody(request, stream, "MiniMax");
     }
 
     @Override
@@ -213,7 +262,7 @@ public class MiniMaxServiceImpl implements LlmService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", request.getModelCode());
         body.put("stream", stream);
-        body.put("messages", buildMessages(request));
+        body.put("messages", NativeInputUtil.chatMessages(request, "MiniMax", () -> buildMessages(request)));
         if (request.getTemperature() != null) {
             body.put("temperature", request.getTemperature());
         }
@@ -237,7 +286,7 @@ public class MiniMaxServiceImpl implements LlmService {
         }
         if (request.getExtraParams() != null) {
             request.getExtraParams().forEach((k, v) -> {
-                if (!"tools".equals(k) && !"tool_choice".equals(k)) body.put(k, v);
+                NativeInputUtil.putExtraParam(body, k, v);
             });
         }
         try {
@@ -272,15 +321,18 @@ public class MiniMaxServiceImpl implements LlmService {
             m.put("name", resolveMiniMaxName(msg.getRole()));
             if (msg.getToolCalls() != null) {
                 String text = msg.getTextContent();
-                m.put("content", text.isEmpty() ? null : text);
+                m.put("content", msg.isTextOnly() ? (text.isEmpty() ? null : text) : buildContentArray(msg));
                 m.put("tool_calls", buildToolCallsArray(msg.getToolCalls()));
             } else if (msg.getToolCallId() != null) {
                 m.put("tool_call_id", msg.getToolCallId());
-                m.put("content", msg.getTextContent());
+                m.put("content", msg.isTextOnly() ? msg.getTextContent() : buildContentArray(msg));
             } else if (msg.isTextOnly()) {
                 m.put("content", msg.getTextContent());
             } else {
                 m.put("content", buildContentArray(msg));
+            }
+            if ("assistant".equals(msg.getRole()) && msg.getReasoningContent() != null) {
+                m.put("reasoning_content", msg.getReasoningContent());
             }
             messages.add(m);
         }
@@ -318,7 +370,7 @@ public class MiniMaxServiceImpl implements LlmService {
                 case TEXT -> {
                     Map<String, Object> part = new HashMap<>();
                     part.put("type", "text");
-                    part.put("text", c.getValue());
+                    part.put("text", NativeInputUtil.textContent(c));
                     parts.add(part);
                 }
                 case IMAGE -> {
@@ -329,6 +381,8 @@ public class MiniMaxServiceImpl implements LlmService {
                     part.put("image_url", imageUrl);
                     parts.add(part);
                 }
+                case IMAGE_URL, INPUT_AUDIO, VIDEO_URL, FILE_URL, FILE, VIDEO, DOCUMENT ->
+                        parts.add(NativeInputUtil.buildContent(c, "MiniMax"));
                 default -> throw new BizException(ErrorCodeEnum.LLM_CONTENT_TYPE_NOT_SUPPORTED);
             }
         }
@@ -450,9 +504,13 @@ public class MiniMaxServiceImpl implements LlmService {
                     return;
                 }
                 JsonNode delta = MAPPER.readTree(data).path("choices").path(0).path("delta");
+                String reasoningChunk = delta.path("reasoning_content").asText("");
+                if (!reasoningChunk.isEmpty()) {
+                    chunkConsumer.accept("[REASONING]" + reasoningChunk);
+                }
                 String chunk = delta.path("content").asText("");
                 if (!chunk.isEmpty()) {
-                    chunkConsumer.accept(chunk);
+                    chunkConsumer.accept(LlmService.escapeText(chunk));
                 }
                 JsonNode toolCallsNode = delta.path("tool_calls");
                 if (toolCallsNode.isArray()) {
